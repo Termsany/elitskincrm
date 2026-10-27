@@ -22,13 +22,13 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4" dir="rtl" style={{ background:"radial-gradient(920px 520px at 100% 0%, #c6877b 0%, #4c4556 46%, #2b2630 100%)" }}>
+    <div className="min-h-screen flex items-center justify-center p-4" dir="rtl" style={{ background:"radial-gradient(900px 480px at 50% -8%, #e3f3f0 0%, #f4f8f8 55%, #ffffff 100%)" }}>
       <div className="w-full max-w-[420px]">
-        <div className="text-center text-white mb-6">
-          <Logo variant="stacked" tone="onDark" markSize={54} className="mb-1" />
+        <div className="text-center mb-6">
+          <Logo variant="stacked" tone="onLight" markSize={56} className="mb-1" />
           <div className="text-sm text-[var(--gold)] mt-1">crm.eliteskinsa.com</div>
           <h1 className="text-xl font-bold mt-4">تسجيل الدخول</h1>
-          <p className="text-sm text-white/70 mt-1">نظام إدارة زيارات المناديب الطبية</p>
+          <p className="text-sm text-[var(--muted)] mt-1">نظام إدارة زيارات المناديب الطبية</p>
         </div>
         <Card className="p-6">
           <form onSubmit={onSubmit} className="space-y-4">

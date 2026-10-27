@@ -298,7 +298,7 @@ export default function AdminClient({ users:initialUsers, products:initialProduc
                   if(j.inserted) router.refresh();
                 }} />
               </label>
-              <a href="/admin/doctor-stats" className="rounded-xl bg-[var(--gold)] text-[var(--navy)] px-4 py-2 text-sm font-bold">أداء الأطباء</a>
+              <a href="/admin/doctor-stats" className="rounded-full bg-[var(--gold)] text-white px-4 py-2 text-sm font-bold">أداء الأطباء</a>
               <span className="text-xs text-[var(--muted)] py-2">CSV: name, clinic_name, city, specialty, classification, phone</span>
             </div>
           </div>

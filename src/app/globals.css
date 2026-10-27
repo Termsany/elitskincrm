@@ -1,43 +1,43 @@
 @import "tailwindcss";
 
 /* ─────────────────────────────────────────────
-   Elite Skin — brand system
-   Rose-gold + warm charcoal · cosmetics / skincare
-   (token names kept; values rebranded so the whole
-   app re-skins from here)
+   Elite Skin CRM — brand system
+   Clean teal SaaS (white + deep teal + mint)
+   token names kept; values rebranded so the whole
+   app re-skins from here.
    ───────────────────────────────────────────── */
 :root {
-  /* charcoal (primary dark surfaces: sidebar, headers) */
-  --navy: #2b2630;
-  --navy-2: #3a3442;
-  --navy-3: #4c4556;
+  /* deep teal — dark surfaces (sidebar, headers) + primary text on light */
+  --navy: #10484f;
+  --navy-2: #0c3b41;
+  --navy-3: #17636c;
 
-  /* soft rose (highlights / active states) */
-  --sky: #c98b82;
-  --sky-deep: #9c665e;
-  --sky-soft: #f7e9e5;
-  --sky-light: #fcf6f4;
-  --sky-border: #ecd6d0;
+  /* bright mint — accents that sit on dark surfaces / highlights */
+  --sky: #33b3a6;
+  --sky-deep: #0f5a63;
+  --sky-soft: #e6f4f2;
+  --sky-light: #f3faf9;
+  --sky-border: #c9e8e4;
 
-  /* rose-gold (primary accent / CTAs) */
-  --gold: #c6877b;
-  --gold-2: #b1746a;
-  --gold-soft: #f5e7e1;
-  --gold-border: #e7cfc7;
+  /* primary teal — CTAs (white text) + solid accents */
+  --gold: #17757f;
+  --gold-2: #0f5a63;
+  --gold-soft: #e6f2f1;
+  --gold-border: #c7e4e2;
 
-  --bg: #faf5f1;      /* warm cream page background */
+  --bg: #f5f8f8;      /* soft cool white page background */
   --card: #ffffff;
-  --ink: #2a2530;     /* primary text */
-  --ink-soft: #574e5c;
-  --muted: #8a7f8c;   /* muted mauve-grey */
-  --border: #ece0e2;
-  --border-strong: #dbcbce;
+  --ink: #16232b;     /* primary text */
+  --ink-soft: #3c4c54;
+  --muted: #5f7177;   /* muted slate-teal */
+  --border: #e3ecec;
+  --border-strong: #cddddd;
 
   --success: #1e7a5a;
   --danger: #b42318;
   --warn: #b7791f;
 
-  --font-display: "Playfair Display", "Cairo", Georgia, serif;
+  --font-display: "Alexandria", "IBM Plex Sans Arabic", system-ui, sans-serif;
 }
 
 * { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
@@ -46,5 +46,4 @@ body { background: var(--bg); color: var(--ink); }
 [dir="rtl"] { text-align: right; }
 :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
-/* elegant Latin display type for the brand lockup */
 .font-display { font-family: var(--font-display); }

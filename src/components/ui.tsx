@@ -26,10 +26,10 @@ export function Button({
   ...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "ghost" | "outline" }) {
   const base =
-    "inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-bold transition active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none";
+    "inline-flex items-center justify-center rounded-full px-4 py-2.5 text-sm font-bold transition active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none";
   const v =
     variant === "primary"
-      ? "bg-[var(--gold)] text-[var(--navy)] hover:bg-[var(--gold-2)] shadow-sm border border-transparent"
+      ? "bg-[var(--gold)] text-white hover:bg-[var(--gold-2)] shadow-sm border border-transparent"
       : variant === "outline"
         ? "border border-[var(--border)] bg-white hover:bg-slate-50 text-[var(--ink)]"
         : "hover:bg-slate-100 text-[var(--ink)]";
@@ -170,7 +170,7 @@ export function KpiCard({
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="text-xs text-white/60 font-semibold">{label}</div>
-            <div className="text-3xl font-extrabold text-[var(--gold)] mt-1">{value}</div>
+            <div className="text-3xl font-extrabold text-[var(--sky)] mt-1">{value}</div>
             <div className="text-[11px] text-white/50 mt-1">{sub}</div>
           </div>
           {icon && (
@@ -192,7 +192,7 @@ export function KpiCard({
           <div className="text-[11px] text-[var(--muted)] mt-1">{sub}</div>
         </div>
         {icon && (
-          <span className="h-10 w-10 rounded-xl bg-[var(--navy)] text-[var(--gold)] flex items-center justify-center text-base shrink-0">
+          <span className="h-10 w-10 rounded-xl bg-[var(--navy)] text-[var(--sky)] flex items-center justify-center text-base shrink-0">
             {icon}
           </span>
         )}
