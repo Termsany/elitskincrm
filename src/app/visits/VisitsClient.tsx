@@ -73,7 +73,7 @@ export default function VisitsClient({ isAdmin, reps, initialRepId="" }: { isAdm
     if (q) p.set("q", q);
     window.location.href = `/api/exports/visits?${p.toString()}`;
   }
-  const hasActiveFilter = q || repId || status || from || to;
+  const hasActiveFilter = !!(q || repId || status || from || to);
   function clearFilters() {
     const empty = { q: "", repId: "", status: "", from: "", to: "" };
     setQ("");
@@ -92,16 +92,23 @@ export default function VisitsClient({ isAdmin, reps, initialRepId="" }: { isAdm
 
   return (
     <div className="space-y-4">
-      {/* Filters — top polished card with segmented status */}
+      {/* Primary action always visible, independent of the filters panel below */}
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs bg-[var(--gold-soft)] border border-[var(--gold)]/20 text-[var(--navy)] rounded-full px-3 py-1 font-bold">{visits.length} نتيجة</span>
+        {!isAdmin && <button type="button" onClick={() => router.push("/visits/new")} className="rounded-xl bg-[var(--gold)] px-5 py-2.5 text-sm font-extrabold text-white hover:bg-[var(--gold-2)] transition shadow-sm">+ زيارة جديدة</button>}
+      </div>
+
+      {/* Filters — collapsible, auto-open when a filter is already active */}
       <Card className="p-5">
-        <div className="flex items-center gap-2 mb-4">
+        <details className="group" open={hasActiveFilter}>
+        <summary className="flex cursor-pointer list-none items-center gap-2">
           <span className="h-8 w-8 rounded-xl bg-[var(--navy)] text-[var(--gold)] flex items-center justify-center"><Icon name="visits" size={16} /></span>
           <span className="font-extrabold text-sm">فلترة الزيارات</span>
           <span className="hidden sm:inline text-[11px] text-[var(--muted)]">ابحث وفلتر ثم اضغط بحث — الحالة باختيار سريع</span>
-          <span className="mr-auto hidden sm:inline-flex text-xs bg-[var(--gold-soft)] border border-[var(--gold)]/20 text-[var(--navy)] rounded-full px-3 py-1 font-bold">{visits.length} نتيجة</span>
-        </div>
+          <span className="mr-auto text-xs font-bold text-[var(--sky-deep)] transition group-open:rotate-180">▾ عرض</span>
+        </summary>
 
-        <div className="grid md:grid-cols-6 gap-3">
+        <div className="grid md:grid-cols-6 gap-3 mt-4">
           <div className="md:col-span-2 space-y-1.5">
             <Label>بحث</Label>
             <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="طبيب / عيادة / ملاحظات" className="pr-3" />
@@ -158,10 +165,8 @@ export default function VisitsClient({ isAdmin, reps, initialRepId="" }: { isAdm
               تصدير CSV
             </Button>
           )}
-          {!isAdmin && <button type="button" onClick={() => router.push("/visits/new")} className="mr-auto rounded-xl bg-[var(--gold)] px-5 py-2.5 text-sm font-extrabold text-[var(--navy)] hover:bg-[var(--gold-2)] transition shadow-sm">
-            + زيارة جديدة
-          </button>}
         </div>
+        </details>
       </Card>
 
       {/* Mobile: card list */}

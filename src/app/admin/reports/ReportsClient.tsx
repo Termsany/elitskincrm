@@ -20,6 +20,7 @@ export default function ReportsClient({reps,products,cities}:{reps:Rep[];product
  const [type,setType]=useState<string>("reps"),[repId,setRepId]=useState(""),[productId,setProductId]=useState(""),[city,setCity]=useState(""),[status,setStatus]=useState(""),[from,setFrom]=useState(""),[to,setTo]=useState("");
  const [data,setData]=useState<Data|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState(""),[retry,setRetry]=useState(0),[search,setSearch]=useState("");
  const params=useMemo(()=>{const q=new URLSearchParams({reportType:type});if(repId)q.set("repId",repId);if(productId)q.set("productId",productId);if(city)q.set("city",city);if(status)q.set("status",status);if(from)q.set("from",from);if(to)q.set("to",to);if(search.trim())q.set("search",search.trim());return q},[type,repId,productId,city,status,from,to,search]);
+ const hasActiveFilter=!!(repId||productId||city||status||from||to||search.trim());
  useEffect(()=>{const controller=new AbortController();setLoading(true);setError("");setData(null);fetch(`/api/admin/reports?${params}`,{signal:controller.signal}).then(readReportResponse).then(value=>{if(!controller.signal.aborted)setData(value as Data)}).catch(e=>{if(!controller.signal.aborted)setError(e instanceof Error?e.message:"تعذر تحميل التقرير. أعد المحاولة.")}).finally(()=>{if(!controller.signal.aborted)setLoading(false)});return()=>controller.abort()},[params,retry]);
  function exportUrl(format:string){const q=new URLSearchParams(params);q.set("format",format);return `/api/exports/report?${q}`}
  const q=search.trim().toLowerCase();
@@ -33,7 +34,13 @@ export default function ReportsClient({reps,products,cities}:{reps:Rep[];product
  const complianceRows=(data?.compliance||[]).filter(r=>!q||r.rep_name.toLowerCase().includes(q));
  return <div className="mt-4 space-y-4">
   <div className="grid grid-cols-2 md:grid-cols-5 gap-2">{tabs.map(t=><button key={t.id} onClick={()=>setType(t.id)} className={`rounded-2xl border p-3 text-right transition ${type===t.id?"bg-[var(--navy)] text-white border-[var(--navy)] shadow-lg":"bg-white border-[var(--border)] hover:border-sky-300"}`}><span className="flex justify-end"><Icon name={t.icon} size={20} /></span><div className="text-xs font-extrabold mt-1">{t.label}</div></button>)}</div>
-  <Card className="p-4"><div className="grid sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+  <Card className="p-4">
+  <details className="group" open={hasActiveFilter}>
+   <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+    <div className="flex items-center gap-2"><span className="font-extrabold text-sm">تصفية التقرير</span>{hasActiveFilter&&<Badge tone="info">فلاتر مُفعّلة</Badge>}</div>
+    <span className="text-xs font-bold text-[var(--sky-deep)] transition group-open:rotate-180">▾ عرض</span>
+   </summary>
+   <div className="grid sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3 mt-4">
    <div><Label>المندوب</Label><Select value={repId} onChange={e=>setRepId(e.target.value)}><option value="">كل المناديب</option>{reps.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</Select></div>
    <div><Label>المنتج</Label><Select value={productId} onChange={e=>setProductId(e.target.value)}><option value="">كل المنتجات</option>{products.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</Select></div>
    <div><Label>المدينة</Label><Select value={city} onChange={e=>setCity(e.target.value)}><option value="">كل المدن</option>{cities.map(c=><option key={c}>{c}</option>)}</Select></div>
@@ -41,7 +48,11 @@ export default function ReportsClient({reps,products,cities}:{reps:Rep[];product
    <div><Label>من تاريخ</Label><input type="date" value={from} onChange={e=>setFrom(e.target.value)} className="w-full rounded-xl border border-[var(--border)] px-3 py-2 text-sm"/></div>
    <div><Label>إلى تاريخ</Label><input type="date" value={to} onChange={e=>setTo(e.target.value)} className="w-full rounded-xl border border-[var(--border)] px-3 py-2 text-sm"/></div>
    <div><Label>بحث داخل التقرير</Label><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="طبيب، عيادة، مندوب..." className="w-full rounded-xl border border-[var(--border)] px-3 py-2 text-sm"/></div>
-  </div><div className="flex flex-wrap gap-2 mt-4">{data&&!loading&&!error&&<><a href={exportUrl("xlsx")} className="rounded-xl bg-emerald-600 text-white px-4 py-2 text-sm font-bold">تصدير Excel</a><a href={exportUrl("pdf")} className="rounded-xl bg-[var(--navy)] text-white px-4 py-2 text-sm font-bold">تصدير PDF</a><a href={exportUrl("csv")} className="rounded-xl border bg-white px-4 py-2 text-sm font-bold">تصدير CSV</a></>}<button onClick={()=>{setRepId("");setProductId("");setCity("");setStatus("");setFrom("");setTo("");setSearch("")}} className="rounded-xl border bg-white px-4 py-2 text-sm font-bold text-red-700">مسح الفلاتر</button></div></Card>
+   </div>
+   {hasActiveFilter&&<div className="mt-3"><button onClick={()=>{setRepId("");setProductId("");setCity("");setStatus("");setFrom("");setTo("");setSearch("")}} className="rounded-xl border bg-white px-4 py-2 text-sm font-bold text-red-700">مسح الفلاتر</button></div>}
+  </details>
+  <div className="flex flex-wrap gap-2 mt-4">{data&&!loading&&!error&&<><a href={exportUrl("xlsx")} className="rounded-xl bg-emerald-600 text-white px-4 py-2 text-sm font-bold">تصدير Excel</a><a href={exportUrl("pdf")} className="rounded-xl bg-[var(--navy)] text-white px-4 py-2 text-sm font-bold">تصدير PDF</a><a href={exportUrl("csv")} className="rounded-xl border bg-white px-4 py-2 text-sm font-bold">تصدير CSV</a></>}</div>
+ </Card>
   {error&&<Card className="p-5 border-red-300 bg-red-50 text-red-800"><p className="font-bold">{error}</p><button type="button" onClick={()=>setRetry(n=>n+1)} className="mt-3 min-h-11 rounded-xl bg-red-800 px-4 text-white font-bold">إعادة المحاولة</button></Card>}
   {data&&!loading&&!error&&<div className="grid grid-cols-2 lg:grid-cols-5 gap-3">{[["الزيارات",data?.totals.visits||0,"bg-sky-50 text-sky-700"],["المناديب النشطون",data?.totals.active_reps||0,"bg-indigo-50 text-indigo-700"],["الأطباء",data?.totals.doctors||0,"bg-violet-50 text-violet-700"],["العينات الموزعة",data?.totals.samples||0,"bg-emerald-50 text-emerald-700"],["كميات الأوردر",data?.totals.orders||0,"bg-amber-50 text-amber-700"]].map(([l,v,c])=><Card key={String(l)} className={`p-4 ${c}`}><div className="text-xs font-bold opacity-70">{l}</div><div className="text-3xl font-extrabold mt-1">{v}</div></Card>)}</div>}
   {loading&&<Card className="p-10 text-center text-[var(--muted)]">جاري إعداد التقرير...</Card>}
