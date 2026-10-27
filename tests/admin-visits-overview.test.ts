@@ -7,7 +7,12 @@ vi.mock('@/lib/plan-reminders', () => ({ riyadhDateParts: () => ({ date: '2026-1
 
 import { GET } from '@/app/api/admin/visits/overview/route';
 
-describe('admin visits overview SQL', () => {
+// The per-rep daily breakdown table (and its backing query) was removed:
+// it duplicated the coverage/compliance numbers already shown in detail on
+// the Reports and Plans screens, and was the source of a real "Invalid
+// Date" bug (its date column came back unaliased). This route now runs one
+// fewer query per rep and no longer returns a `daily` field.
+describe('admin visits overview', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     mocks.session.mockResolvedValue({ role: 'admin' });
@@ -17,39 +22,15 @@ describe('admin visits overview SQL', () => {
       .mockResolvedValueOnce({ rows: [{ total: 0, completed: 0 }] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [{ total: 0, done: 0 }] })
-      .mockResolvedValueOnce({ rows: [] });
+      .mockResolvedValueOnce({ rows: [{ total: 0, done: 0 }] });
   });
 
-  it('uses non-reserved aliases in the daily aggregation query', async () => {
-    expect((await GET()).status).toBe(200);
-    const dailySql = String(mocks.query.mock.calls.at(-1)?.[0]);
-    expect(dailySql).toContain('AS visit_day');
-    expect(dailySql).toContain('AS plan_day');
-    expect(dailySql).not.toMatch(/::date\s+day\b/);
-    expect(dailySql).not.toMatch(/planned_date\s+day\b/);
-    // Regression: the query must alias its date column as "day" — the
-    // frontend (AdminVisitsOverview) reads `d.day` to render each row's
-    // date, and silently got `undefined` (-> "Invalid Date") when this
-    // column came back unaliased as the implicit "day_value".
-    expect(dailySql).toMatch(/day_value::date\s+AS\s+day\b/i);
-  });
-
-  it('returns daily rows shaped so the frontend can build a valid Date from each one', async () => {
-    mocks.query.mockReset();
-    mocks.session.mockResolvedValue({ role: 'admin' });
-    mocks.query
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [{ id: 'rep-1', name: 'Rep', email: 'rep@example.com' }] })
-      .mockResolvedValueOnce({ rows: [{ total: 0, completed: 0 }] })
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [{ total: 0, done: 0 }] })
-      .mockResolvedValueOnce({ rows: [{ day: '2026-10-26', visits: 1, planned: 2 }] });
+  it('succeeds without a daily-breakdown query, and the response carries no daily field', async () => {
     const res = await GET();
+    expect(res.status).toBe(200);
+    // 2 lookup queries (frequencies, reps) + 4 per-rep queries (visits, byClass, doctors, planned) = 6.
+    expect(mocks.query).toHaveBeenCalledTimes(6);
     const body = await res.json();
-    const [row] = body.reps[0].daily;
-    expect(row.day).toBe('2026-10-26');
-    expect(Number.isNaN(new Date(`${row.day}T12:00:00`).getTime())).toBe(false);
+    expect(body.reps[0]).not.toHaveProperty('daily');
   });
 });
