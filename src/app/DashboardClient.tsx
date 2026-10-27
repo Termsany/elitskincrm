@@ -7,7 +7,7 @@ import DashboardPlans from "./DashboardPlans";
 import DashboardDoctorSuggestions from "./DashboardDoctorSuggestions";
 import AdminTeamOverview from "./AdminTeamOverview";
 import RepDailyWorkspace from "./RepDailyWorkspace";
-import { dashboardQuickLinks, performanceTone, salesAttainment } from "@/lib/dashboard-workspace";
+import { performanceTone, salesAttainment } from "@/lib/dashboard-workspace";
 import { Icon } from "@/components/Icon";
 import AdminActionCenter from "@/app/AdminActionCenter";
 
@@ -23,33 +23,6 @@ type SalesSummary = { annual_sales_target: number; annual_sales: number };
 
 const number = new Intl.NumberFormat("ar-SA");
 const money = new Intl.NumberFormat("ar-SA", { style: "currency", currency: "SAR", maximumFractionDigits: 0 });
-
-function QuickLinks({ admin }: { admin: boolean }) {
-  const links = dashboardQuickLinks(admin ? "admin" : "sales_rep");
-  return (
-    <section aria-label="الوصول السريع">
-      <div className="mb-3 flex items-end justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-extrabold text-[var(--navy)]">الوصول السريع</h2>
-          <p className="mt-1 text-xs text-[var(--muted)]">انتقل مباشرة إلى الإجراء الذي تريد تنفيذه</p>
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-        {links.map((item, index) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={`group min-h-32 rounded-2xl border p-4 transition hover:-translate-y-0.5 hover:shadow-md ${index === 0 ? "border-[var(--navy)] bg-[var(--navy)] text-white" : "border-[var(--border)] bg-white hover:border-[var(--sky)]"}`}
-          >
-            <span className={`flex h-10 w-10 items-center justify-center rounded-xl text-lg font-extrabold ${index === 0 ? "bg-white/15 text-[var(--gold)]" : "bg-[var(--sky-soft)] text-[var(--navy)]"}`}><Icon name={item.icon} size={20} /></span>
-            <div className={`mt-3 text-sm font-extrabold ${index === 0 ? "text-white" : "text-[var(--navy)]"}`}>{item.label}</div>
-            <div className={`mt-1 text-[11px] leading-5 ${index === 0 ? "text-white/70" : "text-[var(--muted)]"}`}>{item.detail}</div>
-          </Link>
-        ))}
-      </div>
-    </section>
-  );
-}
 
 function RepDashboard({ salesSummary }: { salesSummary?: SalesSummary }) {
   const sales = salesAttainment(Number(salesSummary?.annual_sales_target), Number(salesSummary?.annual_sales));
@@ -70,10 +43,7 @@ function RepDashboard({ salesSummary }: { salesSummary?: SalesSummary }) {
         </Card>
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <DashboardPlans isAdmin={false} showToday={false} />
-        <QuickLinks admin={false} />
-      </div>
+      <DashboardPlans isAdmin={false} showToday={false} />
     </div>
   );
 }
@@ -198,7 +168,6 @@ function AdminDashboard({ cities }: { cities: string[] }) {
         </div>
 
         <div className="space-y-5">
-          <QuickLinks admin />
           <Card className="p-5">
             <h2 className="font-extrabold text-[var(--navy)]">توزيع الزيارات حسب المدينة</h2>
             <p className="mt-1 text-xs text-[var(--muted)]">الحصة النسبية ضمن الفلتر الحالي</p>
