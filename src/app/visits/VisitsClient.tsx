@@ -2,13 +2,14 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, Button, Input, Label, Select, Badge, Textarea, Segmented, EmptyState } from "@/components/ui";
+import { useToast } from "@/components/Toast";
 import { buildVisitQuery, canEditVisit, getVisitStatusMeta } from "@/lib/visit-workflow";
 import { Icon } from "@/components/Icon";
 
 import { REACTION_LABELS } from "@/lib/visit-entry";
 type Visit = { presented?: Array<{ product_name: string; reaction: string }>; attachments:Array<{id:string;file_name:string}>; id: string; visited_at: string; notes: string; status: string; rep_name: string; doctor_name: string; clinic_name: string; city: string; items: Array<{ product_name: string; kind: string; quantity: number }>; sales_rep_id: string };
 
-export default function VisitsClient({ isAdmin, reps, initialRepId="" }: { isAdmin: boolean; reps: Array<{ id: string; name: string }>; initialRepId?: string }) {
+export default function VisitsClient({ isAdmin, reps, initialRepId="" }: { isAdmin: boolean; reps: Array<{ id: string; name: string }>; initialRepId?: string }) {const toast=useToast();
   const [visits, setVisits] = useState<Visit[]>([]);
   const [q, setQ] = useState("");
   const [repId, setRepId] = useState(initialRepId);
@@ -32,7 +33,7 @@ export default function VisitsClient({ isAdmin, reps, initialRepId="" }: { isAdm
     if (!confirm("حذف الزيارة؟")) return;
     const r = await fetch(`/api/visits/${id}`, { method: "DELETE" });
     if (!r.ok) {
-      alert("فشل الحذف");
+      toast("فشل الحذف","error");
       return;
     }
     setVisits(visits.filter((v) => v.id !== id));
@@ -40,13 +41,13 @@ export default function VisitsClient({ isAdmin, reps, initialRepId="" }: { isAdm
   async function saveEdit() {
     if (!editing) return;
     if (editNotes.trim().length < 10) {
-      alert("الملاحظات 10 احرف على الاقل");
+      toast("الملاحظات 10 احرف على الاقل","error");
       return;
     }
     const r = await fetch(`/api/visits/${editing.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ notes: editNotes, status: editStatus }) });
     if (!r.ok) {
       const j = await r.json().catch(() => null);
-      alert(j?.error || "فشل الحفظ");
+      toast(j?.error || "فشل الحفظ","error");
       return;
     }
     setEditing(null);
@@ -57,10 +58,10 @@ export default function VisitsClient({ isAdmin, reps, initialRepId="" }: { isAdm
     fd.append("file", file);
     const r = await fetch(`/api/visits/${visitId}/attachments`, { method: "POST", body: fd });
     if (!r.ok) {
-      alert("فشل الرفع");
+      toast("فشل الرفع","error");
       return;
     }
-    alert("تم الرفع");
+    toast("تم الرفع","success");
     await load();
   }
   function exportCsv() {

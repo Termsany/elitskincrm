@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Card, Button, Input, Label, Select, Badge, Textarea } from "@/components/ui";
+import { useToast } from "@/components/Toast";
 import { Icon } from "@/components/Icon";
 
 import {personalTask,isTaskOverdue} from "@/lib/task-personal-state";
@@ -13,7 +14,7 @@ const statusLabel:Record<string,string>={pending:"قيد الانتظار", in_p
 const statusTone:Record<string,"success"|"warn"|"danger"|"neutral"|"info">={pending:"warn", in_progress:"info", completed:"success", failed:"danger", archived:"neutral"};
 const prioLabel:Record<string,string>={low:"منخفضة", medium:"متوسطة", high:"عالية", urgent:"عاجلة"};
 
-export default function TasksClient({ isAdmin, reps, currentUserId }: { isAdmin:boolean; reps:Rep[]; currentUserId:string }){
+export default function TasksClient({ isAdmin, reps, currentUserId }: { isAdmin:boolean; reps:Rep[]; currentUserId:string }){const toast=useToast();
   const [tasks,setTasks]=useState<Task[]>([]);
   const [loading,setLoading]=useState(true),[loadError,setLoadError]=useState("");
   const {today,tomorrow}=taskReminderDateWindow();
@@ -45,9 +46,9 @@ export default function TasksClient({ isAdmin, reps, currentUserId }: { isAdmin:
 
   async function createTask(e:React.FormEvent){
     e.preventDefault();
-    if(!title.trim() || !assigned.length) { alert("العنوان والمندوب مطلوبان"); return; }
+    if(!title.trim() || !assigned.length) { toast("العنوان والمندوب مطلوبان","error"); return; }
     const r=await fetch("/api/tasks",{method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({title, description:desc, assigned_ids:assigned, priority:prio, due_date:due, doctor_id:doctorId||undefined, repeat_interval:repeat, checklist: checklist.filter(Boolean) })});
-    if(!r.ok){ const j=await r.json().catch(()=>null); alert(j?.error||"فشل الإنشاء"); return; }
+    if(!r.ok){ const j=await r.json().catch(()=>null); toast(j?.error||"فشل الإنشاء","error"); return; }
     setTitle(""); setDesc(""); setAssigned([]); setPrio("medium"); setDue(""); setDoctorId(""); setRepeat("none"); setChecklist([]);
     load();
   }
@@ -56,11 +57,11 @@ export default function TasksClient({ isAdmin, reps, currentUserId }: { isAdmin:
     const body:Record<string,unknown>={status};
     if(status==="failed"){
       const note=prompt("اكتب سبب عدم الاكتمال (5 أحرف على الأقل)")||"";
-      if(String(note).trim().length<5){ alert("السبب مطلوب (5 أحرف على الأقل)"); return; }
+      if(String(note).trim().length<5){ toast("السبب مطلوب (5 أحرف على الأقل)","error"); return; }
       body.failure_note=note;
     }
     const r=await fetch(`/api/tasks/${task.id}`,{method:"PATCH", headers:{"content-type":"application/json"}, body:JSON.stringify(body)});
-    if(!r.ok){ const j=await r.json().catch(()=>null); alert(j?.error||"فشل"); return; }
+    if(!r.ok){ const j=await r.json().catch(()=>null); toast(j?.error||"فشل","error"); return; }
     load();
   }
 

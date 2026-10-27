@@ -2,6 +2,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Card, Button, Input, Textarea, Label } from "@/components/ui";
+import { useToast } from "@/components/Toast";
 import { Icon } from "@/components/Icon";
 
 import { getVisitStatusMeta } from "@/lib/visit-workflow";
@@ -67,7 +68,7 @@ function uploadWithProgress(visitId: string, file: File, onProgress: (percent: n
   });
 }
 
-export default function NewVisitClient({ doctors, products, assignedProductId, role, initialDoctorId="", initialProductId="" }: { doctors: Doctor[]; products: Product[]; assignedProductId: string|null; role: string; initialDoctorId?:string; initialProductId?:string }) {
+export default function NewVisitClient({ doctors, products, assignedProductId, role, initialDoctorId="", initialProductId="" }: { doctors: Doctor[]; products: Product[]; assignedProductId: string|null; role: string; initialDoctorId?:string; initialProductId?:string }) {const toast=useToast();
   const router = useRouter();
   const initialDoctor=doctors.find(d=>d.id===initialDoctorId);
   const [doctorId, setDoctorId] = useState(initialDoctor?.id||"");
@@ -157,7 +158,7 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
     const remaining=arr.slice(ok);
     localStorage.setItem(QUEUE_KEY,JSON.stringify(remaining));
     setOfflineQueued(remaining.length);
-    if(ok)alert(`تمت مزامنة ${ok} زيارة`);
+    if(ok)toast(`تمت مزامنة ${ok} زيارة`,"success");
     if(ok>0&&remaining.length===0){router.push("/visits");router.refresh();}
     },[router]);
   useEffect(()=>{ try{ const arr=JSON.parse(localStorage.getItem(QUEUE_KEY)||"[]"); setOfflineQueued(arr.length);}catch{} },[]);

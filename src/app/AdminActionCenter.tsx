@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { ACTION_CARDS, type ActionCenterData } from '@/lib/admin-action-center';
+import { SkeletonCard } from '@/components/ui';
 
 const number = new Intl.NumberFormat('ar-SA');
 const stamp = new Intl.DateTimeFormat('ar-SA', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Riyadh' });
@@ -33,7 +34,7 @@ export function ActionCenterView({ data, loading, error, onRetry }: ViewProps) {
       </div>
       <button type="button" disabled={loading} onClick={onRetry} className="min-h-11 rounded-xl border border-[var(--border)] px-4 text-sm font-bold text-[var(--navy)] disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600">{loading ? 'جارٍ التحديث…' : 'تحديث'}</button>
     </div>
-    {loading && !data && <p role="status" className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-[var(--muted)]">جارٍ تحميل الإجراءات…</p>}
+    {loading && !data && <div role="status" aria-label="جارٍ تحميل الإجراءات" className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">{Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}</div>}
     {error && <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
       <p>{error}{data ? ' · الأرقام المعروضة قديمة من آخر تحميل ناجح.' : ' · لم تُحمّل الأعداد، وليست صفرًا.'}</p>
       <button type="button" disabled={loading} onClick={onRetry} className="mt-2 min-h-11 rounded-lg border border-red-300 bg-white px-4 font-bold disabled:opacity-50">إعادة المحاولة</button>

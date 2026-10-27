@@ -225,3 +225,43 @@ export function EmptyState({
     </div>
   );
 }
+
+/* ── Skeletons: loading placeholders, replace plain "جارٍ التحميل..." text ── */
+export function Skeleton({ className = "" }: { className?: string }) {
+  return <div className={`animate-pulse rounded-lg bg-[var(--border)] ${className}`} />;
+}
+
+export function SkeletonText({ lines = 3, className = "" }: { lines?: number; className?: string }) {
+  return (
+    <div className={`space-y-2 ${className}`}>
+      {Array.from({ length: lines }).map((_, i) => (
+        <Skeleton key={i} className={`h-3 ${i === lines - 1 ? "w-2/3" : "w-full"}`} />
+      ))}
+    </div>
+  );
+}
+
+export function SkeletonCard({ className = "" }: { className?: string }) {
+  return (
+    <div className={`rounded-2xl border border-[var(--border)] bg-white p-4 ${className}`}>
+      <Skeleton className="h-4 w-1/3" />
+      <div className="mt-3 space-y-2">
+        <Skeleton className="h-3 w-full" />
+        <Skeleton className="h-3 w-5/6" />
+      </div>
+    </div>
+  );
+}
+
+export function SkeletonRows({ rows = 4, className = "" }: { rows?: number; className?: string }) {
+  return (
+    <div className={`space-y-3 ${className}`}>
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="flex items-center gap-3 rounded-xl border border-[var(--border)] p-3">
+          <Skeleton className="h-9 w-9 shrink-0 rounded-full" />
+          <div className="flex-1 space-y-2"><Skeleton className="h-3 w-1/3" /><Skeleton className="h-3 w-2/3" /></div>
+        </div>
+      ))}
+    </div>
+  );
+}

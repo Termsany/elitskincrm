@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import OfflineServiceWorker from "@/components/OfflineServiceWorker";
+import { ToastProvider } from "@/components/Toast";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -18,7 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link href="https://fonts.googleapis.com/css2?family=Alexandria:wght@400;600;700;800&display=swap" rel="stylesheet" />
       </head>
       <body style={{ fontFamily: "'IBM Plex Sans Arabic', system-ui, -apple-system, sans-serif" }} className="min-h-screen antialiased"><OfflineServiceWorker />
-        {children}
+        <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
   );

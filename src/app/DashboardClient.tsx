@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Badge, Button, Card, Input, Label, Select } from "@/components/ui";
+import { Badge, Button, Card, Input, Label, Select, SkeletonRows } from "@/components/ui";
 import DashboardPlans from "./DashboardPlans";
 import DashboardDoctorSuggestions from "./DashboardDoctorSuggestions";
 import AdminTeamOverview from "./AdminTeamOverview";
@@ -154,6 +154,7 @@ function AdminDashboard({ cities }: { cities: string[] }) {
                   <div className="mt-2 text-[10px] text-[var(--muted)]">{number.format(rep.achieved)} منفذ من هدف {number.format(rep.target_value)}</div>
                 </Link>;
               })}
+              {loading && !stats && <SkeletonRows rows={4} />}
               {!loading && stats && stats.performance.length === 0 && <div className="rounded-xl border border-dashed p-6 text-center text-sm text-[var(--muted)]">لا توجد بيانات ضمن الفلتر الحالي</div>}
             </div>
           </Card>
@@ -161,6 +162,7 @@ function AdminDashboard({ cities }: { cities: string[] }) {
           <Card className="overflow-hidden">
             <div className="flex items-center justify-between border-b border-[var(--border)] p-4"><div><h2 className="font-extrabold text-[var(--navy)]">أحدث الزيارات</h2><p className="mt-1 text-xs text-[var(--muted)]">آخر 8 زيارات ضمن الفلتر الحالي</p></div><Link href="/visits" className="text-xs font-bold text-[var(--sky-deep)]">فتح السجل ←</Link></div>
             <div className="divide-y divide-[var(--border)]">
+              {loading && !stats && <div className="p-4"><SkeletonRows rows={4} /></div>}
               {(stats?.recent ?? []).map((visit) => <Link href="/visits" key={visit.id} className="flex flex-wrap items-center justify-between gap-3 p-4 hover:bg-[var(--sky-light)]"><div className="min-w-0"><div className="truncate text-sm font-bold text-[var(--navy)]">{visit.doctor_name} · {visit.clinic_name}</div><div className="mt-1 text-xs text-[var(--muted)]">{visit.rep_name} · {visit.city} · {new Date(visit.visited_at).toLocaleDateString("ar-SA")}</div></div><Badge tone={visit.status === "completed" ? "success" : visit.status === "cancelled" ? "danger" : "warn"}>{visit.status === "completed" ? "مكتملة" : visit.status === "cancelled" ? "ملغاة" : visit.status}</Badge></Link>)}
               {!loading && stats && stats.recent.length === 0 && <div className="p-8 text-center text-sm text-[var(--muted)]">لا توجد زيارات ضمن الفلتر الحالي</div>}
             </div>
@@ -172,6 +174,7 @@ function AdminDashboard({ cities }: { cities: string[] }) {
             <h2 className="font-extrabold text-[var(--navy)]">توزيع الزيارات حسب المدينة</h2>
             <p className="mt-1 text-xs text-[var(--muted)]">الحصة النسبية ضمن الفلتر الحالي</p>
             <div className="mt-4 space-y-3">
+              {loading && !stats && <SkeletonRows rows={5} />}
               {(stats?.cityBreakdown ?? []).slice(0, 8).map((item) => <div key={item.city}><div className="flex items-center justify-between gap-2 text-xs"><span className="font-bold">{item.city || "غير محدد"}</span><span className="font-extrabold text-[var(--navy)]">{number.format(item.cnt)}</span></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--bg)]"><div className="h-full rounded-full bg-[var(--sky)]" style={{ width: `${(item.cnt / maxCity) * 100}%` }} /></div></div>)}
               {!loading && stats && stats.cityBreakdown.length === 0 && <div className="rounded-xl border border-dashed p-5 text-center text-xs text-[var(--muted)]">لا توجد بيانات مدن</div>}
             </div>

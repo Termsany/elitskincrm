@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useMemo } from "react";
 import { Card, Button, Input, Label, Select, Badge, Textarea } from "@/components/ui";
+import { useToast } from "@/components/Toast";
 import { Icon } from "@/components/Icon";
 import { distributeSuggestionsByArea, findFiveDayDuplicate, shiftPlanItems } from "@/lib/plan-workflow";
 import { PLAN_PERIODS, planPeriodLabel, type PlanPeriod } from "@/lib/plan-periods";
@@ -52,7 +53,7 @@ function workDays(startStr:string){
   return weekDays(startStr).filter(d=> !d.weekend && !d.holiday);
 }
 
-export default function PlansClient({ isAdmin, reps, doctors, products, initialStatus="", initialPeriod="", initialPlanId="", initialRepId="" }: { isAdmin:boolean; reps:any[]; doctors:Doctor[]; products:Product[]; currentUserId:string; initialStatus?:string; initialPeriod?:string; initialPlanId?:string; initialRepId?:string }){
+export default function PlansClient({ isAdmin, reps, doctors, products, initialStatus="", initialPeriod="", initialPlanId="", initialRepId="" }: { isAdmin:boolean; reps:any[]; doctors:Doctor[]; products:Product[]; currentUserId:string; initialStatus?:string; initialPeriod?:string; initialPlanId?:string; initialRepId?:string }){const toast=useToast();
   const [plans,setPlans]=useState<Plan[]>([]);
   const [loadError,setLoadError]=useState("");
   const [workspaceTab,setWorkspaceTab]=useState<PlanWorkspaceTab["id"]>(isAdmin&&initialStatus==="pending"?"review":"overview");
@@ -148,7 +149,7 @@ export default function PlansClient({ isAdmin, reps, doctors, products, initialS
   },[pickerQ, doctors, pickerSel, activeDay, itemsByDay]);
 
   function openDay(date:string){
-    if(isWeekend(date) || isHoliday(date)){ alert("هذا اليوم إجازة"); return; }
+    if(isWeekend(date) || isHoliday(date)){ toast("هذا اليوم إجازة","error"); return; }
     const dayItems=itemsByDay[date]||[];
     setPickerSel(dayItems.map(x=> x.doctor_id));
     setPickerMeta(Object.fromEntries(dayItems.map(x=>[x.doctor_id,{product_id:x.product_id||"",priority:x.priority||"medium",note:x.note||""}])));
@@ -165,7 +166,7 @@ export default function PlansClient({ isAdmin, reps, doctors, products, initialS
   }
   function saveDay(){
     if(!activeDay) return;
-    if(!pickerSel.length){ alert("اختر طبيب واحد على الأقل"); return; }
+    if(!pickerSel.length){ toast("اختر طبيب واحد على الأقل","error"); return; }
     setItemsByDay(prev=> ({...prev, [activeDay]: pickerSel.map(id=> ({doctor_id:id, product_id:pickerMeta[id]?.product_id||"", note:pickerMeta[id]?.note||"", priority:pickerMeta[id]?.priority||"medium"}))}));
     setPickerEditMode(false);
     setActiveDay(null);
@@ -184,21 +185,21 @@ export default function PlansClient({ isAdmin, reps, doctors, products, initialS
 
   async function createPlan(e:React.FormEvent){
     e.preventDefault();
-    if(!items.length){ alert("أضف زيارة واحدة على الأقل — اضغط على يوم واختر أطباء"); return; }
-    if(!start || !end){ alert("حدد تاريخ بداية الخطة"); return; }
-    if(isAdmin && !adminPlanRepId){ alert("اختر المندوب أولا"); return; }
+    if(!items.length){ toast("أضف زيارة واحدة على الأقل — اضغط على يوم واختر أطباء","error"); return; }
+    if(!start || !end){ toast("حدد تاريخ بداية الخطة","error"); return; }
+    if(isAdmin && !adminPlanRepId){ toast("اختر المندوب أولا","error"); return; }
     const payload={period:planPeriod, period_start:start, period_end:end, items, target_visits: targetVisits, template_name: templateName, user_id:adminPlanRepId};
     const r=await fetch(editingPlanId?`/api/plans/${editingPlanId}`:"/api/plans",{method:editingPlanId?"PATCH":"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(payload)});
     const result=await r.json().catch(()=>null);
-    if(!r.ok){ alert(result?.error||"فشل"); setReviewBusy(false); return; }
-    if(result?.warnings?.length) alert(`تم حفظ الخطة مع التنبيهات:\n${result.warnings.join("\n")}`);
+    if(!r.ok){ toast(result?.error||"فشل","error"); setReviewBusy(false); return; }
+    if(result?.warnings?.length) toast(`تم حفظ الخطة مع التنبيهات:\n${result.warnings.join("\n")}`,"success");
     if(isAdmin) setViewRepId(adminPlanRepId);
     setItemsByDay({}); setStart(""); setEnd(""); setEditingPlanId(null);
     load(); loadIQVIA();
   }
 
   async function suggestIQVIA(){
-    if(!start){ alert("حدد بداية الخطة أولا"); return; }
+    if(!start){ toast("حدد بداية الخطة أولا","error"); return; }
     // The AI plan must cover at least nine visits per working day.
     const ds=workDays(start).map(d=>d.date);if(!ds.length)return;
     const suggestionTarget=Math.min(50,Math.max(1,targetVisits||10,ds.length*9));
@@ -206,7 +207,7 @@ export default function PlansClient({ isAdmin, reps, doctors, products, initialS
     const focusDoctor=doctors.find(doctor=>selectedIds.includes(doctor.id));
     const focusParams=new URLSearchParams({period:planPeriod,start,end:end||start,target:String(suggestionTarget),focusCity:focusDoctor?.city||"",focusClinic:focusDoctor?.clinic_name||""});
     const r=await fetch(`/api/plans/suggest?${focusParams.toString()}`).then(x=>x.json()).catch(()=>null);
-    if(!r?.suggestions?.length){ alert("لا اقتراحات"); return; }
+    if(!r?.suggestions?.length){ toast("لا اقتراحات","info"); return; }
     // Keep doctors from the same clinic/area together, then prioritize A, B, C.
     const grouped=distributeSuggestionsByArea((r.suggestions as Array<{id:string;city?:string;clinic_name?:string;classification?:string}>).slice(0,suggestionTarget),ds);
     const next:Record<string, Array<{doctor_id:string; product_id:string; note:string; priority:string}>>={...itemsByDay};
@@ -215,9 +216,9 @@ export default function PlansClient({ isAdmin, reps, doctors, products, initialS
   }
 
   async function applySavedTemplate(template:SavedTemplate){
-    if(!templateCopyStart){ alert("اختر بداية الأسبوع الجديد أولا"); return; }
+    if(!templateCopyStart){ toast("اختر بداية الأسبوع الجديد أولا","error"); return; }
     const r=await fetch(`/api/plans/${template.id}`).then(x=>x.json()).catch(()=>null);
-    if(!r?.plan){ alert("تعذر تحميل القالب"); return; }
+    if(!r?.plan){ toast("تعذر تحميل القالب","error"); return; }
     const sourceStart=String(r.plan.period_start).slice(0,10);
     const shifted=shiftPlanItems((r.items as Array<Record<string,unknown>>).map(row=>({doctor_id:String(row.doctor_id||""),planned_date:String(row.planned_date).slice(0,10),product_id:"",note:"",priority:"medium"})),sourceStart,templateCopyStart);
     const next:Record<string,Array<{doctor_id:string;product_id:string;note:string;priority:string}>>={};
@@ -229,18 +230,18 @@ export default function PlansClient({ isAdmin, reps, doctors, products, initialS
 
   async function openDetail(plan:Plan){
     const response=await fetch(`/api/plans/${plan.id}`); const r=await response.json().catch(()=>null);
-    if(!response.ok||!r?.plan){alert(r?.error||"تعذر تحميل تفاصيل الخطة");return;} setDetail(r);
+    if(!response.ok||!r?.plan){toast(r?.error||"تعذر تحميل تفاصيل الخطة","error");return;} setDetail(r);
   }
-  useEffect(()=>{if(!initialPlanId||deepLinkOpened)return;setDeepLinkOpened(true);fetch(`/api/plans/${initialPlanId}`).then(async response=>({ok:response.ok,data:await response.json().catch(()=>null)})).then(({ok,data})=>{if(ok&&data?.plan){setDetail(data);if(isAdmin)setViewRepId(String(data.plan.user_id||""));}else alert(data?.error||"تعذر فتح الخطة المطلوبة")}).catch(()=>alert("تعذر فتح الخطة المطلوبة"));},[initialPlanId,deepLinkOpened,isAdmin]);
+  useEffect(()=>{if(!initialPlanId||deepLinkOpened)return;setDeepLinkOpened(true);fetch(`/api/plans/${initialPlanId}`).then(async response=>({ok:response.ok,data:await response.json().catch(()=>null)})).then(({ok,data})=>{if(ok&&data?.plan){setDetail(data);if(isAdmin)setViewRepId(String(data.plan.user_id||""));}else toast(data?.error||"تعذر فتح الخطة المطلوبة","error")}).catch(()=>toast("تعذر فتح الخطة المطلوبة","error"));},[initialPlanId,deepLinkOpened,isAdmin]);
   async function adminAction(id:string, status:string){
     if(reviewBusy)return; setReviewBusy(true);
     try{
       const note = status==="rejected" || status==="needs_revision" ? prompt("ملاحظة للمدير (اختياري)")||"" : adminNote;
       const r=await fetch(`/api/plans/${id}`,{method:"PATCH", headers:{"content-type":"application/json"}, body:JSON.stringify({status, admin_note:note})});
       const result=await r.json().catch(()=>null);
-      if(!r.ok){ alert(result?.error||"فشل"); return; }
+      if(!r.ok){ toast(result?.error||"فشل","error"); return; }
       await load(); if(detail){ const rr=await fetch(`/api/plans/${id}`).then(x=>x.json()); setDetail(rr); }
-    }catch{alert("تعذر الاتصال بالخادم، حاول مرة أخرى");}finally{setReviewBusy(false);}
+    }catch{toast("تعذر الاتصال بالخادم، حاول مرة أخرى","error");}finally{setReviewBusy(false);}
   }
   function startAdminEdit(){
     if(!detail) return;
@@ -252,7 +253,7 @@ export default function PlansClient({ isAdmin, reps, doctors, products, initialS
     setItemsByDay(next); setDetail(null); window.scrollTo({top:0,behavior:"smooth"});
   }
   function prepareCopy(){
-    if(!detail||!copyStart){alert("اختر تاريخ بداية الأسبوع الجديد");return;}
+    if(!detail||!copyStart){toast("اختر تاريخ بداية الأسبوع الجديد","error");return;}
     const sourceStart=String(detail.plan.period_start).slice(0,10);
     const shifted=shiftPlanItems((detail.items as Array<Record<string,unknown>>).map(row=>({doctor_id:String(row.doctor_id||""),planned_date:String(row.planned_date).slice(0,10),product_id:"",note:"",priority:"medium"})),sourceStart,copyStart);
     const next:Record<string,Array<{doctor_id:string;product_id:string;note:string;priority:string}>>={};
@@ -262,10 +263,10 @@ export default function PlansClient({ isAdmin, reps, doctors, products, initialS
     setDetail(null);setCopyStart("");window.scrollTo({top:0,behavior:"smooth"});
   }
   async function requestRevision(){
-    if(!detail||!editNote.trim()){ alert("اكتب سبب التعديل"); return; }
+    if(!detail||!editNote.trim()){ toast("اكتب سبب التعديل","error"); return; }
     const body={ note: editNote, items: (detail.items as Array<Record<string,unknown>>).map(i=> ({doctor_id: String((i as Record<string,unknown>).did || (i as Record<string,unknown>).doctor_id||""), planned_date: String(i.planned_date).slice(0,10), product_id: String((i as Record<string,unknown>).prod_id || (i as Record<string,unknown>).product_id||""), note: String(i.note||""), priority: String(i.priority||"medium")})) };
     const r=await fetch(`/api/plans/${String(detail.plan.id)}`,{method:"PATCH", headers:{"content-type":"application/json"}, body:JSON.stringify(body)});
-    if(!r.ok){ const j=await r.json().catch(()=>null); alert(j?.error||"فشل"); return; }
+    if(!r.ok){ const j=await r.json().catch(()=>null); toast(j?.error||"فشل","error"); return; }
     setEditNote(""); load(); const rr=await fetch(`/api/plans/${String(detail.plan.id)}`).then(x=>x.json()); setDetail(rr);
   }
 
@@ -304,7 +305,7 @@ export default function PlansClient({ isAdmin, reps, doctors, products, initialS
             ))}
             <Button variant="outline" onClick={async()=>{
               await fetch("/api/plans/frequencies",{method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({frequencies})});
-              alert("تم الحفظ");
+              toast("تم الحفظ","success");
               const c=await fetch("/api/plans/coverage").then(x=>x.json()).catch(()=>null);
               if(c) setCoverage(c.coverage||[]);
             }} className="text-xs">حفظ</Button>

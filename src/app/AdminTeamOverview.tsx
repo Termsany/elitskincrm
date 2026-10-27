@@ -2,12 +2,13 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Card, Badge, Button } from "@/components/ui";
+import { useToast } from "@/components/Toast";
 
 type Rep={id:string;name:string;email:string;active:boolean;product_name:string|null;total_visits:number;weekly_visits:number;pending_plans:number;pending_orders:number};
 type Order={id:string;quantity:number;product_name:string;rep_id:string;rep_name:string;doctor_name:string;clinic_name:string;created_at:string};
 type Plan={id:string;rep_id:string;rep_name:string;period_start:string;period_end:string;items_count:number};
 
-export default function AdminTeamOverview(){
+export default function AdminTeamOverview(){const toast=useToast();
   const [data,setData]=useState<{reps:Rep[];pendingOrders:Order[];pendingPlans:Plan[]}|null>(null);
   const [busy,setBusy]=useState<string|null>(null);
   async function load(){const r=await fetch("/api/admin/overview").then(x=>x.json()).catch(()=>null);if(r)setData(r);}
@@ -15,7 +16,7 @@ export default function AdminTeamOverview(){
   async function decide(id:string,status:"approved"|"rejected"){
     const note=status==="rejected"?prompt("سبب الرفض (اختياري)")||"":"";
     setBusy(id); const r=await fetch(`/api/admin/orders/${id}`,{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({status,note})});
-    setBusy(null); if(!r.ok){const j=await r.json().catch(()=>null);alert(j?.error||"فشل");return;} load();
+    setBusy(null); if(!r.ok){const j=await r.json().catch(()=>null);toast(j?.error||"فشل","error");return;} load();
   }
   if(!data)return <Card className="p-6 text-center text-[var(--muted)]">جاري تحميل بيانات الفريق...</Card>;
   return <div className="space-y-4">
