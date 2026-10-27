@@ -4,7 +4,7 @@ type ProfileQuery = { text: string; values: unknown[] };
 
 // Doctor master data is shared by the existing doctors page/API. Activity is not.
 // Keep role restrictions in SQL, before aggregates and LIMIT, never in client filtering.
-export function doctorProfileQueries(actor: Actor, doctorId: string): Record<'doctor' | 'visits' | 'summary' | 'plans' | 'tasks', ProfileQuery> {
+export function doctorProfileQueries(actor: Actor, doctorId: string): Record<'doctor' | 'visits' | 'summary' | 'plans' | 'tasks' | 'followups', ProfileQuery> {
   const admin = actor.role === 'admin';
   const values: unknown[] = admin ? [doctorId] : [doctorId, actor.id];
   const visitWhere = `v.doctor_id = $1${admin ? '' : ' AND v.sales_rep_id = $2'}`;
@@ -51,6 +51,16 @@ export function doctorProfileQueries(actor: Actor, doctorId: string): Record<'do
         FROM tasks t ${admin ? '' : 'JOIN task_assignees ta ON ta.task_id=t.id AND ta.user_id = $2'}
         WHERE t.doctor_id = $1 AND t.archived=false
         ORDER BY t.due_date ASC NULLS LAST, t.created_at DESC, t.id LIMIT 20`,
+      values,
+    },
+    followups: {
+      // Same scoping as /api/followups: admin sees every rep's follow-ups, a rep sees only their own.
+      text: `SELECT f.id, f.title, f.note, f.due_at::text, f.status,
+        ${admin ? 'u.name' : 'NULL::text'} AS rep_name, p.name AS product_name
+        FROM doctor_followups f JOIN users u ON u.id = f.sales_rep_id
+        LEFT JOIN products p ON p.id = f.product_id
+        WHERE f.doctor_id = $1 ${admin ? '' : 'AND f.sales_rep_id = $2'}
+        ORDER BY f.due_at DESC, f.created_at DESC LIMIT 20`,
       values,
     },
   };

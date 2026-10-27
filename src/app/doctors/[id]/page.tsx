@@ -4,6 +4,7 @@ import DoctorProfile, { type Doctor, type ProfileSummary, type ProfileVisit, typ
 import { getCurrentUser } from '@/lib/session';
 import { query } from '@/lib/db';
 import { doctorProfileQueries } from '@/lib/doctor-profile';
+import { buildDoctorTimeline, type Followup } from '@/lib/doctor-timeline';
 import DoctorFollowups from '@/components/DoctorFollowups';
 
 export default async function DoctorProfilePage({ params }: { params: Promise<{ id: string }> }) {
@@ -15,14 +16,17 @@ export default async function DoctorProfilePage({ params }: { params: Promise<{ 
   const sql = doctorProfileQueries(user, id);
   const doctor = (await query<Doctor>(sql.doctor.text, sql.doctor.values)).rows[0];
   if (!doctor) notFound();
-  const [summary, visits, plans, tasks] = await Promise.all([
+  const [summary, visits, plans, tasks, followups] = await Promise.all([
     query<ProfileSummary>(sql.summary.text, sql.summary.values),
     query<ProfileVisit>(sql.visits.text, sql.visits.values),
     query<ProfilePlan>(sql.plans.text, sql.plans.values),
     query<ProfileTask>(sql.tasks.text, sql.tasks.values),
+    query<Followup>(sql.followups.text, sql.followups.values),
   ]);
+  const timeline = buildDoctorTimeline({ visits: visits.rows, followups: followups.rows, tasks: tasks.rows, plans: plans.rows });
+  const isAdmin = user.role === 'admin';
   return <AppShell role={user.role} email={user.email} name={user.name} jobTitle={user.job_title} productName={user.product_name} active="/doctors">
-    <DoctorProfile doctor={doctor} summary={summary.rows[0]} visits={visits.rows} plans={plans.rows} tasks={tasks.rows} isAdmin={user.role === 'admin'} />
-    <DoctorFollowups doctorId={id} isAdmin={user.role === 'admin'} />
+    <DoctorProfile doctor={doctor} summary={summary.rows[0]} timeline={timeline} isAdmin={isAdmin} />
+    {!isAdmin && <DoctorFollowups doctorId={id} />}
   </AppShell>;
 }
