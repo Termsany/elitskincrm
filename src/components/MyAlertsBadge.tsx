@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Icon } from "@/components/Icon";
 export default function MyAlertsBadge({ role }: { role: string }){
   const [count,setCount]=useState(0);
   useEffect(()=>{
@@ -12,7 +13,7 @@ export default function MyAlertsBadge({ role }: { role: string }){
   if(role==="admin" || count===0) return null;
   return (
     <Link href="/" className="flex items-center gap-2 rounded-xl bg-amber-100 border border-amber-300 px-3 py-2 text-xs font-bold text-amber-900">
-      <span>⚠</span><span>{count} تنبيه</span>
+      <Icon name="warn" size={14} /><span>{count} تنبيه</span>
     </Link>
   );
 }

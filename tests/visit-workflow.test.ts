@@ -3,9 +3,9 @@ import { buildVisitQuery, canEditVisit, getVisitStatusMeta } from "@/lib/visit-w
 
 describe("visit workflow", () => {
   it("provides clear Arabic state labels for daily visit statuses", () => {
-    expect(getVisitStatusMeta("completed")).toEqual({ label: "مكتملة", tone: "success", icon: "✓" });
-    expect(getVisitStatusMeta("planned")).toEqual({ label: "مجدولة", tone: "info", icon: "◷" });
-    expect(getVisitStatusMeta("cancelled")).toEqual({ label: "ملغاة", tone: "danger", icon: "×" });
+    expect(getVisitStatusMeta("completed")).toEqual({ label: "مكتملة", tone: "success", icon: "check" });
+    expect(getVisitStatusMeta("planned")).toEqual({ label: "مجدولة", tone: "info", icon: "clock" });
+    expect(getVisitStatusMeta("cancelled")).toEqual({ label: "ملغاة", tone: "danger", icon: "x" });
   });
 
   it("allows reps to edit only their visits from the last 24 hours", () => {

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect,useMemo,useState } from "react";
 import { Card,Select,Label,Badge } from "@/components/ui";
+import { Icon } from "@/components/Icon";
 import type { ReportType } from "@/lib/reporting";
 import { readReportResponse } from "@/lib/report-response";
 
@@ -12,7 +13,7 @@ type ProductRow={product_id:string;product_name:string;visits:number;reps:number
 type SampleRow={id:string;visited_at:string;rep_name:string;doctor_name:string;clinic_name:string;city:string;product_name:string;quantity:number;sample_purpose:string|null};
 type DoctorRow={doctor_id:string;doctor_name:string;clinic_name:string;city:string;sample_visits:number;samples:number;products_count:number;products:string;reps:string;last_sample:string};
 type ComplianceRow={rep_id:string;rep_name:string;planned:number;completed:number}; type CoverageRow={doctor_id:string;doctor_name:string;clinic_name:string;city:string;classification:string;rep_name:string;monthly_target:number;actual_visits:number;last_visit:string|null}; type SalesRow={rep_id:string;rep_name:string;annual_sales_target:number;achieved:number;remaining:number}; type Data={totals:Totals;repPerformance:RepRow[];visits:VisitRow[];products:ProductRow[];samples:SampleRow[];sampleDoctors:DoctorRow[];coverage:CoverageRow[];sales:SalesRow[];compliance:ComplianceRow[]};
-const tabs:Array<{id:string;label:string;icon:string}>=[{id:"reps",label:"أداء المناديب",icon:"◎"},{id:"visits",label:"تفاصيل الزيارات",icon:"✎"},{id:"products",label:"المنتجات",icon:"✦"},{id:"samples",label:"توزيع العينات",icon:"◈"},{id:"sampleDoctors",label:"أطباء العينات",icon:"⚕"},{id:"coverage",label:"Coverage الأطباء",icon:"◉"},{id:"sales",label:"الأهداف والمبيعات",icon:"▥"},{id:"compliance",label:"الالتزام بالخطة",icon:"✓"}];
+const tabs:Array<{id:string;label:string;icon:string}>=[{id:"reps",label:"أداء المناديب",icon:"reps"},{id:"visits",label:"تفاصيل الزيارات",icon:"visits"},{id:"products",label:"المنتجات",icon:"products"},{id:"samples",label:"توزيع العينات",icon:"samples"},{id:"sampleDoctors",label:"أطباء العينات",icon:"doctors"},{id:"coverage",label:"Coverage الأطباء",icon:"coverage"},{id:"sales",label:"الأهداف والمبيعات",icon:"sales"},{id:"compliance",label:"الالتزام بالخطة",icon:"compliance"}];
 const statusLabel:Record<string,string>={completed:"مكتملة",planned:"مخططة",cancelled:"ملغاة"};
 function date(v:string|null){return v?new Date(v).toLocaleDateString("ar-EG"):"—"}
 export default function ReportsClient({reps,products,cities}:{reps:Rep[];products:ProductOption[];cities:string[]}){
@@ -31,7 +32,7 @@ export default function ReportsClient({reps,products,cities}:{reps:Rep[];product
  const salesRows=(data?.sales||[]).filter(r=>!q||r.rep_name.toLowerCase().includes(q));
  const complianceRows=(data?.compliance||[]).filter(r=>!q||r.rep_name.toLowerCase().includes(q));
  return <div className="mt-4 space-y-4">
-  <div className="grid grid-cols-2 md:grid-cols-5 gap-2">{tabs.map(t=><button key={t.id} onClick={()=>setType(t.id)} className={`rounded-2xl border p-3 text-right transition ${type===t.id?"bg-[var(--navy)] text-white border-[var(--navy)] shadow-lg":"bg-white border-[var(--border)] hover:border-sky-300"}`}><span className="text-lg">{t.icon}</span><div className="text-xs font-extrabold mt-1">{t.label}</div></button>)}</div>
+  <div className="grid grid-cols-2 md:grid-cols-5 gap-2">{tabs.map(t=><button key={t.id} onClick={()=>setType(t.id)} className={`rounded-2xl border p-3 text-right transition ${type===t.id?"bg-[var(--navy)] text-white border-[var(--navy)] shadow-lg":"bg-white border-[var(--border)] hover:border-sky-300"}`}><span className="flex justify-end"><Icon name={t.icon} size={20} /></span><div className="text-xs font-extrabold mt-1">{t.label}</div></button>)}</div>
   <Card className="p-4"><div className="grid sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3">
    <div><Label>المندوب</Label><Select value={repId} onChange={e=>setRepId(e.target.value)}><option value="">كل المناديب</option>{reps.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</Select></div>
    <div><Label>المنتج</Label><Select value={productId} onChange={e=>setProductId(e.target.value)}><option value="">كل المنتجات</option>{products.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</Select></div>

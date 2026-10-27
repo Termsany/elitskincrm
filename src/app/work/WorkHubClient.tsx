@@ -129,7 +129,7 @@ export default function WorkHubClient({ isAdmin }: { isAdmin: boolean }) {
             <span className="rounded-full bg-slate-100 px-2 py-1">{item.status_label}</span>
             {item.overdue && <span className="rounded-full bg-red-600 px-2 py-1 text-white">متأخر</span>}
             {item.needs_action && <span className="rounded-full bg-[var(--navy)] px-2 py-1 text-white">يحتاج إجراء</span>}
-            {item.unread > 0 && <span className="rounded-full bg-[var(--gold)] px-2 py-1 text-white" aria-label={`${item.unread} تنبيه غير مقروء`}>● {item.unread}</span>}
+            {item.unread > 0 && <span className="inline-flex items-center gap-1 rounded-full bg-[var(--gold)] px-2 py-1 text-white" aria-label={`${item.unread} تنبيه غير مقروء`}><span className="h-1.5 w-1.5 rounded-full bg-white" />{item.unread}</span>}
           </div>
           <div className="mt-2 text-base font-extrabold text-[var(--navy)]">{item.title}</div>
           <div className="mt-1 text-xs text-[var(--muted)]">الموعد: {formatDue(item.due_at)}{isAdmin && item.requester_name ? ` · ${item.requester_name}` : ""}{item.owner_name ? ` · المسؤول: ${item.owner_name}` : ""}</div>

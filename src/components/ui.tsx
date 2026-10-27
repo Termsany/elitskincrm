@@ -1,3 +1,5 @@
+import { Icon } from "./Icon";
+
 export function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <div className={`rounded-2xl bg-white border border-[var(--border)] shadow-sm ${className}`}>{children}</div>;
 }
@@ -141,7 +143,7 @@ export function Segmented({
                 : "bg-white border-[var(--border)] text-[var(--muted)] hover:border-[var(--navy)]/25 hover:text-[var(--navy)]"
             }`}
           >
-            {o.icon && <span className="text-base leading-none">{o.icon}</span>}
+            {o.icon && <Icon name={o.icon} size={16} />}
             {o.label}
           </button>
         );
@@ -174,8 +176,8 @@ export function KpiCard({
             <div className="text-[11px] text-white/50 mt-1">{sub}</div>
           </div>
           {icon && (
-            <span className="h-10 w-10 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center text-lg shrink-0">
-              {icon}
+            <span className="h-10 w-10 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center shrink-0">
+              <Icon name={icon} size={20} />
             </span>
           )}
         </div>
@@ -192,8 +194,8 @@ export function KpiCard({
           <div className="text-[11px] text-[var(--muted)] mt-1">{sub}</div>
         </div>
         {icon && (
-          <span className="h-10 w-10 rounded-xl bg-[var(--navy)] text-[var(--sky)] flex items-center justify-center text-base shrink-0">
-            {icon}
+          <span className="h-10 w-10 rounded-xl bg-[var(--navy)] text-[var(--sky)] flex items-center justify-center shrink-0">
+            <Icon name={icon} size={20} />
           </span>
         )}
       </div>
@@ -202,7 +204,7 @@ export function KpiCard({
 }
 
 export function EmptyState({
-  icon = "◎",
+  icon = "empty",
   title,
   desc,
   action,
@@ -214,8 +216,8 @@ export function EmptyState({
 }) {
   return (
     <div className="py-10 flex flex-col items-center text-center px-6">
-      <div className="h-16 w-16 rounded-2xl bg-[var(--gold-soft)] border border-[var(--gold)]/20 flex items-center justify-center text-2xl text-[var(--navy)]">
-        {icon}
+      <div className="h-16 w-16 rounded-2xl bg-[var(--gold-soft)] border border-[var(--gold)]/20 flex items-center justify-center text-[var(--navy)]">
+        <Icon name={icon} size={30} />
       </div>
       <div className="font-extrabold text-[var(--navy)] mt-4">{title}</div>
       {desc && <div className="text-sm text-[var(--muted)] mt-1 max-w-[32ch]">{desc}</div>}

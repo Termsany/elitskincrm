@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, Button, Input, Label, Select, Badge, Textarea, Segmented, EmptyState } from "@/components/ui";
 import { buildVisitQuery, canEditVisit, getVisitStatusMeta } from "@/lib/visit-workflow";
+import { Icon } from "@/components/Icon";
 
 import { REACTION_LABELS } from "@/lib/visit-entry";
 type Visit = { presented?: Array<{ product_name: string; reaction: string }>; attachments:Array<{id:string;file_name:string}>; id: string; visited_at: string; notes: string; status: string; rep_name: string; doctor_name: string; clinic_name: string; city: string; items: Array<{ product_name: string; kind: string; quantity: number }>; sales_rep_id: string };
@@ -93,7 +94,7 @@ export default function VisitsClient({ isAdmin, reps, initialRepId="" }: { isAdm
       {/* Filters — top polished card with segmented status */}
       <Card className="p-5">
         <div className="flex items-center gap-2 mb-4">
-          <span className="h-8 w-8 rounded-xl bg-[var(--navy)] text-[var(--gold)] flex items-center justify-center text-sm">◈</span>
+          <span className="h-8 w-8 rounded-xl bg-[var(--navy)] text-[var(--gold)] flex items-center justify-center"><Icon name="visits" size={16} /></span>
           <span className="font-extrabold text-sm">فلترة الزيارات</span>
           <span className="hidden sm:inline text-[11px] text-[var(--muted)]">ابحث وفلتر ثم اضغط بحث — الحالة باختيار سريع</span>
           <span className="mr-auto hidden sm:inline-flex text-xs bg-[var(--gold-soft)] border border-[var(--gold)]/20 text-[var(--navy)] rounded-full px-3 py-1 font-bold">{visits.length} نتيجة</span>
@@ -133,10 +134,10 @@ export default function VisitsClient({ isAdmin, reps, initialRepId="" }: { isAdm
           <div className="mt-1.5">
             <Segmented
               options={[
-                { value: "", label: "الكل", icon: "◎" },
-                { value: "completed", label: "مكتملة", icon: "✓" },
-                { value: "planned", label: "مجدولة", icon: "◷" },
-                { value: "cancelled", label: "ملغاة", icon: "×" },
+                { value: "", label: "الكل", icon: "all" },
+                { value: "completed", label: "مكتملة", icon: "check" },
+                { value: "planned", label: "مجدولة", icon: "clock" },
+                { value: "cancelled", label: "ملغاة", icon: "x" },
               ]}
               value={status}
               onChange={setStatus}
@@ -145,8 +146,8 @@ export default function VisitsClient({ isAdmin, reps, initialRepId="" }: { isAdm
         </div>
 
         <div className="flex gap-2 mt-4 flex-wrap">
-          <Button onClick={() => void load()} className="px-6">
-            بحث ✓
+          <Button onClick={() => void load()} className="px-6 inline-flex items-center gap-1.5">
+            <Icon name="search" size={16} /> بحث
           </Button>
           <Button variant="outline" onClick={clearFilters} disabled={!hasActiveFilter}>
             مسح
@@ -174,7 +175,7 @@ export default function VisitsClient({ isAdmin, reps, initialRepId="" }: { isAdm
                   <div className="text-xs text-[var(--muted)] truncate">{v.clinic_name} · {v.city}</div>
                 </div>
               </div>
-              <Badge tone={statusMeta(v.status).tone}>{statusMeta(v.status).icon} {statusMeta(v.status).label}</Badge>
+              <Badge tone={statusMeta(v.status).tone}><Icon name={statusMeta(v.status).icon} size={13} className="inline align-[-2px] mr-0.5" /> {statusMeta(v.status).label}</Badge>
             </div>
             <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
               <span className="rounded-full bg-[var(--bg)] border border-[var(--border)] px-2.5 py-1 font-semibold">{v.rep_name}</span>
@@ -194,7 +195,7 @@ export default function VisitsClient({ isAdmin, reps, initialRepId="" }: { isAdm
         ))}
         {visits.length === 0 && (
           <Card className="overflow-hidden">
-            <EmptyState icon="✦" title="لا زيارات مطابقة" desc={isAdmin ? "جرب تغيير كلمات البحث أو الفلاتر" : "جرب تغيير كلمات البحث أو الفلاتر، أو سجل زيارة جديدة"} action={!isAdmin ? <button type="button" onClick={() => router.push("/visits/new")} className="rounded-xl bg-[var(--navy)] text-white px-5 py-2.5 text-sm font-bold">+ زيارة جديدة</button> : undefined} />
+            <EmptyState icon="empty" title="لا زيارات مطابقة" desc={isAdmin ? "جرب تغيير كلمات البحث أو الفلاتر" : "جرب تغيير كلمات البحث أو الفلاتر، أو سجل زيارة جديدة"} action={!isAdmin ? <button type="button" onClick={() => router.push("/visits/new")} className="rounded-xl bg-[var(--navy)] text-white px-5 py-2.5 text-sm font-bold">+ زيارة جديدة</button> : undefined} />
           </Card>
         )}
       </div>
@@ -228,7 +229,7 @@ export default function VisitsClient({ isAdmin, reps, initialRepId="" }: { isAdm
                     <span className="inline-flex rounded-full bg-[var(--bg)] border border-[var(--border)] px-2.5 py-0.5 text-xs font-semibold">{v.city}</span>
                   </td>
                   <td className="p-3">
-                    <Badge tone={statusMeta(v.status).tone}>{statusMeta(v.status).icon} {statusMeta(v.status).label}</Badge>
+                    <Badge tone={statusMeta(v.status).tone}><Icon name={statusMeta(v.status).icon} size={13} className="inline align-[-2px] mr-0.5" /> {statusMeta(v.status).label}</Badge>
                   </td>
                   <td className="p-3 text-xs text-[var(--muted)] font-medium">{new Date(v.visited_at).toLocaleString("ar-EG")}</td>
                   <td className="p-3 max-w-[28ch] truncate text-xs text-[var(--muted)]" title={v.notes}>
@@ -250,7 +251,7 @@ export default function VisitsClient({ isAdmin, reps, initialRepId="" }: { isAdm
               {visits.length === 0 && (
                 <tr>
                   <td colSpan={7} className="p-0">
-                    <EmptyState icon="✦" title="لا نتائج" desc="لا زيارات مطابقة للبحث الحالي" action={!isAdmin ? <button type="button" onClick={() => router.push("/visits/new")} className="text-[var(--gold)] font-extrabold text-sm">سجل زيارة ←</button> : undefined} />
+                    <EmptyState icon="empty" title="لا نتائج" desc="لا زيارات مطابقة للبحث الحالي" action={!isAdmin ? <button type="button" onClick={() => router.push("/visits/new")} className="text-[var(--gold)] font-extrabold text-sm">سجل زيارة ←</button> : undefined} />
                   </td>
                 </tr>
               )}
@@ -263,7 +264,7 @@ export default function VisitsClient({ isAdmin, reps, initialRepId="" }: { isAdm
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <Card className="w-full max-w-[560px] p-5 shadow-xl">
             <div className="flex items-center gap-2 mb-4">
-              <span className="h-8 w-8 rounded-xl bg-[var(--navy)] text-[var(--gold)] flex items-center justify-center text-xs">✎</span>
+              <span className="h-8 w-8 rounded-xl bg-[var(--navy)] text-[var(--gold)] flex items-center justify-center"><Icon name="edit" size={15} /></span>
               <span className="font-extrabold">تعديل الزيارة — {editing.doctor_name}</span>
             </div>
             <div className="space-y-4">
@@ -271,9 +272,9 @@ export default function VisitsClient({ isAdmin, reps, initialRepId="" }: { isAdm
                 <Label>الحالة</Label>
                 <Segmented
                   options={[
-                    { value: "completed", label: "مكتملة", icon: "✓" },
-                    { value: "planned", label: "مجدولة", icon: "◷" },
-                    { value: "cancelled", label: "ملغاة", icon: "×" },
+                    { value: "completed", label: "مكتملة", icon: "check" },
+                    { value: "planned", label: "مجدولة", icon: "clock" },
+                    { value: "cancelled", label: "ملغاة", icon: "x" },
                   ]}
                   value={editStatus}
                   onChange={setEditStatus}
@@ -282,14 +283,14 @@ export default function VisitsClient({ isAdmin, reps, initialRepId="" }: { isAdm
               <div className="space-y-1.5">
                 <Label>الملاحظات</Label>
                 <Textarea value={editNotes} onChange={(e) => setEditNotes(e.target.value)} rows={4} placeholder="اكتب نتيجة الزيارة..." />
-                <div className={`text-xs font-bold ${editNotes.trim().length >= 10 ? "text-emerald-700" : "text-amber-700"}`}>{editNotes.trim().length}/10 {editNotes.trim().length >= 10 ? "✓" : "مطلوب"}</div>
+                <div className={`text-xs font-bold ${editNotes.trim().length >= 10 ? "text-emerald-700" : "text-amber-700"}`}>{editNotes.trim().length}/10 {editNotes.trim().length >= 10 ? <Icon name="check" size={13} className="inline align-[-2px]" /> : "مطلوب"}</div>
               </div>
             </div>
             <div className="flex gap-2 mt-5 justify-end">
               <Button variant="outline" onClick={() => setEditing(null)}>
                 الغاء
               </Button>
-              <Button onClick={saveEdit}>حفظ ✓</Button>
+              <Button onClick={saveEdit} className="inline-flex items-center gap-1.5">حفظ <Icon name="check" size={16} /></Button>
             </div>
           </Card>
         </div>

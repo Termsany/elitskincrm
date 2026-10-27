@@ -2,13 +2,13 @@ export type VisitStatusTone = "success" | "info" | "danger" | "warn" | "neutral"
 export type VisitStatusMeta = { label: string; tone: VisitStatusTone; icon: string };
 
 const STATUS_META: Record<string, VisitStatusMeta> = {
-  completed: { label: "مكتملة", tone: "success", icon: "✓" },
-  planned: { label: "مجدولة", tone: "info", icon: "◷" },
-  cancelled: { label: "ملغاة", tone: "danger", icon: "×" },
+  completed: { label: "مكتملة", tone: "success", icon: "check" },
+  planned: { label: "مجدولة", tone: "info", icon: "clock" },
+  cancelled: { label: "ملغاة", tone: "danger", icon: "x" },
 };
 
 export function getVisitStatusMeta(status: string): VisitStatusMeta {
-  return STATUS_META[status] || { label: "غير محددة", tone: "neutral", icon: "•" };
+  return STATUS_META[status] || { label: "غير محددة", tone: "neutral", icon: "all" };
 }
 
 export function canEditVisit({

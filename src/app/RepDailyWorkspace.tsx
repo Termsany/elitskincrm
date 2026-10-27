@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { Badge, Button, Card } from "@/components/ui";
+import { Icon } from "@/components/Icon";
 
 type Item = { id: string; doctor_id: string; doctor_name: string; clinic_name: string; city: string; done: boolean };
 type Task = { id: string; title: string; status: string; priority: string; due_date: string | null; doctor_name: string | null };
@@ -119,7 +120,7 @@ export default function RepDailyWorkspace() {
           {data.summary.adherence !== null && <div className="px-4 pt-4 sm:px-5"><div className="h-2.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-emerald-600" style={{ width: `${data.summary.adherence}%` }} /></div></div>}
           <div className="divide-y divide-[var(--border)] px-4 sm:px-5">
             {data.items.map((item, index) => <div key={item.id} className={`flex min-h-20 items-center gap-3 py-3 ${item.id === data.summary.nextId ? "rounded-2xl bg-[var(--sky-soft)] px-3" : ""}`}>
-              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-extrabold ${item.done ? "bg-emerald-100 text-emerald-800" : item.id === data.summary.nextId ? "bg-[var(--sky)] text-white" : "bg-slate-100 text-[var(--muted)]"}`}>{item.done ? "✓" : index + 1}</span>
+              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-extrabold ${item.done ? "bg-emerald-100 text-emerald-800" : item.id === data.summary.nextId ? "bg-[var(--sky)] text-white" : "bg-slate-100 text-[var(--muted)]"}`}>{item.done ? <Icon name="check" size={16} /> : index + 1}</span>
               <Link href={`/doctors/${item.doctor_id}`} className="min-w-0 flex-1"><div className="truncate text-sm font-extrabold text-[var(--navy)]">{item.doctor_name}</div><div className="mt-1 truncate text-xs text-[var(--muted)]">{item.clinic_name} · {item.city}</div></Link>
               {item.done ? <Badge tone="success">تمت</Badge> : <Link className="rounded-full border border-[var(--border)] bg-white px-3 py-2 text-xs font-extrabold text-[var(--navy)]" href={`/visits/new?doctorId=${encodeURIComponent(item.doctor_id)}`}>{item.id === data.summary.nextId ? "ابدأ الآن" : "تسجيل"}</Link>}
             </div>)}

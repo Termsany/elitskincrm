@@ -2,6 +2,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Card, Button, Input, Textarea, Label } from "@/components/ui";
+import { Icon } from "@/components/Icon";
 
 import { getVisitStatusMeta } from "@/lib/visit-workflow";
 import { PURPOSE_LABELS, REACTION_LABELS, collectSampleItems, type Reaction, type SamplePurpose, type SampleRow } from "@/lib/visit-entry";
@@ -287,14 +288,14 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
         </div>
       )}
 
-      {locked && <div role="status" className="mt-3 rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-sm font-bold text-emerald-900">✓ تم حفظ الزيارة. جارٍ التعامل مع الملفات المرفقة فقط.</div>}
+      {locked && <div role="status" className="mt-3 rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-sm font-bold text-emerald-900 inline-flex items-center gap-1.5"><Icon name="check" size={15} /> تم حفظ الزيارة. جارٍ التعامل مع الملفات المرفقة فقط.</div>}
 
       <form onSubmit={submit} className="mt-4 space-y-4">
         <fieldset disabled={locked} className="m-0 min-w-0 space-y-4 border-0 p-0">
         {/* 1 — Doctor */}
         <Card className="p-5">
           <div className="flex items-center gap-2 mb-3">
-            <span className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-extrabold ${doctorId? "bg-emerald-600 text-white":"bg-[var(--navy)] text-white"}`}>{doctorId? "✓":"1"}</span>
+            <span className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-extrabold ${doctorId? "bg-emerald-600 text-white":"bg-[var(--navy)] text-white"}`}>{doctorId? <Icon name="check" size={14} /> : "1"}</span>
             <span className="font-bold">الطبيب والعيادة</span>
             <span className="text-xs text-red-600 font-bold">*</span>
             {selectedDoctor && <span className="mr-auto text-xs bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-full px-2.5 py-1 font-semibold">{selectedDoctor.city}</span>}
@@ -320,7 +321,7 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
                       <span className="block text-sm font-semibold truncate">{d.name}</span>
                       <span className="block text-xs text-[var(--muted)] truncate">{d.clinic_name} — {d.city}</span>
                     </span>
-                    {doctorId===d.id && <span className="text-emerald-600 font-bold">✓</span>}
+                    {doctorId===d.id && <span className="text-emerald-600"><Icon name="check" size={16} /></span>}
                   </button>
                 ))}
                 {filtered.length===0 && <div className="p-3 text-sm text-[var(--muted)] text-center">لا نتائج — جرّب كتابة جزء من الاسم</div>}
@@ -329,7 +330,7 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
           </div>
           {selectedDoctor ? (
             <div className="mt-3 rounded-xl bg-emerald-50 border border-emerald-200 p-3 flex items-center gap-3">
-              <span className="h-9 w-9 rounded-full bg-emerald-600 text-white flex items-center justify-center text-sm">✓</span>
+              <span className="h-9 w-9 rounded-full bg-emerald-600 text-white flex items-center justify-center"><Icon name="check" size={18} /></span>
               <div>
                 <div className="text-sm font-bold text-emerald-900">{selectedDoctor.name}</div>
                 <div className="text-xs text-emerald-800">{selectedDoctor.clinic_name} — {selectedDoctor.city}</div>
@@ -353,7 +354,7 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
               return <button key={p.id} type="button" onClick={() => togglePresented(p.id)} aria-pressed={on}
                 className={`overflow-hidden rounded-2xl border-2 text-right transition ${on ? "border-[var(--navy)] bg-sky-50 ring-2 ring-[var(--gold)]/40" : "border-[var(--border)] bg-white"}`}>
                 <div className="relative h-24 w-full bg-slate-100"><ProductThumb id={p.id} name={p.name} />
-                  {on && <span className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-[var(--navy)] text-sm font-bold text-white">✓</span>}
+                  {on && <span className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-[var(--navy)] text-white"><Icon name="check" size={15} /></span>}
                   {p.id === assignedProductId && <span className="absolute right-2 top-2 rounded-full bg-[var(--gold)] px-2 py-0.5 text-[10px] font-bold text-white">منتجي</span>}
                 </div>
                 <div className="p-2.5"><div className="font-extrabold">{p.name}</div><div className="text-[11px] text-[var(--muted)]">{PRODUCT_DESC[p.name] || ""}</div></div>
@@ -410,15 +411,15 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
           <div className="font-bold mb-3">حالة الزيارة</div>
           <div className="grid grid-cols-3 gap-2">
             {[
-              {v:"completed", label:"مكتملة", icon:"✓", color:"bg-emerald-600 text-white border-emerald-600"},
-              {v:"planned", label:"مجدولة", icon:"◷", color:"bg-sky-600 text-white border-sky-600"},
-              {v:"cancelled", label:"ملغاة", icon:"×", color:"bg-red-600 text-white border-red-600"},
+              {v:"completed", label:"مكتملة", icon:"check", color:"bg-emerald-600 text-white border-emerald-600"},
+              {v:"planned", label:"مجدولة", icon:"clock", color:"bg-sky-600 text-white border-sky-600"},
+              {v:"cancelled", label:"ملغاة", icon:"x", color:"bg-red-600 text-white border-red-600"},
             ].map(o=>{
               const active=status===o.v;
               return (
                 <button key={o.v} type="button" onClick={()=> setStatus(o.v)}
                   className={`min-h-14 rounded-xl border-2 py-3 flex flex-col items-center gap-1 font-bold text-sm transition ${active? o.color: "bg-white border-[var(--border)] text-[var(--muted)] hover:border-[var(--navy)]/30"}`}>
-                  <span className="text-base">{getVisitStatusMeta(o.v).icon}</span>{getVisitStatusMeta(o.v).label}
+                  <Icon name={getVisitStatusMeta(o.v).icon} size={18} />{getVisitStatusMeta(o.v).label}
                 </button>
               );
             })}
@@ -433,7 +434,7 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
             <span className="mr-auto text-[11px] text-[var(--muted)]">يُلتقط تلقائيا</span>
           </div>
           <div className={`mt-3 rounded-xl border p-3 flex items-center gap-3 ${gps? "bg-emerald-50 border-emerald-200":"bg-amber-50 border-amber-200"}`}>
-            <span className={`h-8 w-8 rounded-full flex items-center justify-center text-sm ${gps? "bg-emerald-600 text-white":"bg-amber-500 text-white"}`}>{gps? "✓":"◎"}</span>
+            <span className={`h-8 w-8 rounded-full flex items-center justify-center ${gps? "bg-emerald-600 text-white":"bg-amber-500 text-white"}`}>{gps? <Icon name="check" size={16} /> : <Icon name="map" size={16} />}</span>
             <span className="flex-1 text-xs font-medium">{gpsLoading? "جاري تحديد الموقع...": gpsStatus}</span>
             <Button type="button" variant="outline" onClick={captureGps} disabled={gpsLoading} className="shrink-0 text-xs py-1.5">تحديث</Button>
           </div>
@@ -457,7 +458,7 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
         <Card className="p-5">
           <div className="flex items-center gap-2 mb-2">
             <span className="font-bold">ملاحظات الزيارة</span><span className="text-xs text-red-600 font-bold">*</span>
-            <span className={`mr-auto text-xs rounded-full px-2 py-0.5 border font-bold ${notesOk? "bg-emerald-50 border-emerald-200 text-emerald-800":"bg-amber-50 border-amber-200 text-amber-800"}`}>{notesLen}/10 {notesOk? "✓":"مطلوب"}</span>
+            <span className={`mr-auto text-xs rounded-full px-2 py-0.5 border font-bold ${notesOk? "bg-emerald-50 border-emerald-200 text-emerald-800":"bg-amber-50 border-amber-200 text-amber-800"}`}>{notesLen}/10 {notesOk? <Icon name="check" size={13} className="inline align-[-2px]" />:"مطلوب"}</span>
           </div>
           <Textarea value={notes} onChange={e=> setNotes(e.target.value)} rows={4} placeholder="مثال: تم عرض المنتج، الطبيب مهتم، طلب عينات إضافية، متابعة بعد 10 أيام..." required className="min-h-[96px]" />
           {!notesOk && notes.length>0 && <div className="mt-1 text-xs text-amber-700">اكتب {10-notesLen} أحرف إضافية على الأقل</div>}
@@ -486,7 +487,7 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
                 <div className="truncate text-xs font-bold">{item.file.name}</div>
                 <div className="text-[11px] text-[var(--muted)]">{(item.file.size / 1024).toFixed(0)} KB</div>
                 {item.state === "uploading" && <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-valuenow={item.progress} aria-valuemin={0} aria-valuemax={100}><div className="h-full bg-[var(--gold)]" style={{ width: `${item.progress}%` }} /></div>}
-                {item.state === "done" && <div className="text-[11px] font-bold text-emerald-700">✓ تم الرفع</div>}
+                {item.state === "done" && <div className="text-[11px] font-bold text-emerald-700 inline-flex items-center gap-1"><Icon name="check" size={12} /> تم الرفع</div>}
                 {item.state === "error" && <div className="text-[11px] font-bold text-red-700">{item.error || "تعذر الرفع"}</div>}
               </div>
               {item.state !== "uploading" && item.state !== "done" && <button type="button" onClick={() => removeFile(item.id)} aria-label="حذف الملف" className="h-11 w-11 shrink-0 rounded-lg border text-lg font-bold">×</button>}
@@ -494,13 +495,13 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
           </ul>}
         </Card>
 
-        {err && <div role="alert" className="rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm p-3 flex gap-2"><span>⚠</span><span>{err}</span></div>}
+        {err && <div role="alert" className="rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm p-3 flex items-center gap-2"><Icon name="warn" size={16} className="shrink-0" /><span>{err}</span></div>}
 
         <div className="flex gap-2">
           {locked
             ? <Button type="button" variant="outline" onClick={()=> { router.push("/visits"); router.refresh(); }} className="flex-1">متابعة دون الملفات</Button>
             : <Button type="button" variant="outline" onClick={()=> router.back()} className="flex-1">إلغاء</Button>}
-          <Button type="submit" disabled={loading || (!locked && (!doctorId || !notesOk || sampleInvalid))} className="flex-[2] min-h-12 text-base py-3">{loading ? "جاري الحفظ..." : locked ? "إعادة محاولة رفع الملفات" : "حفظ الزيارة ✓"}</Button>
+          <Button type="submit" disabled={loading || (!locked && (!doctorId || !notesOk || sampleInvalid))} className="flex-[2] min-h-12 text-base py-3 inline-flex items-center justify-center gap-1.5">{loading ? "جاري الحفظ..." : locked ? "إعادة محاولة رفع الملفات" : <>حفظ الزيارة <Icon name="check" size={16} /></>}</Button>
         </div>
         <div className="text-center text-[11px] text-[var(--muted)]">الحقول بعلامة * إجبارية — الزيارة تُحفظ بتاريخ اليوم تلقائيا</div>
       </form>

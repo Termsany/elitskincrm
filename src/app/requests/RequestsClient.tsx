@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge, Button, Card, Input, Label, Select, Textarea } from "@/components/ui";
+import { Icon } from "@/components/Icon";
 import { allowedRequestTransitions, requestSlaState, requestStatusLabel, type RequestStatus } from "@/lib/request-workflow";
 import { requestDueToRiyadhInput, riyadhInputToIso } from "@/lib/request-dates";
 
@@ -282,12 +283,12 @@ export default function RequestsClient({ isAdmin }: { isAdmin: boolean }) {
 
     <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
       {[
-        ["الطلبات النشطة", counts.active, "active", "◷"],
-        [isAdmin ? "تحتاج قرارًا" : "تحتاج ردك", counts.action, "action", "!"],
-        ["متأخرة", counts.overdue, "overdue", "⚠"],
-        ["مكتملة", counts.completed, "completed", "✓"],
-        ["الإجمالي", counts.all, "all", "▦"],
-      ].map(([label, value, key, icon]) => <button type="button" key={String(key)} onClick={() => setFilter(String(key))} className={`min-h-24 rounded-2xl border p-4 text-right shadow-sm transition ${filter === key ? "border-[var(--navy)] bg-[var(--navy)] text-white" : "border-[var(--border)] bg-white hover:border-[var(--gold)]"}`}><div className="flex items-center justify-between text-xs font-bold opacity-75"><span>{label}</span><span>{icon}</span></div><div className={`mt-2 text-3xl font-extrabold ${filter === key ? "text-[var(--gold)]" : "text-[var(--navy)]"}`}>{value}</div></button>)}
+        ["الطلبات النشطة", counts.active, "active", "clock"],
+        [isAdmin ? "تحتاج قرارًا" : "تحتاج ردك", counts.action, "action", "alert"],
+        ["متأخرة", counts.overdue, "overdue", "warn"],
+        ["مكتملة", counts.completed, "completed", "check"],
+        ["الإجمالي", counts.all, "all", "all"],
+      ].map(([label, value, key, icon]) => <button type="button" key={String(key)} onClick={() => setFilter(String(key))} className={`min-h-24 rounded-2xl border p-4 text-right shadow-sm transition ${filter === key ? "border-[var(--navy)] bg-[var(--navy)] text-white" : "border-[var(--border)] bg-white hover:border-[var(--gold)]"}`}><div className="flex items-center justify-between text-xs font-bold opacity-75"><span>{label}</span><span><Icon name={String(icon)} size={16} /></span></div><div className={`mt-2 text-3xl font-extrabold ${filter === key ? "text-[var(--gold)]" : "text-[var(--navy)]"}`}>{value}</div></button>)}
     </div>
 
     <Card className="p-3 sm:p-4">

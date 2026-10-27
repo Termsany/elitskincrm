@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { Card, Button, Input, Label, Select, Badge, Textarea } from "@/components/ui";
+import { Icon } from "@/components/Icon";
 
 import {personalTask,isTaskOverdue} from "@/lib/task-personal-state";
 import {taskReminderDateWindow} from "@/lib/plan-reminders";
@@ -166,7 +167,7 @@ export default function TasksClient({ isAdmin, reps, currentUserId }: { isAdmin:
                   <span>المسؤولون: <b className="text-[var(--ink)]">{t.assignees?.map((a:{name:string;status:string})=>`${a.name} (${statusLabel[a.status]||a.status})`).join("، ")||"—"}</b></span>
                   {t.doctor_name && <span>الطبيب: {t.doctor_name} {t.clinic_name? `— ${t.clinic_name}`:""}</span>}
                   {t.due_date && <span>الاستحقاق: {new Date(t.due_date).toLocaleDateString("ar-EG")}</span>}
-                  {t.checklist_total>0 && <span>✓ {t.checklist_done}/{t.checklist_total}</span>}
+                  {t.checklist_total>0 && <span className="inline-flex items-center gap-1"><Icon name="check" size={13} /> {t.checklist_done}/{t.checklist_total}</span>}
                   {t.comments_count>0 && <span>💬 {t.comments_count}</span>}
                   {t.attachments_count>0 && <span>📎 {t.attachments_count}</span>}
                 </div>
@@ -177,7 +178,7 @@ export default function TasksClient({ isAdmin, reps, currentUserId }: { isAdmin:
                 {!["completed","failed"].includes(t.status) && (t.assignees?.some((a:{user_id:string})=>a.user_id===currentUserId) || isAdmin) && (
                   <>
                     {t.status==="pending" && <Button variant="outline" onClick={()=>updateStatus(t,"in_progress")} className="text-xs py-1.5">بدء</Button>}
-                    <Button onClick={()=>updateStatus(t,"completed")} className="text-xs py-1.5">إكمال ✓</Button>
+                    <Button onClick={()=>updateStatus(t,"completed")} className="text-xs py-1.5 inline-flex items-center gap-1">إكمال <Icon name="check" size={14} /></Button>
                     <Button variant="outline" onClick={()=>updateStatus(t,"failed")} className="text-xs py-1.5 border-red-200 text-red-700">لم تكتمل</Button>
                   </>
                 )}
