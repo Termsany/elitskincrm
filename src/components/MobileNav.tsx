@@ -6,6 +6,7 @@ import { useState } from "react";
 import { dashboardMobileLinks } from "@/lib/dashboard-workspace";
 import NotificationsBell from "./NotificationsBell";
 import MyAlertsBadge from "./MyAlertsBadge";
+import { Icon } from "@/components/Icon";
 
 type Item = { href: string; label: string; icon: string };
 
@@ -41,10 +42,10 @@ export default function MobileNav({ items, active, name, role }: { items: Item[]
       {primaryItems.map((item) => {
         const current = item.href !== "#more" && isOn(item.href);
         if (item.href === "#more") {
-          return <button key={item.href} type="button" onClick={() => setOpen(true)} className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl text-[10px] font-extrabold text-[var(--muted)] focus-visible:outline-dashed"><span className="text-base leading-none">{item.icon}</span>{item.label}</button>;
+          return <button key={item.href} type="button" onClick={() => setOpen(true)} className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl text-[10px] font-extrabold text-[var(--muted)] focus-visible:outline-dashed"><Icon name={item.icon} size={22} />{item.label}</button>;
         }
         return <Link key={item.href} href={item.href} aria-current={current ? "page" : undefined} className={`relative flex min-h-14 flex-col items-center justify-center gap-1 rounded-2xl text-[10px] font-extrabold transition focus-visible:outline-dashed ${item.primary ? "mx-auto -mt-7 h-16 w-16 bg-[var(--gold)] text-[var(--navy)] shadow-lg ring-4 ring-white" : current ? "bg-[var(--sky-soft)] text-[var(--sky-deep)]" : "text-[var(--muted)]"}`}>
-          <span className={`${item.primary ? "text-2xl" : "text-base"} leading-none`}>{item.icon}</span>{item.label}
+          <Icon name={item.icon} size={item.primary ? 26 : 22} />{item.label}
         </Link>;
       })}
     </nav>
@@ -57,7 +58,7 @@ export default function MobileNav({ items, active, name, role }: { items: Item[]
           <button type="button" aria-label="إغلاق القائمة" onClick={() => setOpen(false)} className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/10 text-2xl">×</button>
         </div>
         <nav aria-label="التنقل الرئيسي" className="mt-4 flex flex-col gap-1.5">
-          {items.map((item) => <Link key={item.href} href={item.href} onClick={() => setOpen(false)} className={`flex min-h-12 items-center gap-3 rounded-2xl px-4 text-sm font-bold transition ${isOn(item.href) ? "bg-[var(--gold)] text-[var(--navy)]" : "text-white/90 hover:bg-white/10"}`}><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10 text-base">{item.icon}</span><span>{item.label}</span>{isOn(item.href) && <span className="mr-auto text-xs">●</span>}</Link>)}
+          {items.map((item) => <Link key={item.href} href={item.href} onClick={() => setOpen(false)} className={`flex min-h-12 items-center gap-3 rounded-2xl px-4 text-sm font-bold transition ${isOn(item.href) ? "bg-[var(--gold)] text-[var(--navy)]" : "text-white/90 hover:bg-white/10"}`}><span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/10"><Icon name={item.icon} size={18} /></span><span>{item.label}</span>{isOn(item.href) && <span className="mr-auto text-xs">●</span>}</Link>)}
         </nav>
         <div className="mt-auto border-t border-white/15 pt-4"><button type="button" disabled={loggingOut} onClick={() => void logout()} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-red-500/90 px-4 text-sm font-extrabold text-white disabled:opacity-60">{loggingOut ? "جارٍ تسجيل الخروج…" : "تسجيل خروج"}<span aria-hidden="true">↪</span></button></div>
       </aside>

@@ -8,6 +8,7 @@ import DashboardDoctorSuggestions from "./DashboardDoctorSuggestions";
 import AdminTeamOverview from "./AdminTeamOverview";
 import RepDailyWorkspace from "./RepDailyWorkspace";
 import { dashboardQuickLinks, performanceTone, salesAttainment } from "@/lib/dashboard-workspace";
+import { Icon } from "@/components/Icon";
 
 type Stats = {
   kpis: { visits: number; doctors: number; orders: number; reps: number };
@@ -39,7 +40,7 @@ function QuickLinks({ admin }: { admin: boolean }) {
             href={item.href}
             className={`group min-h-32 rounded-2xl border p-4 transition hover:-translate-y-0.5 hover:shadow-md ${index === 0 ? "border-[var(--navy)] bg-[var(--navy)] text-white" : "border-[var(--border)] bg-white hover:border-[var(--sky)]"}`}
           >
-            <span className={`flex h-10 w-10 items-center justify-center rounded-xl text-lg font-extrabold ${index === 0 ? "bg-white/15 text-[var(--gold)]" : "bg-[var(--sky-soft)] text-[var(--navy)]"}`}>{item.icon}</span>
+            <span className={`flex h-10 w-10 items-center justify-center rounded-xl text-lg font-extrabold ${index === 0 ? "bg-white/15 text-[var(--gold)]" : "bg-[var(--sky-soft)] text-[var(--navy)]"}`}><Icon name={item.icon} size={20} /></span>
             <div className={`mt-3 text-sm font-extrabold ${index === 0 ? "text-white" : "text-[var(--navy)]"}`}>{item.label}</div>
             <div className={`mt-1 text-[11px] leading-5 ${index === 0 ? "text-white/70" : "text-[var(--muted)]"}`}>{item.detail}</div>
           </Link>
