@@ -21,7 +21,7 @@ export function AppShell({ role, email, name, jobTitle, productName, children, a
     { href: "/admin/reps", label: "المناديب", icon: "reps", show: isAdmin, group: "primary" },
     { href: "/admin/reports", label: "التقارير", icon: "reports", show: isAdmin, group: "primary" },
     // ── more (secondary, collapsed) ──
-    { href: "/work", label: "مركز العمل", icon: "work", show: true, group: "more" },
+    { href: "/work", label: "مركز العمل", icon: "work", show: !isAdmin, group: "more" },
     { href: "/calendar", label: "التقويم والتعاون", icon: "calendar", show: true, group: "more" },
     { href: "/map", label: "الخريطة", icon: "map", show: isAdmin, group: "more" },
     { href: "/admin/doctor-stats", label: "أداء الأطباء", icon: "doctor-stats", show: isAdmin, group: "more" },

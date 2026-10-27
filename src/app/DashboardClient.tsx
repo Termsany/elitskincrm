@@ -9,6 +9,7 @@ import AdminTeamOverview from "./AdminTeamOverview";
 import RepDailyWorkspace from "./RepDailyWorkspace";
 import { dashboardQuickLinks, performanceTone, salesAttainment } from "@/lib/dashboard-workspace";
 import { Icon } from "@/components/Icon";
+import AdminActionCenter from "@/app/AdminActionCenter";
 
 type Stats = {
   kpis: { visits: number; doctors: number; orders: number; reps: number };
@@ -129,12 +130,12 @@ function AdminDashboard({ cities }: { cities: string[] }) {
         <div className="absolute -left-12 -top-24 h-64 w-64 rounded-full bg-[var(--sky)]/15" />
         <div className="relative flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
           <div>
-            <div className="text-[11px] font-bold tracking-[0.24em] text-[var(--gold)]">ELITE SKIN COMMAND CENTER</div>
+            <div className="text-[11px] font-bold tracking-[0.24em] text-[var(--sky)]">ELITE SKIN COMMAND CENTER</div>
             <h2 className="mt-2 text-2xl font-extrabold sm:text-3xl">مركز قيادة الإدارة</h2>
             <p className="mt-2 max-w-2xl text-sm leading-7 text-white/70">الإجراءات المطلوبة، أداء المناديب، الخطط، الزيارات والطلبات في مسار عمل واحد.</p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <Link href="/admin/alerts" className="flex min-h-12 items-center justify-center rounded-xl bg-[var(--gold)] px-5 text-sm font-extrabold text-[var(--navy)]">فتح مركز الإجراءات</Link>
+            <a href="#action-center" className="flex min-h-12 items-center justify-center rounded-full bg-[var(--gold)] px-5 text-sm font-extrabold text-white">عرض الإجراءات المطلوبة</a>
             <Link href="/admin/reports" className="flex min-h-12 items-center justify-center rounded-xl border border-white/20 bg-white/10 px-5 text-sm font-bold">التقارير</Link>
           </div>
         </div>
@@ -159,11 +160,13 @@ function AdminDashboard({ cities }: { cities: string[] }) {
         {cards.map((item) => (
           <Link key={item.label} href={item.href} className={`min-h-36 rounded-2xl border p-4 transition hover:-translate-y-0.5 hover:shadow-md ${item.tone === "navy" ? "border-[var(--navy)] bg-[var(--navy)] text-white" : "border-[var(--border)] bg-white"}`}>
             <div className={`text-xs font-bold ${item.tone === "navy" ? "text-white/65" : "text-[var(--muted)]"}`}>{item.label}</div>
-            <div className={`mt-2 text-3xl font-extrabold ${item.tone === "navy" ? "text-[var(--gold)]" : "text-[var(--navy)]"}`}>{item.value === undefined ? "—" : number.format(item.value)}</div>
+            <div className={`mt-2 text-3xl font-extrabold ${item.tone === "navy" ? "text-[var(--sky)]" : "text-[var(--navy)]"}`}>{item.value === undefined ? "—" : number.format(item.value)}</div>
             <div className={`mt-4 text-[11px] font-bold ${item.tone === "navy" ? "text-white/75" : "text-[var(--sky-deep)]"}`}>{item.detail} ←</div>
           </Link>
         ))}
       </div>
+
+      <section id="action-center" className="scroll-mt-4"><AdminActionCenter /></section>
 
       <AdminTeamOverview />
 
