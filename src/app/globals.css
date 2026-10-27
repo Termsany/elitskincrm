@@ -1,30 +1,50 @@
 @import "tailwindcss";
+
+/* ─────────────────────────────────────────────
+   Elite Skin — brand system
+   Rose-gold + warm charcoal · cosmetics / skincare
+   (token names kept; values rebranded so the whole
+   app re-skins from here)
+   ───────────────────────────────────────────── */
 :root {
-  --navy: #15384b;
-  --navy-2: #1c4c63;
-  --navy-3: #286b86;
-  --sky: #2b9fbd;
-  --sky-deep: #176581;
-  --sky-soft: #e7f4f7;
-  --sky-light: #f5fafb;
-  --sky-border: #c9e5eb;
-  --gold: #39b7d3;
-  --gold-2: #59c8df;
-  --gold-soft: #e1f4f7;
-  --gold-border: #c9eaf0;
-  --bg: #f4f8fa;
+  /* charcoal (primary dark surfaces: sidebar, headers) */
+  --navy: #2b2630;
+  --navy-2: #3a3442;
+  --navy-3: #4c4556;
+
+  /* soft rose (highlights / active states) */
+  --sky: #c98b82;
+  --sky-deep: #9c665e;
+  --sky-soft: #f7e9e5;
+  --sky-light: #fcf6f4;
+  --sky-border: #ecd6d0;
+
+  /* rose-gold (primary accent / CTAs) */
+  --gold: #c6877b;
+  --gold-2: #b1746a;
+  --gold-soft: #f5e7e1;
+  --gold-border: #e7cfc7;
+
+  --bg: #faf5f1;      /* warm cream page background */
   --card: #ffffff;
-  --ink: #18313e;
-  --ink-soft: #365565;
-  --muted: #66808d;
-  --border: #d8e8ec;
-  --border-strong: #b6d8df;
+  --ink: #2a2530;     /* primary text */
+  --ink-soft: #574e5c;
+  --muted: #8a7f8c;   /* muted mauve-grey */
+  --border: #ece0e2;
+  --border-strong: #dbcbce;
+
   --success: #1e7a5a;
   --danger: #b42318;
   --warn: #b7791f;
+
+  --font-display: "Playfair Display", "Cairo", Georgia, serif;
 }
+
 * { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
 html { scroll-behavior: smooth; }
 body { background: var(--bg); color: var(--ink); }
 [dir="rtl"] { text-align: right; }
-:focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* elegant Latin display type for the brand lockup */
+.font-display { font-family: var(--font-display); }

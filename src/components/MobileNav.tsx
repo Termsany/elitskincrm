@@ -7,6 +7,7 @@ import { dashboardMobileLinks } from "@/lib/dashboard-workspace";
 import NotificationsBell from "./NotificationsBell";
 import MyAlertsBadge from "./MyAlertsBadge";
 import { Icon } from "@/components/Icon";
+import { Logo } from "@/components/Logo";
 
 type Item = { href: string; label: string; icon: string };
 
@@ -32,13 +33,13 @@ export default function MobileNav({ items, active, name, role }: { items: Item[]
     <header className="sticky top-0 z-40 flex min-h-16 items-center justify-between gap-3 bg-[var(--navy)] px-3 text-white shadow-md sm:px-5 lg:hidden">
       <button type="button" aria-label="فتح قائمة التنقل" aria-expanded={open} onClick={() => setOpen(true)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/10 text-xl leading-none focus-visible:outline-dashed">☰</button>
       <div className="min-w-0 flex-1 text-center">
-        <div className="truncate text-sm font-extrabold tracking-[0.18em]">ELITE SKIN</div>
+        <div className="font-display truncate text-sm font-semibold tracking-[0.2em]">ELITE <span className="text-[var(--gold)]">SKIN</span></div>
         <div className="mt-0.5 truncate text-[10px] text-[var(--gold)]">{name}</div>
       </div>
       <div className="flex shrink-0 items-center gap-1"><NotificationsBell role={role} /><MyAlertsBadge role={role} /></div>
     </header>
 
-    <nav aria-label="التنقل السريع" className="fixed inset-x-0 bottom-0 z-50 grid min-h-[74px] grid-cols-5 items-center border-t border-[var(--border)] bg-white/95 px-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_30px_rgba(21,56,75,0.12)] backdrop-blur lg:hidden">
+    <nav aria-label="التنقل السريع" className="fixed inset-x-0 bottom-0 z-50 grid min-h-[74px] grid-cols-5 items-center border-t border-[var(--border)] bg-white/95 px-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_30px_rgba(43,38,48,0.12)] backdrop-blur lg:hidden">
       {primaryItems.map((item) => {
         const current = item.href !== "#more" && isOn(item.href);
         if (item.href === "#more") {
@@ -54,7 +55,7 @@ export default function MobileNav({ items, active, name, role }: { items: Item[]
       <button type="button" aria-label="إغلاق قائمة التنقل" className="absolute inset-0 bg-black/55" onClick={() => setOpen(false)} />
       <aside className="absolute inset-y-0 right-0 flex w-[min(88vw,360px)] flex-col overflow-y-auto bg-[var(--navy)] p-4 text-white shadow-2xl sm:p-5">
         <div className="flex items-center justify-between border-b border-white/15 pb-4">
-          <div><div className="text-lg font-extrabold tracking-widest">ELITE SKIN</div><div className="mt-1 text-xs text-white/60">كل أقسام النظام</div></div>
+          <div><Logo variant="lockup" tone="onDark" markSize={36} /><div className="mt-1 text-xs text-white/60">كل أقسام النظام</div></div>
           <button type="button" aria-label="إغلاق القائمة" onClick={() => setOpen(false)} className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-white/10 text-2xl">×</button>
         </div>
         <nav aria-label="التنقل الرئيسي" className="mt-4 flex flex-col gap-1.5">

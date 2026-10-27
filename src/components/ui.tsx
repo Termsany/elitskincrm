@@ -22,6 +22,7 @@ export function Badge({
 export function Button({
   children,
   variant = "primary",
+  className = "",
   ...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "ghost" | "outline" }) {
   const base =
@@ -33,7 +34,7 @@ export function Button({
         ? "border border-[var(--border)] bg-white hover:bg-slate-50 text-[var(--ink)]"
         : "hover:bg-slate-100 text-[var(--ink)]";
   return (
-    <button className={`${base} ${v} ${props.className || ""}`} {...props}>
+    <button className={`${base} ${v} ${className}`} {...props}>
       {children}
     </button>
   );

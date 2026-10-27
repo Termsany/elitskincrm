@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, Button, Input, Label } from "@/components/ui";
+import { Logo } from "@/components/Logo";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -21,10 +22,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4" dir="rtl" style={{ background:"radial-gradient(900px 500px at 100% 0%, #2b9fbd 0%, #1c4c63 48%, #15384b 100%)" }}>
+    <div className="min-h-screen flex items-center justify-center p-4" dir="rtl" style={{ background:"radial-gradient(920px 520px at 100% 0%, #c6877b 0%, #4c4556 46%, #2b2630 100%)" }}>
       <div className="w-full max-w-[420px]">
         <div className="text-center text-white mb-6">
-          <div className="text-3xl font-extrabold tracking-widest">ELITE SKIN</div>
+          <Logo variant="stacked" tone="onDark" markSize={54} className="mb-1" />
           <div className="text-sm text-[var(--gold)] mt-1">crm.eliteskinsa.com</div>
           <h1 className="text-xl font-bold mt-4">تسجيل الدخول</h1>
           <p className="text-sm text-white/70 mt-1">نظام إدارة زيارات المناديب الطبية</p>
