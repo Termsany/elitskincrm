@@ -3,6 +3,8 @@ import { getCurrentUser } from "@/lib/session";
 import { pool,query } from "@/lib/db";
 import { doctorSchema } from "@/lib/validation";
 import { normalizeDoctorImportRow } from "@/lib/doctor-import";
+import { sheetToObjects } from "@/lib/workbook";
+import ExcelJS from "exceljs";
 
 export async function POST(req:Request){
  const user=await getCurrentUser();if(!user||user.role!=="admin")return NextResponse.json({error:"Forbidden"},{status:403});
@@ -12,8 +14,14 @@ export async function POST(req:Request){
   const form=await req.formData(),file=form.get("file");
   if(!(file instanceof File))return NextResponse.json({error:"اختر ملف Excel"},{status:400});
   if(file.size>10*1024*1024)return NextResponse.json({error:"حجم الملف يجب ألا يتجاوز 10MB"},{status:400});
-  const XLSX=await import("xlsx"),workbook=XLSX.read(await file.arrayBuffer(),{type:"array",cellDates:false});
-  const sheet=workbook.Sheets[workbook.SheetNames[0]];rawRows=XLSX.utils.sheet_to_json<Record<string,unknown>>(sheet,{defval:"",raw:false});
+  const workbook=new ExcelJS.Workbook();
+  // @types/node's generic Buffer<T> and exceljs's bundled (older, non-generic) Buffer type are
+  // structurally incompatible at the type level only; Buffer.from(arrayBuffer) is exactly what
+  // exceljs expects at runtime (confirmed by a manual end-to-end parse test).
+  await workbook.xlsx.load(Buffer.from(await file.arrayBuffer()) as any);
+  const sheet=workbook.worksheets[0];
+  if(!sheet)return NextResponse.json({error:"الملف لا يحتوي على أي ورقة عمل"},{status:400});
+  rawRows=sheetToObjects(sheet);
  }else{
   const body=await req.json().catch(()=>null) as {doctors?:Record<string,unknown>[]} | null;rawRows=Array.isArray(body?.doctors)?body.doctors:[];
  }
