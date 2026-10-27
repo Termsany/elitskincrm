@@ -1,0 +1,29 @@
+import {NextResponse} from "next/server";
+import {getCurrentUser} from "@/lib/session";
+import {pool,query} from "@/lib/db";
+import {riyadhDateParts} from "@/lib/plan-reminders";
+const DEFAULT={A:3,B:3,C:2}; const RANK={A:0,B:1,C:2} as Record<string,number>;
+export async function GET(){
+ const user=await getCurrentUser(); if(!user)return NextResponse.json({error:"Unauthorized"},{status:401}); if(user.role!=="sales_rep")return NextResponse.json({suggestions:[],coverage:[]});
+ const freq=await query(`SELECT classification,visits_per_month FROM plan_frequencies`); const fm={...DEFAULT}; for(const r of freq.rows as Record<string,unknown>[])fm[String(r.classification||"").toUpperCase() as keyof typeof fm]=Number(r.visits_per_month)||0;
+ const r=await query(`SELECT d.id,d.name,d.clinic_name,d.city,d.classification,max(v.visited_at) last_visit,count(v.id) FILTER(WHERE v.visited_at>=date_trunc('month',now()))::int month_visits,(SELECT count(*)::int FROM plan_items pi JOIN plans p ON p.id=pi.plan_id WHERE p.user_id=$1 AND pi.doctor_id=d.id AND p.status<>'rejected' AND pi.planned_date>=date_trunc('month',now())::date) planned_visits FROM doctors d LEFT JOIN visits v ON v.doctor_id=d.id AND v.sales_rep_id=$1 WHERE d.status='active' GROUP BY d.id`,[user.id]);
+ const rows=(r.rows as Record<string,unknown>[]).map(x=>{const cls=String(x.classification||"").toUpperCase();const goal=fm[cls as keyof typeof fm]||0;const done=Number(x.month_visits)||0;const planned=Number(x.planned_visits)||0;const remaining=Math.max(0,goal-done-planned);const stale=!x.last_visit||Date.now()-new Date(String(x.last_visit)).getTime()>10*86400000;return {...x,classification:cls,goal,month_visits:done,planned_visits:planned,remaining,stale}}).filter(x=>x.remaining>0||x.stale).sort((a,b)=>Number(b.remaining)-Number(a.remaining)||(RANK[a.classification]??3)-(RANK[b.classification]??3)||Number(b.stale)-Number(a.stale));
+ const coverage=(["A","B","C"] as const).map(cls=>{const count=Number((r.rows as Record<string,unknown>[]).filter(x=>String(x.classification||"").toUpperCase()===cls).length);const goal=fm[cls];const completed=(r.rows as Record<string,unknown>[]).filter(x=>String(x.classification||"").toUpperCase()===cls).reduce((s,x)=>s+Math.min(Number(x.month_visits)||0,goal),0);return {classification:cls,goal,doctors:count,completed,expected:count*goal,percent:count?Math.round(completed/(count*goal)*100):0}});
+ return NextResponse.json({suggestions:rows.slice(0,50),coverage,today:riyadhDateParts().date});
+}
+export async function POST(req:Request){
+ const user=await getCurrentUser(); if(!user)return NextResponse.json({error:"Unauthorized"},{status:401}); if(user.role!=="sales_rep")return NextResponse.json({error:"Forbidden"},{status:403});
+ const body=await req.json().catch(()=>null) as {doctor_id?:string;planned_date?:string}|null; const doctorId=body?.doctor_id,date=body?.planned_date;
+ if(!doctorId||!date||!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(date))return NextResponse.json({error:"اختر الطبيب واليوم"},{status:400});
+ const today=riyadhDateParts().date; if(date<=today)return NextResponse.json({error:"اختر تاريخًا بعد تاريخ اليوم"},{status:400}); const todayDate=new Date(`${today}T12:00:00Z`); const maxDate=new Date(todayDate); maxDate.setUTCDate(maxDate.getUTCDate()+30); const maxDateStr=maxDate.toISOString().slice(0,10); if(date>maxDateStr)return NextResponse.json({error:"يمكن اختيار يوم خلال 30 يومًا قادمة فقط"},{status:400});
+ const d=new Date(`${date}T12:00:00Z`);
+ const start=new Date(d); start.setUTCDate(d.getUTCDate()-d.getUTCDay()); const end=new Date(start); end.setUTCDate(start.getUTCDate()+6); const startStr=start.toISOString().slice(0,10),endStr=end.toISOString().slice(0,10);
+ const client=await pool.connect(); try{await client.query("BEGIN"); const exists=await client.query(`SELECT id,status FROM plans WHERE user_id=$1 AND period='weekly' AND period_start=$2 AND period_end=$3 AND status<>'rejected' ORDER BY created_at DESC LIMIT 1`,[user.id,startStr,endStr]); let planId:string;
+  if(exists.rows[0]){if(exists.rows[0].status==='approved'){await client.query("ROLLBACK");return NextResponse.json({error:"الخطة الحالية معتمدة. افتح لوحة الخطط واطلب تعديلها من الأدمن."},{status:409});}planId=String(exists.rows[0].id);}else{const p=await client.query(`INSERT INTO plans(user_id,period,period_start,period_end,status,target_visits) VALUES($1,'weekly',$2,$3,'pending',NULL) RETURNING id`,[user.id,startStr,endStr]);planId=String(p.rows[0].id);}
+  const dup=await client.query(`SELECT 1 FROM plan_items WHERE plan_id=$1 AND doctor_id=$2 AND planned_date=$3`,[planId,doctorId,date]); if(dup.rows[0]){await client.query("ROLLBACK");return NextResponse.json({error:"الطبيب موجود بالفعل في هذا اليوم"},{status:409});}
+  const count=await client.query(`SELECT count(*)::int n FROM plan_items WHERE plan_id=$1`,[planId]); if(Number(count.rows[0].n)>=50){await client.query("ROLLBACK");return NextResponse.json({error:"الخطة وصلت للحد الأقصى"},{status:400});}
+  await client.query(`INSERT INTO plan_items(plan_id,doctor_id,planned_date,priority,sort_order) VALUES($1,$2,$3,'medium',$4)`,[planId,doctorId,date,Number(count.rows[0].n)]);
+  const admins=await client.query(`SELECT id FROM users WHERE role='admin'`);for(const a of admins.rows as Record<string,unknown>[])await client.query(`INSERT INTO task_notifications(user_id,task_id,plan_id,kind,message) VALUES($1,NULL,$2,'plan_pending',$3)`,[a.id,planId,`${user.name} أضاف طبيبًا مقترحًا إلى خطة ${startStr}`]);
+  await client.query("COMMIT");return NextResponse.json({ok:true,plan_id:planId,period_start:startStr,period_end:endStr});
+ }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
+}

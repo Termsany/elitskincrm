@@ -1,0 +1,62 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-elite_crm}
+      POSTGRES_USER: ${POSTGRES_USER:-elite_crm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-elite_crm} -d ${POSTGRES_DB:-elite_crm}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-elite_crm}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-elite_crm}
+      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:?set BOOTSTRAP_ADMIN_EMAIL}
+      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:?set BOOTSTRAP_ADMIN_PASSWORD}
+      BOOTSTRAP_ADMIN_NAME: ${BOOTSTRAP_ADMIN_NAME:-}
+      REP_BOOTSTRAP_PASSWORD: ${REP_BOOTSTRAP_PASSWORD:-}
+      NODE_ENV: production
+      UPLOAD_DIR: /tmp/elite-crm-uploads
+      CRON_SECRET: ${CRON_SECRET:?set CRON_SECRET}
+    volumes:
+      - uploads:/tmp/elite-crm-uploads
+    ports:
+      - "127.0.0.1:3100:3100"
+    command: sh -c "node scripts/migrate.mjs && node server.js"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3100/api/health',{signal:AbortSignal.timeout(4000)}).then(async r=>{const b=await r.json();process.exit(r.status===200&&b.ok===true&&b.db==='up'?0:1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+  reminders:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      app:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-elite_crm}
+      NODE_ENV: production
+      TZ: Asia/Riyadh
+      APP_BASE_URL: http://app:3100
+      CRON_SECRET: ${CRON_SECRET:?set CRON_SECRET}
+    command: node scripts/plan-reminder-worker.mjs
+
+volumes:
+  pgdata:
+  uploads:

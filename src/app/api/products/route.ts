@@ -1,0 +1,4 @@
+import {NextResponse} from "next/server";
+import {query} from "@/lib/db";
+import {getCurrentUser} from "@/lib/session";
+export async function GET(){const u=await getCurrentUser();if(!u)return NextResponse.json({error:"Unauthorized"},{status:401});const r=await query(`SELECT p.id,p.name,p.active,p.created_at,p.description,p.detailing_points,p.key_questions,p.detailing_version,p.content_updated_at,p.brochure_name,p.brochure_mime,(p.brochure_data IS NOT NULL) brochure_available,(p.image_data IS NOT NULL) image_available,(SELECT count(*)::int FROM users x WHERE x.assigned_product_id=p.id AND x.role='sales_rep' AND x.active=true) reps_count,(SELECT count(*)::int FROM visit_items vi WHERE vi.product_id=p.id) usage_count FROM products p WHERE p.active=true ORDER BY p.name`);return NextResponse.json({products:r.rows});}

@@ -1,0 +1,4 @@
+ALTER TABLE plan_items ADD COLUMN IF NOT EXISTS priority text NOT NULL DEFAULT 'medium';
+ALTER TABLE plan_items ADD COLUMN IF NOT EXISTS sort_order int NOT NULL DEFAULT 0;
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS target_visits int;
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS template_name text NOT NULL DEFAULT '';
