@@ -9,7 +9,7 @@ export default async function NewVisitPage({searchParams}:{searchParams:Promise<
   if (user.role === "admin") redirect("/visits");
   const { query } = await import("@/lib/db");
   const doctors = await query("SELECT id, name, clinic_name, city FROM doctors WHERE status='active' ORDER BY name ASC");
-  const products = await query("SELECT id, name FROM products WHERE active=true ORDER BY name");
+  const products = await query("SELECT id, name, description, detailing_points, key_questions, detailing_version, content_updated_at, brochure_name, brochure_mime, (brochure_data IS NOT NULL) brochure_available, (image_data IS NOT NULL) image_available FROM products WHERE active=true ORDER BY name");
   const params=await searchParams;
   const requestedDoctorId=params.doctorId||"";
   const requestedProductId=params.productId||"";
