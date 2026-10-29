@@ -18,8 +18,7 @@ export async function GET(req: Request){
   const where=conds.length? `WHERE ${conds.join(" AND ")}`:"";
   const r=await query(`
     SELECT p.*, u.name user_name, u2.name approved_by_name,
-      (SELECT count(*)::int FROM plan_items pi WHERE pi.plan_id=p.id) items_count,
-      (SELECT count(*)::int FROM plan_edit_requests pe WHERE pe.plan_id=p.id AND pe.status='pending') pending_edits
+      (SELECT count(*)::int FROM plan_items pi WHERE pi.plan_id=p.id) items_count
     FROM plans p JOIN users u ON u.id=p.user_id LEFT JOIN users u2 ON u2.id=p.approved_by
     ${where} ORDER BY p.created_at DESC LIMIT 100
   `, vals);

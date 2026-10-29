@@ -5,6 +5,3 @@ node_modules
 *.log
 .env
 .env.local
-tests
-**/*.test.ts
-vitest.config.ts

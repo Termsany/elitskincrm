@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import VisitsClient from "./VisitsClient";
 import AdminVisitsOverview from "../admin/visits/AdminVisitsOverview";
 
-export default async function VisitsPage({ searchParams }: { searchParams: Promise<{ repId?: string; status?: string; from?: string; to?: string; q?: string }> }) {
+export default async function VisitsPage({ searchParams }: { searchParams: Promise<{ repId?: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const { query } = await import("@/lib/db");
@@ -18,7 +18,7 @@ export default async function VisitsPage({ searchParams }: { searchParams: Promi
       </div>
       <div className="mt-4">
         {user.role==="admin" && <AdminVisitsOverview selectedRepId={sp.repId||""} />}
-        <VisitsClient isAdmin={user.role==="admin"} reps={reps.rows as any} initialRepId={sp.repId||""} initialStatus={sp.status||""} initialFrom={sp.from||""} initialTo={sp.to||""} initialQuery={sp.q||""} />
+        <VisitsClient isAdmin={user.role==="admin"} reps={reps.rows as any} initialRepId={sp.repId||""} />
       </div>
     </AppShell>
   );

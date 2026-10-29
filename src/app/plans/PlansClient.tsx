@@ -63,9 +63,6 @@ export default function PlansClient({ isAdmin, reps, doctors, products, initialS
   const [adminPlanRepId,setAdminPlanRepId]=useState<string>(initialRepId||reps.find(rep=>representativeCanReceivePlan(rep.active))?.id||"");
   const [viewRepId,setViewRepId]=useState<string>(initialRepId||"");
   const [editingPlanId,setEditingPlanId]=useState<string|null>(null);
-  // When true, the rep is editing an ALREADY-APPROVED plan: submitting creates a
-  // pending edit request instead of overwriting the live plan.
-  const [editRequestMode,setEditRequestMode]=useState(false);
   const [filter,setFilter]=useState(initialStatus); const [periodFilter,setPeriodFilter]=useState(initialPeriod);
   const [planPeriod,setPlanPeriod]=useState<PlanPeriod>("weekly");
   const [start,setStart]=useState(""); const [end,setEnd]=useState("");
@@ -84,7 +81,7 @@ export default function PlansClient({ isAdmin, reps, doctors, products, initialS
   },[itemsByDay]);
   const [activeDay,setActiveDay]=useState<string|null>(null);
   const [pickerQ,setPickerQ]=useState(""); const [pickerSel,setPickerSel]=useState<string[]>([]); const [pickerMeta,setPickerMeta]=useState<Record<string,{product_id:string;priority:string;note:string}>>({}); const [pickerEditMode,setPickerEditMode]=useState(false);
-  const [detail,setDetail]=useState<{plan:Plan & Record<string,unknown>; items:Array<Record<string,unknown>>; revisions:Array<{id:string; user_name:string; note:string; created_at:string}>; comments:Array<{id:string; body:string; user_name:string; created_at:string}>; editRequests?:Array<Record<string,unknown>>; pendingEdit?:Record<string,unknown>|null}|null>(null);
+  const [detail,setDetail]=useState<{plan:Plan & Record<string,unknown>; items:Array<Record<string,unknown>>; revisions:Array<{id:string; user_name:string; note:string; created_at:string}>; comments:Array<{id:string; body:string; user_name:string; created_at:string}>}|null>(null);
   const [adminNote,setAdminNote]=useState(""); const [editNote,setEditNote]=useState(""); const [commentBody,setCommentBody]=useState("");
   const [copyStart,setCopyStart]=useState("");
   const [reviewBusy,setReviewBusy]=useState(false);
@@ -189,17 +186,6 @@ export default function PlansClient({ isAdmin, reps, doctors, products, initialS
   async function createPlan(e:React.FormEvent){
     e.preventDefault();
     if(!items.length){ toast("أضف زيارة واحدة على الأقل — اضغط على يوم واختر أطباء","error"); return; }
-    // Rep editing an approved plan -> submit a pending edit request, do not overwrite.
-    if(editRequestMode && editingPlanId){
-      if(editNote.trim().length<5){ toast("اكتب سبب التعديل (5 أحرف على الأقل)","error"); return; }
-      const r=await fetch(`/api/plans/${editingPlanId}/edit-request`,{method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({items, note:editNote})});
-      const result=await r.json().catch(()=>null);
-      if(!r.ok){ toast(result?.error||"تعذر إرسال طلب التعديل","error"); return; }
-      toast("تم إرسال طلب التعديل للمراجعة — الخطة الأصلية سارية حتى موافقة المدير","success");
-      setItemsByDay({}); setStart(""); setEnd(""); setEditingPlanId(null); setEditRequestMode(false); setEditNote("");
-      load();
-      return;
-    }
     if(!start || !end){ toast("حدد تاريخ بداية الخطة","error"); return; }
     if(isAdmin && !adminPlanRepId){ toast("اختر المندوب أولا","error"); return; }
     const payload={period:planPeriod, period_start:start, period_end:end, items, target_visits: targetVisits, template_name: templateName, user_id:adminPlanRepId};
@@ -265,31 +251,6 @@ export default function PlansClient({ isAdmin, reps, doctors, products, initialS
     const next:Record<string,Array<{doctor_id:string;product_id:string;note:string;priority:string}>>={};
     for(const row of detail.items as Array<Record<string,unknown>>){ const date=String(row.planned_date).slice(0,10); if(!next[date])next[date]=[]; next[date].push({doctor_id:String(row.doctor_id||""),product_id:String(row.product_id||""),note:String(row.note||""),priority:String(row.priority||"medium")}); }
     setItemsByDay(next); setDetail(null); window.scrollTo({top:0,behavior:"smooth"});
-  }
-  // Rep loads an approved plan into the builder to propose an edit. Submitting
-  // sends an edit request for admin approval (the live plan stays unchanged).
-  function startRepEdit(){
-    if(!detail) return;
-    const p=detail.plan as Record<string,unknown>;
-    setEditingPlanId(String(p.id)); setEditRequestMode(true); setPlanPeriod((String(p.period) as PlanPeriod) || "weekly");
-    setStart(String(p.period_start).slice(0,10)); setEnd(String(p.period_end).slice(0,10)); setTargetVisits(Number(p.target_visits||detail.items.length||1)); setTemplateName(String(p.template_name||""));
-    const next:Record<string,Array<{doctor_id:string;product_id:string;note:string;priority:string}>>={};
-    for(const row of detail.items as Array<Record<string,unknown>>){ const date=String(row.planned_date).slice(0,10); if(!next[date])next[date]=[]; next[date].push({doctor_id:String(row.doctor_id||""),product_id:String(row.product_id||""),note:String(row.note||""),priority:String(row.priority||"medium")}); }
-    setItemsByDay(next); setEditNote(""); setDetail(null); window.scrollTo({top:0,behavior:"smooth"});
-  }
-  function cancelEdit(){ setEditingPlanId(null); setEditRequestMode(false); setItemsByDay({}); setStart(""); setEnd(""); setEditNote(""); }
-  // Admin approves or rejects a rep's pending edit request on an approved plan.
-  async function reviewEdit(action:"approve"|"reject"){
-    if(!detail) return;
-    setReviewBusy(true);
-    try{
-      const note = action==="reject" ? (prompt("سبب الرفض (اختياري)")||"") : adminNote;
-      const r=await fetch(`/api/plans/${String(detail.plan.id)}/edit-request`,{method:"PATCH", headers:{"content-type":"application/json"}, body:JSON.stringify({action, admin_note:note})});
-      const j=await r.json().catch(()=>null);
-      if(!r.ok){ toast(j?.error||"تعذر تنفيذ الإجراء","error"); return; }
-      toast(action==="approve"?"تم اعتماد التعديل وتحديث الخطة":"تم رفض التعديل — الخطة الأصلية المعتمدة سارية","success");
-      setAdminNote(""); await load(); const rr=await fetch(`/api/plans/${String(detail.plan.id)}`).then(x=>x.json()); setDetail(rr);
-    } finally { setReviewBusy(false); }
   }
   function prepareCopy(){
     if(!detail||!copyStart){toast("اختر تاريخ بداية الأسبوع الجديد","error");return;}
@@ -400,8 +361,7 @@ export default function PlansClient({ isAdmin, reps, doctors, products, initialS
           <span className="font-bold">{editingPlanId?`تعديل الخطة ${planPeriodLabel(planPeriod)}`:`خطة ${planPeriodLabel(planPeriod)} جديدة`} — اضغط على اليوم واختر الأطباء</span>
           <span className="text-xs text-[var(--muted)]">{items.length} زيارة</span>
         </div>
-        {editingPlanId&&!editRequestMode&&<div className="mb-3 rounded-xl bg-amber-50 border border-amber-200 p-3 flex justify-between items-center"><span className="text-sm font-bold text-amber-800">وضع التعديل فعال — يمكن للمدير تعديل الخطة حتى بعد اعتمادها</span><Button type="button" variant="outline" onClick={cancelEdit}>إلغاء التعديل</Button></div>}
-        {editingPlanId&&editRequestMode&&<div className="mb-3 rounded-xl bg-sky-50 border border-sky-200 p-3 space-y-2"><div className="flex justify-between items-center gap-2"><span className="text-sm font-bold text-sky-900">تعديل خطة معتمدة — سيُرسل للمدير للموافقة، وتبقى الخطة الأصلية سارية حتى الاعتماد</span><Button type="button" variant="outline" onClick={cancelEdit}>إلغاء</Button></div><Textarea value={editNote} onChange={e=>setEditNote(e.target.value)} placeholder="سبب التعديل (إلزامي — 5 أحرف على الأقل)" rows={2} /></div>}
+        {editingPlanId&&<div className="mb-3 rounded-xl bg-amber-50 border border-amber-200 p-3 flex justify-between items-center"><span className="text-sm font-bold text-amber-800">وضع التعديل فعال — يمكن للمدير تعديل الخطة حتى بعد اعتمادها</span><Button type="button" variant="outline" onClick={()=>{setEditingPlanId(null);setItemsByDay({});setStart("");setEnd("")}}>إلغاء التعديل</Button></div>}
         <form onSubmit={createPlan} className="space-y-3">
           <div className={`grid ${isAdmin?"md:grid-cols-5":"md:grid-cols-4"} gap-3`}>
             <div className="space-y-1.5"><Label>نوع الخطة</Label><Select value={planPeriod} onChange={e=>{setPlanPeriod(e.target.value as PlanPeriod);setItemsByDay({});setStart("");setEnd("")}} disabled={!!editingPlanId}>{PLAN_PERIODS.map(p=><option key={p} value={p}>{planPeriodLabel(p)}</option>)}</Select></div>
@@ -460,7 +420,7 @@ export default function PlansClient({ isAdmin, reps, doctors, products, initialS
             </div>
           )}
 
-          <Button type="submit" className="w-full py-3 text-base inline-flex items-center justify-center gap-1.5">{editRequestMode?<>إرسال طلب تعديل الخطة المعتمدة للمدير <Icon name="check" size={16} /></>:editingPlanId?<>حفظ تعديلات الخطة {planPeriodLabel(planPeriod)} <Icon name="check" size={16} /></>:isAdmin?`إنشاء خطة ${planPeriodLabel(planPeriod)} معتمدة للمندوب`:<>إرسال الخطة {planPeriodLabel(planPeriod)} للموافقة <Icon name="check" size={16} /></>}</Button>
+          <Button type="submit" className="w-full py-3 text-base inline-flex items-center justify-center gap-1.5">{editingPlanId?<>حفظ تعديلات الخطة {planPeriodLabel(planPeriod)} <Icon name="check" size={16} /></>:isAdmin?`إنشاء خطة ${planPeriodLabel(planPeriod)} معتمدة للمندوب`:<>إرسال الخطة {planPeriodLabel(planPeriod)} للموافقة <Icon name="check" size={16} /></>}</Button>
           {!isAdmin && <div className="text-xs text-[var(--muted)] text-center">سيتم إرسالها للمدير — أي تعديل لاحق يحتاج موافقة جديدة</div>}
         </form>
       </Card>
@@ -550,37 +510,7 @@ export default function PlansClient({ isAdmin, reps, doctors, products, initialS
                   </div>
                 </div>
               )}
-              {isAdmin && detail.pendingEdit && (
-                <div className="space-y-2 rounded-xl border-2 border-sky-300 bg-sky-50 p-3">
-                  <div className="font-bold text-sm text-sky-900">طلب تعديل على خطة معتمدة — بانتظار قرارك</div>
-                  <div className="text-xs text-sky-900">المندوب: {String(detail.pendingEdit.requested_by_name||"")} · السبب: {String(detail.pendingEdit.note||"—")}</div>
-                  <div className="text-xs text-[var(--muted)]">المقترح: {Array.isArray(detail.pendingEdit.proposed_items)?(detail.pendingEdit.proposed_items as unknown[]).length:0} زيارة · الحالي المعتمد: {detail.items.length} زيارة</div>
-                  <div className="max-h-44 overflow-auto rounded-lg bg-white/70 p-2 text-xs">
-                    {(Array.isArray(detail.pendingEdit.proposed_items)?detail.pendingEdit.proposed_items as Array<Record<string,unknown>>:[]).map((it,i)=>(
-                      <div key={i} className="flex justify-between gap-2 border-b border-sky-100 py-1 last:border-0"><span className="font-semibold">{doctors.find(d=>d.id===String(it.doctor_id))?.name||String(it.doctor_id)}</span><span className="text-[var(--muted)]">{String(it.planned_date).slice(0,10)}</span></div>
-                    ))}
-                  </div>
-                  <Textarea value={adminNote} onChange={e=>setAdminNote(e.target.value)} placeholder="ملاحظة للمندوب (اختياري)" rows={2} />
-                  <div className="flex gap-2">
-                    <Button disabled={reviewBusy} onClick={()=>reviewEdit("approve")} className="flex-1 bg-emerald-600 hover:bg-emerald-700 inline-flex items-center justify-center gap-1.5">اعتماد التعديل <Icon name="check" size={16} /></Button>
-                    <Button disabled={reviewBusy} variant="outline" onClick={()=>reviewEdit("reject")} className="flex-1 border-red-200 text-red-700">رفض — إبقاء الأصلية</Button>
-                  </div>
-                </div>
-              )}
-              {!isAdmin && String(detail.plan.status)==="approved" && (
-                <div className="space-y-2">
-                  <div className="font-bold text-sm">تعديل الخطة المعتمدة</div>
-                  {detail.pendingEdit ? (
-                    <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-900"><div className="font-bold">طلب تعديلك قيد مراجعة المدير</div><div className="mt-1 text-xs">السبب: {String(detail.pendingEdit.note||"")}</div><div className="mt-1 text-xs text-[var(--muted)]">الخطة الأصلية المعتمدة سارية حتى صدور القرار.</div></div>
-                  ) : (
-                    <>
-                      <div className="text-xs text-[var(--muted)]">عدّل أيام الخطة ثم أرسلها للمدير للموافقة — تبقى الخطة الحالية سارية حتى الاعتماد، ولو رُفض التعديل تبقى كما هي.</div>
-                      <Button variant="outline" onClick={startRepEdit} className="w-full">تعديل الخطة وإرسالها للمراجعة</Button>
-                    </>
-                  )}
-                </div>
-              )}
-              {!isAdmin && String(detail.plan.status)!=="approved" && (
+              {!isAdmin && (
                 <div className="space-y-2">
                   <div className="font-bold text-sm">طلب تعديل</div>
                   <Textarea value={editNote} onChange={e=>setEditNote(e.target.value)} placeholder="سبب التعديل..." rows={2} />

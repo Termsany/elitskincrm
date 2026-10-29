@@ -9,13 +9,13 @@ import { Icon } from "@/components/Icon";
 import { REACTION_LABELS } from "@/lib/visit-entry";
 type Visit = { presented?: Array<{ product_name: string; reaction: string }>; attachments:Array<{id:string;file_name:string}>; id: string; visited_at: string; notes: string; status: string; rep_name: string; doctor_name: string; clinic_name: string; city: string; items: Array<{ product_name: string; kind: string; quantity: number }>; sales_rep_id: string };
 
-export default function VisitsClient({ isAdmin, reps, initialRepId="", initialStatus="", initialFrom="", initialTo="", initialQuery="" }: { isAdmin: boolean; reps: Array<{ id: string; name: string }>; initialRepId?: string; initialStatus?: string; initialFrom?: string; initialTo?: string; initialQuery?: string }) {const toast=useToast();
+export default function VisitsClient({ isAdmin, reps, initialRepId="" }: { isAdmin: boolean; reps: Array<{ id: string; name: string }>; initialRepId?: string }) {const toast=useToast();
   const [visits, setVisits] = useState<Visit[]>([]);
-  const [q, setQ] = useState(initialQuery);
+  const [q, setQ] = useState("");
   const [repId, setRepId] = useState(initialRepId);
-  const [status, setStatus] = useState(initialStatus);
-  const [from, setFrom] = useState(initialFrom);
-  const [to, setTo] = useState(initialTo);
+  const [status, setStatus] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
   const [editing, setEditing] = useState<Visit | null>(null);
   const [editNotes, setEditNotes] = useState("");
   const [editStatus, setEditStatus] = useState("completed");

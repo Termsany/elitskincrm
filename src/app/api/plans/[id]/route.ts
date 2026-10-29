@@ -14,8 +14,6 @@ export async function GET(_req: Request, {params}:{params:Promise<{id:string}>})
   const items=await query(`SELECT pi.*, d.name doctor_name, d.clinic_name, d.city doctor_city, p.name product_name FROM plan_items pi JOIN doctors d ON d.id=pi.doctor_id LEFT JOIN products p ON p.id=pi.product_id WHERE pi.plan_id=$1 ORDER BY pi.sort_order, pi.planned_date`,[id]);
   const revis=await query(`SELECT pr.*, u.name user_name FROM plan_revisions pr JOIN users u ON u.id=pr.requested_by WHERE pr.plan_id=$1 ORDER BY pr.created_at`,[id]);
   const comments=await query(`SELECT c.*, u.name user_name FROM task_comments c JOIN users u ON u.id=c.user_id WHERE c.plan_id=$1 ORDER BY c.created_at`,[id]);
-  const editReqs=await query(`SELECT pr.*, u.name requested_by_name, ru.name reviewed_by_name FROM plan_edit_requests pr JOIN users u ON u.id=pr.requested_by LEFT JOIN users ru ON ru.id=pr.reviewed_by WHERE pr.plan_id=$1 ORDER BY pr.created_at DESC LIMIT 10`,[id]);
-  const pendingEdit=editReqs.rows.find((r:Record<string,unknown>)=>r.status==="pending")||null;
   // Compare: which planned visits were actually executed
   const execRows=await query(`
     SELECT pi.id plan_item_id, EXISTS(
@@ -24,7 +22,7 @@ export async function GET(_req: Request, {params}:{params:Promise<{id:string}>})
     FROM plan_items pi WHERE pi.plan_id=$1
   `,[id, plan.user_id]);
   const doneMap=new Map(execRows.rows.map((x:Record<string,unknown>)=> [String(x.plan_item_id), !!x.done]));
-  return NextResponse.json({plan, items:items.rows.map((x:Record<string,unknown>)=> ({...x, done: !!doneMap.get(String(x.id))})), revisions:revis.rows, comments: comments.rows, editRequests: editReqs.rows, pendingEdit});
+  return NextResponse.json({plan, items:items.rows.map((x:Record<string,unknown>)=> ({...x, done: !!doneMap.get(String(x.id))})), revisions:revis.rows, comments: comments.rows});
 }
 
 export async function PATCH(req: Request, {params}:{params:Promise<{id:string}>}){
@@ -98,9 +96,6 @@ export async function PATCH(req: Request, {params}:{params:Promise<{id:string}>}
 
   // Rep: request revision
   if(String(plan.user_id)!==user.id) return NextResponse.json({error:"Forbidden"},{status:403});
-  // An approved plan may only be changed through the edit-request flow, which
-  // keeps the live plan intact until an admin approves the edit.
-  if(String(plan.status)==="approved") return NextResponse.json({error:"الخطة معتمدة — أرسل التعديل عبر طلب تعديل الخطة المعتمدة"},{status:409});
   if(body.items && Array.isArray(body.items)){
     const note=String(body.note|| body.admin_note || "طلب تعديل");
     if(note.trim().length<5) return NextResponse.json({error:"اكتب سبب التعديل (5+ أحرف)"},{status:400});

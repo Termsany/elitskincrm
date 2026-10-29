@@ -4,14 +4,13 @@ import { useRouter } from "next/navigation";
 import { Card, Button, Input, Textarea, Label } from "@/components/ui";
 import { useToast } from "@/components/Toast";
 import { Icon } from "@/components/Icon";
-import { ProductPresenter } from "@/components/ProductPresenter";
 
 import { getVisitStatusMeta } from "@/lib/visit-workflow";
 import { PURPOSE_LABELS, REACTION_LABELS, collectSampleItems, type Reaction, type SamplePurpose, type SampleRow } from "@/lib/visit-entry";
 import { classifyOfflineResponse, ensureIdempotencyKey } from "@/lib/idempotency-queue";
 
 type Doctor = { id:string; name:string; clinic_name:string; city:string };
-type Product = { id:string; name:string; description?:string|null; detailing_points?:string|null; key_questions?:string|null; detailing_version?:string|null; content_updated_at?:string|null; brochure_name?:string|null; brochure_mime?:string|null; brochure_available?:boolean; image_available?:boolean };
+type Product = { id:string; name:string };
 type Presented = { productId:string; reaction:Reaction };
 type AttachItem = { id:number; file:File; preview:string|null; progress:number; state:"ready"|"uploading"|"done"|"error"; error?:string };
 
@@ -78,8 +77,6 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState("completed");
   const [presented, setPresented] = useState<Presented[]>(() => initialProductId ? [{productId:initialProductId,reaction:"neutral"}] : []);
-  const [presentingId, setPresentingId] = useState<string|null>(null);
-  const [openedIds, setOpenedIds] = useState<string[]>([]);
   const [sampleMode, setSampleMode] = useState<"yes"|"no">("no");
   const [sampleRows, setSampleRows] = useState<SampleRow[]>([]);
   const [err, setErr] = useState<string|null>(null);
@@ -170,14 +167,6 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
   function togglePresented(productId: string) {
     setPresented((prev) => prev.some((x) => x.productId === productId) ? prev.filter((x) => x.productId !== productId) : [...prev, { productId, reaction: "neutral" }]);
     setSampleRows((prev) => prev.filter((x) => x.productId !== productId));
-  }
-  function openPresenter(productId: string) {
-    setPresentingId(productId);
-    setOpenedIds((prev) => prev.includes(productId) ? prev : [...prev, productId]);
-  }
-  function markPresentedFromViewer(productId: string) {
-    setPresented((prev) => prev.some((x) => x.productId === productId) ? prev : [...prev, { productId, reaction: "neutral" }]);
-    setPresentingId(null);
   }
   function setReaction(productId: string, reaction: Reaction) {
     setPresented((prev) => prev.map((x) => x.productId === productId ? { ...x, reaction } : x));
@@ -274,7 +263,6 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
   const sampleInvalid = !!sampleState.error;
   const step = !doctorId ? 1 : presented.length === 0 ? 2 : sampleInvalid ? 3 : 4;
   const presentedProducts = presented.map((x) => ({ ...x, product: products.find((p) => p.id === x.productId) })).filter((x) => x.product);
-  const presentingProduct = presentingId ? products.find((p) => p.id === presentingId) ?? null : null;
   const locked = !!savedVisitId;
 
   return (
@@ -358,27 +346,20 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
         {/* 2 — Presented products */}
         <Card className="p-5">
           <div className="flex items-center justify-between gap-3">
-            <div><div className="font-bold">ماذا شرحتَ للدكتور؟</div><div className="text-xs text-[var(--muted)]">افتح «اعرض البروشور» لتعرض المنتج للطبيب، ثم حدد المنتجات التي عرضتها ورد فعل الدكتور.</div></div>
+            <div><div className="font-bold">ماذا شرحتَ للدكتور؟</div><div className="text-xs text-[var(--muted)]">اضغط على المنتجات التي عرضتها، ثم حدد رد فعل الدكتور.</div></div>
             <span className="text-xs bg-sky-50 border border-sky-200 rounded-full px-3 py-1 font-bold">{presented.length} منتج</span>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3">
             {orderedProducts.map((p) => {
               const on = presented.some((x) => x.productId === p.id);
-              const opened = openedIds.includes(p.id);
-              return <div key={p.id}
-                className={`flex flex-col overflow-hidden rounded-2xl border-2 text-right transition ${on ? "border-[var(--navy)] bg-sky-50 ring-2 ring-[var(--gold)]/40" : "border-[var(--border)] bg-white"}`}>
-                <button type="button" onClick={() => togglePresented(p.id)} aria-pressed={on} className="block w-full text-right">
-                  <div className="relative h-24 w-full bg-slate-100"><ProductThumb id={p.id} name={p.name} />
-                    {on && <span className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-[var(--navy)] text-white"><Icon name="check" size={15} /></span>}
-                    {p.id === assignedProductId && <span className="absolute right-2 top-2 rounded-full bg-[var(--gold)] px-2 py-0.5 text-[10px] font-bold text-white">منتجي</span>}
-                    {opened && <span className="absolute bottom-2 right-2 flex items-center gap-1 rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-bold text-white"><Icon name="check" size={10} /> تم العرض</span>}
-                  </div>
-                  <div className="p-2.5"><div className="font-extrabold">{p.name}</div><div className="text-[11px] text-[var(--muted)]">{PRODUCT_DESC[p.name] || ""}</div></div>
-                </button>
-                <button type="button" onClick={() => openPresenter(p.id)} className="mt-auto flex items-center justify-center gap-1.5 border-t border-[var(--border)] bg-white py-2 text-xs font-extrabold text-[var(--navy)] transition hover:bg-sky-50">
-                  <Icon name="products" size={14} /> اعرض البروشور
-                </button>
-              </div>;
+              return <button key={p.id} type="button" onClick={() => togglePresented(p.id)} aria-pressed={on}
+                className={`overflow-hidden rounded-2xl border-2 text-right transition ${on ? "border-[var(--navy)] bg-sky-50 ring-2 ring-[var(--gold)]/40" : "border-[var(--border)] bg-white"}`}>
+                <div className="relative h-24 w-full bg-slate-100"><ProductThumb id={p.id} name={p.name} />
+                  {on && <span className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-[var(--navy)] text-white"><Icon name="check" size={15} /></span>}
+                  {p.id === assignedProductId && <span className="absolute right-2 top-2 rounded-full bg-[var(--gold)] px-2 py-0.5 text-[10px] font-bold text-white">منتجي</span>}
+                </div>
+                <div className="p-2.5"><div className="font-extrabold">{p.name}</div><div className="text-[11px] text-[var(--muted)]">{PRODUCT_DESC[p.name] || ""}</div></div>
+              </button>;
             })}
           </div>
           {presentedProducts.length > 0 && <div className="mt-4 space-y-2">
@@ -393,19 +374,6 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
           </div>}
           {presented.length === 0 && <div className="mt-3 text-xs text-[var(--muted)]">لم تحدد منتجات بعد — يمكنك المتابعة وتسجيل الزيارة دونها.</div>}
         </Card>
-
-        {presentingProduct && (
-          <ProductPresenter
-            product={presentingProduct}
-            onClose={() => setPresentingId(null)}
-            footer={
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <button type="button" onClick={() => markPresentedFromViewer(presentingProduct.id)} className="min-h-12 flex-1 rounded-2xl bg-[var(--gold)] px-4 py-3 text-center text-sm font-extrabold text-[var(--navy)] shadow-sm">تم العرض — حدّد المنتج وسجّل رد الفعل</button>
-                <button type="button" onClick={() => setPresentingId(null)} className="min-h-12 rounded-2xl border px-5 py-3 text-sm font-bold">إغلاق</button>
-              </div>
-            }
-          />
-        )}
 
         {/* 3 — Samples */}
         <Card className="p-5">
