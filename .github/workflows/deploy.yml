@@ -9,14 +9,21 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      # The SSH key used here is restricted server-side (forced command) to
-      # only ever run /opt/elite-crm/scripts/auto-deploy.sh, regardless of
-      # what is requested here — so the exact command below is irrelevant,
-      # but it documents the intent.
+      # The SSH key used here is restricted server-side (forced command in
+      # authorized_keys) to only ever run /opt/elite-crm/scripts/auto-deploy.sh,
+      # regardless of what is requested — so the exact ssh command below is
+      # irrelevant, but it documents the intent. Plain ssh (no third-party
+      # action) keeps this transparent and easy to debug from the log.
       - name: Trigger deploy on the VPS
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: root
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          script: /opt/elite-crm/scripts/auto-deploy.sh
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh -v -i ~/.ssh/id_deploy \
+            -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=15 \
+            -o BatchMode=yes \
+            "root@${DEPLOY_HOST}" "/opt/elite-crm/scripts/auto-deploy.sh"
