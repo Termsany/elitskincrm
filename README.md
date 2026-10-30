@@ -68,3 +68,4 @@ npm run dev
    }
    ```
    Then `nginx -t && systemctl reload nginx` and `certbot --nginx -d crm.eliteskinsa.com --redirect`
+# auto-deploy test 2026-10-30T11:36:25+00:00
