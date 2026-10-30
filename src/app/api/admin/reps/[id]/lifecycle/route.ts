@@ -6,7 +6,7 @@ import { getCurrentUser } from "@/lib/session";
 import { canConfirmRepReset } from "@/lib/rep-lifecycle";
 
 const idPattern=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-type Counts={visits:number;visitItems:number;visitAttachments:number;plans:number;planItems:number;serviceRequests:number;doctorRequests:number;sales:number;targets:number;productAssignments:number;taskAssignments:number;tasks:number;taskComments:number;taskAttachments:number;notifications:number;sessions:number;annualSalesTarget:number};
+type Counts={visits:number;visitItems:number;visitAttachments:number;plans:number;planItems:number;serviceRequests:number;doctorRequests:number;sales:number;targets:number;targetYears:number;targetVersions:number;targetMonths:number;targetLines:number;targetOverrides:number;forecastSales:number;forecastLateExceptions:number;productAssignments:number;taskAssignments:number;tasks:number;taskComments:number;taskAttachments:number;notifications:number;sessions:number;annualSalesTarget:number};
 const countsSql=`
 SELECT
  (SELECT count(*)::int FROM visits WHERE sales_rep_id=$1) visits,
@@ -16,7 +16,14 @@ SELECT
  (SELECT count(*)::int FROM plan_items pi JOIN plans p ON p.id=pi.plan_id WHERE p.user_id=$1) "planItems",
  (SELECT count(*)::int FROM service_requests WHERE requester_id=$1) "serviceRequests",
  (SELECT count(*)::int FROM doctor_requests WHERE requester_id=$1) "doctorRequests",
- (SELECT count(*)::int FROM rep_monthly_sales WHERE rep_id=$1) sales,
+ (SELECT count(*)::int FROM forecast_sales WHERE rep_id=$1) sales,
+ (SELECT count(*)::int FROM rep_target_years WHERE rep_id=$1) "targetYears",
+ (SELECT count(*)::int FROM rep_target_versions WHERE rep_id=$1) "targetVersions",
+ (SELECT count(*)::int FROM rep_target_months m JOIN rep_target_versions v ON v.id=m.version_id WHERE v.rep_id=$1) "targetMonths",
+ (SELECT count(*)::int FROM rep_target_lines l JOIN rep_target_versions v ON v.id=l.version_id WHERE v.rep_id=$1) "targetLines",
+ (SELECT count(*)::int FROM rep_target_overrides WHERE rep_id=$1) "targetOverrides",
+ (SELECT count(*)::int FROM forecast_sales WHERE rep_id=$1) "forecastSales",
+ (SELECT count(*)::int FROM forecast_late_exceptions WHERE rep_id=$1) "forecastLateExceptions",
  (SELECT count(*)::int FROM targets WHERE user_id=$1) targets,
  (SELECT count(*)::int FROM rep_products WHERE rep_id=$1) "productAssignments",
  (SELECT count(*)::int FROM task_assignees WHERE user_id=$1) "taskAssignments",
@@ -50,7 +57,9 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
  if(!body||!['preview','reset'].includes(body.action||''))return NextResponse.json({error:"الإجراء غير صالح"},{status:400});
  if(body.action==='preview'){
   const rep=await query("SELECT name FROM users WHERE id=$1 AND role='sales_rep'",[id]);if(!rep.rows[0])return NextResponse.json({error:"المندوب غير موجود"},{status:404});
-  return NextResponse.json({name:rep.rows[0].name,counts:await getCounts(pool,id)});
+  const counts=await getCounts(pool,id);
+  const immutable=await pool.query("SELECT count(*)::int AS count FROM rep_target_versions WHERE rep_id=$1",[id]);
+  return NextResponse.json({name:rep.rows[0].name,counts,blocker:Number(immutable.rows[0]?.count||0)>0?"لا يمكن حذف إصدارات الأهداف المعتمدة أو المؤرشفة":null});
  }
  const client=await pool.connect();let files:string[]=[];let committed=false;
  try{
@@ -62,6 +71,9 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
   const counts=await getCounts(client,id);
   const expected=body.expectedCounts||{};
   if(Object.keys(counts).some(key=>Number(expected[key])!==Number(counts[key as keyof Counts]))){await client.query("ROLLBACK");return NextResponse.json({error:"تغيرت البيانات بعد المعاينة؛ حدّث المعاينة قبل التأكيد"},{status:409});}
+  // Any version can contain an approved immutable snapshot; the schema forbids deleting versions.
+  const immutable=await client.query("SELECT count(*)::int AS count FROM rep_target_versions WHERE rep_id=$1",[id]);
+  if(Number(immutable.rows[0]?.count||0)>0){await client.query("ROLLBACK");return NextResponse.json({error:"توجد إصدارات أهداف غير قابلة للحذف"},{status:409});}
   await client.query("UPDATE users SET active=false WHERE id=$1",[id]);
   const doomedTasks=await client.query(`SELECT t.id FROM tasks t WHERE t.created_by=$1 AND (t.assigned_to IS NULL OR t.assigned_to=$1) AND NOT EXISTS(SELECT 1 FROM task_assignees ta WHERE ta.task_id=t.id AND ta.user_id<>$1)`,[id]);
   const taskIds=doomedTasks.rows.map((r:Record<string,string>)=>r.id);
@@ -76,7 +88,10 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
   await client.query("DELETE FROM task_assignees WHERE user_id=$1",[id]);
   if(taskIds.length)await client.query("DELETE FROM tasks WHERE id=ANY($1::uuid[])",[taskIds]);
   await client.query("DELETE FROM visits WHERE sales_rep_id=$1",[id]);
-  await client.query("DELETE FROM rep_monthly_sales WHERE rep_id=$1",[id]);
+  await client.query("DELETE FROM forecast_sales WHERE rep_id=$1",[id]);
+  await client.query("DELETE FROM forecast_late_exceptions WHERE rep_id=$1",[id]);
+  await client.query("DELETE FROM rep_target_overrides WHERE rep_id=$1",[id]);
+  await client.query("DELETE FROM rep_target_years WHERE rep_id=$1",[id]);
   await client.query("DELETE FROM targets WHERE user_id=$1",[id]);
   await client.query("DELETE FROM rep_products WHERE rep_id=$1",[id]);
   await client.query("DELETE FROM sessions WHERE user_id=$1",[id]);

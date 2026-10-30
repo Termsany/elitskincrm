@@ -1,14 +1,15 @@
 import { getCurrentUser } from "@/lib/session";
 import { AppShell } from "@/components/AppShell";
 import { redirect } from "next/navigation";
-import ProductsClient from "./ProductsClient";
+import ProductsStudio from "./ProductsStudio";
 
-export default async function ProductsPage(){
-  const user=await getCurrentUser();
-  if(!user) redirect("/login");
-  if(user.role!=="admin") redirect("/");
+export default async function AdminProductsPage() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (user.role !== "admin") redirect("/");
   return <AppShell role={user.role} email={user.email} name={user.name} jobTitle={user.job_title} productName={user.product_name} active="/admin/products">
-    <div className="flex items-center justify-between gap-3"><div><h1 className="text-2xl font-extrabold text-[var(--navy)]">إدارة المنتجات</h1><p className="text-sm text-[var(--muted)] mt-1">إضافة وتعديل وتفعيل وإيقاف وحذف المنتجات</p></div></div>
-    <ProductsClient />
+    <h1 className="text-2xl font-extrabold text-[var(--navy)]">إدارة المنتجات</h1>
+    <p className="text-sm text-[var(--muted)] mt-1">بيانات المنتج، البروشورات، نقاط الشرح، والأداء — وكل تعديل بيوصل للمناديب فوراً</p>
+    <ProductsStudio />
   </AppShell>;
 }

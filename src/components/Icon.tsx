@@ -31,6 +31,7 @@ import {
   SearchX,
   AlertCircle,
   AlertTriangle,
+  FolderOpen,
   type LucideIcon,
 } from "lucide-react";
 
@@ -52,6 +53,7 @@ const ICONS: Record<string, LucideIcon> = {
   tasks: ListChecks,
   calendar: CalendarDays,
   plans: CalendarCheck,
+  library: FolderOpen,
   account: UserCircle,
   more: Menu,
 

@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
-import { getDetailedReportData } from "@/lib/report-data";
+import { getDetailedReportData, AnnualReportFilterError } from "@/lib/report-data";
 import { normalizeReportType,reportDefinition,reportTitle } from "@/lib/reporting";
 function csv(v:unknown){return `"${String(v??"").replace(/"/g,'""')}"`}
 function display(key:string,value:unknown){if(value===null||value===undefined)return "";if(["visited_at","last_visit","last_activity","last_sample"].includes(key))return new Date(String(value)).toLocaleString("ar-EG");const labels:Record<string,string>={completed:"مكتملة",planned:"مخططة",cancelled:"ملغاة"};return labels[String(value)]||String(value)}
 export async function GET(req:Request){
  const user=await getCurrentUser();if(!user||user.role!=="admin")return NextResponse.json({error:"Forbidden"},{status:403});
  const {searchParams}=new URL(req.url),format=searchParams.get("format")||"csv",type=normalizeReportType(searchParams.get("reportType"));
- const data=await getDetailedReportData(searchParams),def=reportDefinition(type),rows=data[def.source] as Array<Record<string,unknown>>,title=reportTitle(type),stamp=new Date().toISOString().slice(0,10);
+ let data: Awaited<ReturnType<typeof getDetailedReportData>>;
+ try { data=await getDetailedReportData(searchParams); }
+ catch (error) { if (error instanceof AnnualReportFilterError) return NextResponse.json({error:error.message},{status:400}); throw error; }
+ const def=reportDefinition(type),rows=data[def.source] as Array<Record<string,unknown>>,title=reportTitle(type),stamp=new Date().toISOString().slice(0,10);
  if(format==="json")return NextResponse.json({title,rows});
  if(format==="csv"){const text="\uFEFF"+[def.columns.map(c=>csv(c.label)).join(","),...rows.map(r=>def.columns.map(c=>csv(display(c.key,r[c.key]))).join(","))].join("\n");return new NextResponse(text,{headers:{"content-type":"text/csv; charset=utf-8","content-disposition":`attachment; filename="elite-crm-${type}-${stamp}.csv"`}})}
  if(format==="xlsx"){

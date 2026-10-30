@@ -1,7 +1,41 @@
 import { query } from "@/lib/db";
 import { riyadhDateParts } from "@/lib/plan-reminders";
 
-export async function getDetailedReportData(searchParams: URLSearchParams) {
+export class AnnualReportFilterError extends Error {}
+
+// Annual targets cannot be compared with a partial or cross-year sales window.
+export function annualReportSelection(params: URLSearchParams, allowFormat = false) {
+  const allowed = new Set(['reportType', 'year', 'repId', 'search', 'from', 'to', ...(allowFormat ? ['format'] : [])]);
+  if ([...params.keys()].some(key => !allowed.has(key) || params.getAll(key).length !== 1))
+    throw new AnnualReportFilterError('Unsupported annual report filter');
+  const rawYear = params.get('year') ?? riyadhDateParts().date.slice(0, 4);
+  if (!/^20[0-9]{2}$/.test(rawYear)) throw new AnnualReportFilterError('Invalid annual report year');
+  const year = Number(rawYear), from = params.get('from'), to = params.get('to');
+  if ((from !== null || to !== null) && (from !== `${year}-01-01` || to !== `${year}-12-31`))
+    throw new AnnualReportFilterError('Annual report requires the complete calendar year');
+  return {year, repId: params.get('repId'), search: (params.get('search') ?? '').trim().toLowerCase()};
+}
+
+export async function getDetailedReportData(searchParams: URLSearchParams, opts: { unlimited?: boolean } = {}) {
+  if (searchParams.get('reportType') === 'sales') {
+    const {year, repId, search} = annualReportSelection(searchParams, true);
+    const values: unknown[] = [year, `${year}-01-01`, `${year + 1}-01-01`];
+    const conditions = ["u.role='sales_rep'"];
+    if (repId) { values.push(repId); conditions.push(`u.id=$${values.length}`); }
+    if (search) { values.push(`%${search}%`); conditions.push(`LOWER(u.name) LIKE $${values.length}`); }
+    const sales = await query(`SELECT u.id AS rep_id,u.name AS rep_name,
+      COALESCE(y.annual_amount,0)::numeric AS annual_sales_target,
+      COALESCE(s.achieved,0)::numeric AS achieved,
+      GREATEST(COALESCE(y.annual_amount,0)-COALESCE(s.achieved,0),0)::numeric AS remaining
+      FROM users u LEFT JOIN rep_target_years y ON y.rep_id=u.id AND y.year=$1
+      LEFT JOIN (SELECT fs.rep_id,
+        SUM((CASE WHEN fs.kind='return' THEN -1 ELSE fs.direction END) * fs.quantity * fs.unit_price) AS achieved
+        FROM forecast_sales fs WHERE fs.status='approved' AND fs.month >= $2::date AND fs.month < $3::date
+        GROUP BY fs.rep_id) s ON s.rep_id=u.id
+      WHERE ${conditions.join(' AND ')} ORDER BY remaining DESC,u.name`, values);
+    return {totals:{visits:0,active_reps:0,doctors:0,samples:0,orders:0},
+      repPerformance:[],visits:[],products:[],samples:[],sampleDoctors:[],coverage:[],sales:sales.rows,compliance:[]};
+  }
   const repId=searchParams.get("repId"), productId=searchParams.get("productId"), search=searchParams.get("search")?.trim().toLowerCase()||"", city=searchParams.get("city"), status=searchParams.get("status"), from=searchParams.get("from"), to=searchParams.get("to");
   const vals:unknown[]=[]; const conds=["true"];
   const add=(sql:string,value:unknown)=>{vals.push(value);conds.push(sql.replace("?",`$${vals.length}`));};
@@ -43,7 +77,7 @@ export async function getDetailedReportData(searchParams: URLSearchParams) {
         FROM visit_presented_products vp JOIN products pp ON pp.id=vp.product_id WHERE vp.visit_id=v.id${presentedReportFilter}) x),'') presented_products
     FROM visits v JOIN users u ON u.id=v.sales_rep_id JOIN doctors d ON d.id=v.doctor_id
     LEFT JOIN visit_items vi ON vi.visit_id=v.id ${productLineFilter} LEFT JOIN products p ON p.id=vi.product_id
-    WHERE ${where} GROUP BY v.id,u.id,u.name,d.id,d.name,d.clinic_name,d.city ORDER BY v.visited_at DESC LIMIT 1000`,[...vals]);
+    WHERE ${where} GROUP BY v.id,u.id,u.name,d.id,d.name,d.clinic_name,d.city ORDER BY v.visited_at DESC ${opts.unlimited?'':'LIMIT 1000'}`,[...vals]);
 
   const products=await query(`WITH item_product AS (
       SELECT vi.visit_id,vi.product_id,
@@ -74,7 +108,7 @@ export async function getDetailedReportData(searchParams: URLSearchParams) {
   const samples=await query(`SELECT vi.id,v.visited_at,u.id rep_id,u.name rep_name,d.id doctor_id,d.name doctor_name,d.clinic_name,d.city,p.id product_id,p.name product_name,vi.quantity,vi.sample_purpose
     FROM visits v JOIN users u ON u.id=v.sales_rep_id JOIN doctors d ON d.id=v.doctor_id
     JOIN visit_items vi ON vi.visit_id=v.id AND vi.kind='sample' JOIN products p ON p.id=vi.product_id
-    WHERE ${where} ${productLineFilter} ORDER BY v.visited_at DESC LIMIT 2000`,[...vals]);
+    WHERE ${where} ${productLineFilter} ORDER BY v.visited_at DESC ${opts.unlimited?'':'LIMIT 2000'}`,[...vals]);
 
   const sampleDoctors=await query(`SELECT d.id doctor_id,d.name doctor_name,d.clinic_name,d.city,
     count(DISTINCT v.id)::int sample_visits,COALESCE(sum(vi.quantity),0)::int samples,
@@ -102,7 +136,14 @@ export async function getDetailedReportData(searchParams: URLSearchParams) {
   if(search){salesVals.push(`%${search}%`);salesWhere.push(`LOWER(u.name) LIKE $${si++}`)}
   const salesRiyadhYear=riyadhDateParts().date.slice(0,4);
   const salesDateFrom=from||`${salesRiyadhYear}-01-01`,salesDateTo=to||`${salesRiyadhYear}-12-31`;
-  salesVals.push(salesDateFrom,salesDateTo);const sf=si++,st=si++;const sales=await query(`SELECT u.id rep_id,u.name rep_name,u.annual_sales_target,COALESCE(sum(s.amount),0)::numeric achieved, GREATEST(u.annual_sales_target-COALESCE(sum(s.amount),0),0)::numeric remaining FROM users u LEFT JOIN rep_monthly_sales s ON s.rep_id=u.id AND s.sale_month >= $${sf}::date AND s.sale_month < ($${st}::date + interval '1 day') WHERE ${salesWhere.join(' AND ')} GROUP BY u.id,u.name,u.annual_sales_target ORDER BY remaining DESC`,salesVals);
+  salesVals.push(salesDateFrom,salesDateTo);const sf=si++,st=si++;const targetYear=Number(salesDateFrom.slice(0,4));salesVals.push(targetYear);const ty=si++;
+  const sales=await query(`SELECT u.id rep_id,u.name rep_name,COALESCE(y.annual_amount,0)::numeric annual_sales_target,
+    COALESCE(s.achieved,0)::numeric AS achieved,
+    GREATEST(COALESCE(y.annual_amount,0)-COALESCE(s.achieved,0),0)::numeric remaining
+    FROM users u LEFT JOIN rep_target_years y ON y.rep_id=u.id AND y.year=$${ty}
+    LEFT JOIN (SELECT fs.rep_id,SUM(CASE WHEN fs.kind='return' OR fs.direction=-1 THEN -fs.quantity * fs.unit_price ELSE fs.quantity * fs.unit_price END) achieved
+      FROM forecast_sales fs WHERE fs.status='approved' AND fs.month >= $${sf}::date AND fs.month < ($${st}::date + interval '1 day') GROUP BY fs.rep_id) s ON s.rep_id=u.id
+    WHERE ${salesWhere.join(' AND ')} ORDER BY remaining DESC`,salesVals);
   const complianceVals:unknown[]=[from||`${riyadhDateParts().date.slice(0,7)}-01`,to||riyadhDateParts().date];let compIndex=3;const complianceWhere:string[]=["u.role='sales_rep'","u.active=true"];const compliancePlanFilters:string[]=[];const complianceVisitFilters:string[]=[];
   if(repId){complianceWhere.push(`u.id=$${compIndex}`);complianceVals.push(repId);compIndex++}
   if(search){complianceWhere.push(`LOWER(u.name) LIKE $${compIndex}`);complianceVals.push(`%${search}%`);compIndex++}

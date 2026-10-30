@@ -2,16 +2,17 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { pool, query } from "@/lib/db";
 import { canAdminReviewPlan, planDateOnly } from "@/lib/plan-review";
+import { planItemsNow, planRequests, submitPlanChange } from "@/lib/plan-changes";
 
 export async function GET(_req: Request, {params}:{params:Promise<{id:string}>}){
   const user=await getCurrentUser();
   if(!user) return NextResponse.json({error:"Unauthorized"},{status:401});
   const {id}=await params;
-  const r=await query(`SELECT p.*, u.name user_name, u2.name approved_by_name FROM plans p JOIN users u ON u.id=p.user_id LEFT JOIN users u2 ON u2.id=p.approved_by WHERE p.id=$1`,[id]);
+  const r=await query(`SELECT p.*, p.period_start::text AS period_start, p.period_end::text AS period_end, u.name user_name, u2.name approved_by_name FROM plans p JOIN users u ON u.id=p.user_id LEFT JOIN users u2 ON u2.id=p.approved_by WHERE p.id=$1`,[id]);
   if(!r.rows[0]) return NextResponse.json({error:"Not found"},{status:404});
   const plan=r.rows[0] as Record<string,unknown>;
   if(user.role!=="admin" && String(plan.user_id)!==user.id) return NextResponse.json({error:"Forbidden"},{status:403});
-  const items=await query(`SELECT pi.*, d.name doctor_name, d.clinic_name, d.city doctor_city, p.name product_name FROM plan_items pi JOIN doctors d ON d.id=pi.doctor_id LEFT JOIN products p ON p.id=pi.product_id WHERE pi.plan_id=$1 ORDER BY pi.sort_order, pi.planned_date`,[id]);
+  const items=await query(`SELECT pi.*, pi.planned_date::text AS planned_date, d.name doctor_name, d.clinic_name, d.city doctor_city, p.name product_name FROM plan_items pi JOIN doctors d ON d.id=pi.doctor_id LEFT JOIN products p ON p.id=pi.product_id WHERE pi.plan_id=$1 ORDER BY pi.sort_order, pi.planned_date`,[id]);
   const revis=await query(`SELECT pr.*, u.name user_name FROM plan_revisions pr JOIN users u ON u.id=pr.requested_by WHERE pr.plan_id=$1 ORDER BY pr.created_at`,[id]);
   const comments=await query(`SELECT c.*, u.name user_name FROM task_comments c JOIN users u ON u.id=c.user_id WHERE c.plan_id=$1 ORDER BY c.created_at`,[id]);
   // Compare: which planned visits were actually executed
@@ -22,7 +23,8 @@ export async function GET(_req: Request, {params}:{params:Promise<{id:string}>})
     FROM plan_items pi WHERE pi.plan_id=$1
   `,[id, plan.user_id]);
   const doneMap=new Map(execRows.rows.map((x:Record<string,unknown>)=> [String(x.plan_item_id), !!x.done]));
-  return NextResponse.json({plan, items:items.rows.map((x:Record<string,unknown>)=> ({...x, done: !!doneMap.get(String(x.id))})), revisions:revis.rows, comments: comments.rows});
+  const changes=await planRequests(id, await planItemsNow({query}, id));
+  return NextResponse.json({plan, items:items.rows.map((x:Record<string,unknown>)=> ({...x, done: !!doneMap.get(String(x.id))})), revisions:revis.rows, comments: comments.rows, change_request: changes.request, change_history: changes.history});
 }
 
 export async function PATCH(req: Request, {params}:{params:Promise<{id:string}>}){
@@ -96,6 +98,10 @@ export async function PATCH(req: Request, {params}:{params:Promise<{id:string}>}
 
   // Rep: request revision
   if(String(plan.user_id)!==user.id) return NextResponse.json({error:"Forbidden"},{status:403});
+  if(String(plan.status)==="approved"){
+    const r=await submitPlanChange(user, id, body.items, body.note);
+    const { status, ...out } = r; return NextResponse.json(out, { status });
+  }
   if(body.items && Array.isArray(body.items)){
     const note=String(body.note|| body.admin_note || "طلب تعديل");
     if(note.trim().length<5) return NextResponse.json({error:"اكتب سبب التعديل (5+ أحرف)"},{status:400});

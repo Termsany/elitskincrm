@@ -17,14 +17,15 @@ export async function GET(req: Request){
   if(searchParams.get("period")){ conds.push(`p.period=$${i++}`); vals.push(searchParams.get("period")); }
   const where=conds.length? `WHERE ${conds.join(" AND ")}`:"";
   const r=await query(`
-    SELECT p.*, u.name user_name, u2.name approved_by_name,
-      (SELECT count(*)::int FROM plan_items pi WHERE pi.plan_id=p.id) items_count
+    SELECT p.*, p.period_start::text AS period_start, p.period_end::text AS period_end, u.name user_name, u2.name approved_by_name,
+      (SELECT count(*)::int FROM plan_items pi WHERE pi.plan_id=p.id) items_count,
+      (SELECT count(*)::int FROM plan_edit_requests r WHERE r.plan_id=p.id AND r.status='pending') pending_changes
     FROM plans p JOIN users u ON u.id=p.user_id LEFT JOIN users u2 ON u2.id=p.approved_by
     ${where} ORDER BY p.created_at DESC LIMIT 100
   `, vals);
   const summaryWhere=isAdmin?"":`WHERE user_id=$1`;
   const summaryValues=isAdmin?[]:[user.id];
-  const summaryResult=await query(`SELECT count(*)::int total,count(*) FILTER(WHERE status='pending')::int pending,count(*) FILTER(WHERE status='approved')::int approved,count(*) FILTER(WHERE status='needs_revision')::int needs_revision,count(*) FILTER(WHERE status='rejected')::int rejected,COALESCE(sum((SELECT count(*) FROM plan_items pi WHERE pi.plan_id=plans.id)),0)::int planned_visits FROM plans ${summaryWhere}`,summaryValues);
+  const summaryResult=await query(`SELECT count(*)::int total,count(*) FILTER(WHERE status='pending')::int pending,count(*) FILTER(WHERE status='approved')::int approved,count(*) FILTER(WHERE status='needs_revision')::int needs_revision,count(*) FILTER(WHERE status='rejected')::int rejected,COALESCE(sum((SELECT count(*) FROM plan_items pi WHERE pi.plan_id=plans.id)),0)::int planned_visits,(SELECT count(*)::int FROM plan_edit_requests r JOIN plans p2 ON p2.id=r.plan_id WHERE r.status='pending' ${isAdmin?"":"AND p2.user_id=$1"}) change_requests FROM plans ${summaryWhere}`,summaryValues);
   const repSummary=isAdmin?await query(`SELECT u.id,u.name,u.active,count(p.id)::int total,count(p.id) FILTER(WHERE p.status='pending')::int pending,count(p.id) FILTER(WHERE p.status='approved')::int approved,COALESCE(sum((SELECT count(*) FROM plan_items pi WHERE pi.plan_id=p.id)),0)::int planned_visits FROM users u LEFT JOIN plans p ON p.user_id=u.id WHERE u.role='sales_rep' GROUP BY u.id,u.name,u.active ORDER BY u.active DESC,u.name`):{rows:[]};
   // Return the latest saved plan for each reusable template.
   const templates=await query(`

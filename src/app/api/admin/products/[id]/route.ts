@@ -6,7 +6,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const { id } = await params; const body = await req.json().catch(()=>null) as Record<string, unknown>|null;
   if (!body) return NextResponse.json({ error: "Invalid" }, { status: 400 });
   const sets:string[]=[];const vals:unknown[]=[];let i=1;
-  const textFields=["name","description","detailing_points","key_questions","detailing_version"] as const;
+  const textFields=["name","description","detailing_points","key_questions","detailing_version","tagline","category"] as const;
+  if(body.color!==undefined){if(typeof body.color!=="string"||!/^#[0-9a-f]{6}$/i.test(body.color))return NextResponse.json({error:"لون غير صالح"},{status:400});sets.push(`color=$${i++}`);vals.push(body.color);}
+  if(body.name!==undefined&&String(body.name).trim().length<2)return NextResponse.json({error:"اسم المنتج قصير"},{status:400});
   for(const field of textFields){if(body[field]!==undefined){sets.push(`${field}=$${i++}`);vals.push(String(body[field]));}}
   if(body.active!==undefined){sets.push(`active=$${i++}`);vals.push(!!body.active);}
   if(!sets.length)return NextResponse.json({error:"لا تغييرات"},{status:400});

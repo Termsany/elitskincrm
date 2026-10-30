@@ -12,10 +12,10 @@ export default async function PlansPage({searchParams}:{searchParams:Promise<{st
   const sp=await searchParams;
   return (
     <AppShell role={user.role} email={user.email} name={user.name} jobTitle={user.job_title} productName={user.product_name} active="/plans">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-extrabold text-[var(--navy)]">الخطط</h1>
-          <p className="text-sm text-[var(--muted)]">{user.role==="admin" ? "اعرض خطط كل مندوب منفصلة، وأنشئ أو عدّل الخطط حتى بعد اعتمادها" : "أنشئ خطتك الأسبوعية — بانتظار موافقة المدير"}</p>
+          <h1 className="text-2xl font-extrabold text-[var(--navy)]">الخطط والاعتماد</h1>
+          <p className="text-sm text-[var(--muted)]">{user.role==="admin" ? "راجع واعتمد خطط المناديب وطلبات التعديل، وتابع التغطية والتنفيذ" : "رتّب خطتك وابعتها للاعتماد — وتقدر تعدّل بعد الاعتماد بموافقة المدير"}</p>
         </div>
       </div>
       <PlansClient isAdmin={user.role==="admin"} reps={reps.rows as any} doctors={doctors.rows as any} products={products.rows as any} currentUserId={user.id} initialStatus={sp.status||""} initialPeriod={sp.period||""} initialPlanId={sp.planId||""} initialRepId={sp.repId||""} />

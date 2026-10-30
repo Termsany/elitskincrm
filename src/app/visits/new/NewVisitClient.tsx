@@ -4,6 +4,10 @@ import { useRouter } from "next/navigation";
 import { Card, Button, Input, Textarea, Label } from "@/components/ui";
 import { useToast } from "@/components/Toast";
 import { Icon } from "@/components/Icon";
+import DetailingPresenter from "@/components/detailing/DetailingPresenter";
+import type { DetailProduct, PresenterResult } from "@/components/detailing/types";
+import { BrochureCover } from "@/components/detailing/BrochureViewer";
+import { brochureUrl } from "@/components/detailing/pdf";
 
 import { getVisitStatusMeta } from "@/lib/visit-workflow";
 import { PURPOSE_LABELS, REACTION_LABELS, collectSampleItems, type Reaction, type SamplePurpose, type SampleRow } from "@/lib/visit-entry";
@@ -68,7 +72,7 @@ function uploadWithProgress(visitId: string, file: File, onProgress: (percent: n
   });
 }
 
-export default function NewVisitClient({ doctors, products, assignedProductId, role, initialDoctorId="", initialProductId="" }: { doctors: Doctor[]; products: Product[]; assignedProductId: string|null; role: string; initialDoctorId?:string; initialProductId?:string }) {const toast=useToast();
+export default function NewVisitClient({ doctors, products, assignedProductId, role, initialDoctorId="", initialProductId="", initialPresented=[] }: { doctors: Doctor[]; products: Product[]; assignedProductId: string|null; role: string; initialDoctorId?:string; initialProductId?:string; initialPresented?: Presented[] }) {const toast=useToast();
   const router = useRouter();
   const initialDoctor=doctors.find(d=>d.id===initialDoctorId);
   const [doctorId, setDoctorId] = useState(initialDoctor?.id||"");
@@ -76,7 +80,32 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
   const [showList,setShowList]=useState(false);
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState("completed");
-  const [presented, setPresented] = useState<Presented[]>(() => initialProductId ? [{productId:initialProductId,reaction:"neutral"}] : []);
+  const [presented, setPresented] = useState<Presented[]>(() => initialPresented.length ? initialPresented : initialProductId ? [{productId:initialProductId,reaction:"neutral"}] : []);
+  const [catalog, setCatalog] = useState<DetailProduct[] | null>(null);
+  const [presenting, setPresenting] = useState<string | null>(null);
+  async function openPresenter() {
+    let list = catalog;
+    if (!list) {
+      try { const r = await fetch("/api/products/catalog"); if (!r.ok) throw 0; list = (await r.json()).products as DetailProduct[]; setCatalog(list); }
+      catch { toast("تعذر فتح البروشورات — تأكد من الاتصال", "error"); return; }
+    }
+    if (!list.length) { toast("لا توجد منتجات للعرض", "info"); return; }
+    const start = presented.find(x => list!.some(p => p.id === x.productId))?.productId || (assignedProductId && list.some(p => p.id === assignedProductId) ? assignedProductId : list[0].id);
+    setPresenting(start);
+  }
+  function presenterClosed(r: PresenterResult) {
+    setPresenting(null);
+    setPresented(prev => {
+      const next = [...prev];
+      for (const id of r.shown) {
+        const i = next.findIndex(x => x.productId === id);
+        const reaction = r.reactions[id];
+        if (i >= 0) { if (reaction) next[i] = { ...next[i], reaction }; }
+        else if (products.some(p => p.id === id)) next.push({ productId: id, reaction: reaction || "neutral" });
+      }
+      return next;
+    });
+  }
   const [sampleMode, setSampleMode] = useState<"yes"|"no">("no");
   const [sampleRows, setSampleRows] = useState<SampleRow[]>([]);
   const [err, setErr] = useState<string|null>(null);
@@ -88,6 +117,7 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
   const [offlineQueued,setOfflineQueued]=useState(0);
   const [files, setFiles] = useState<AttachItem[]>([]);
   const [savedVisitId, setSavedVisitId] = useState<string|null>(null);
+  const [done, setDone] = useState(false);
   const [idempotencyKey] = useState(() => crypto.randomUUID());
   const fileCounter = useRef(0);
   const filesRef = useRef<AttachItem[]>([]);
@@ -205,7 +235,7 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
       if (result.ok) patchFile(item.id, { state: "done", progress: 100 });
       else { failed++; patchFile(item.id, { state: "error", error: result.error }); }
     }
-    if (failed === 0) { router.push("/visits"); router.refresh(); return; }
+    if (failed === 0) { setDone(true); return; }
     setErr(`تم حفظ الزيارة، لكن تعذر رفع ${failed} ملف. أعد المحاولة أو تابع دون الملفات.`);
   }
 
@@ -243,7 +273,7 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
       const visitId = String((j as { id?: unknown }).id);
       setSavedVisitId(visitId);
       if (filesRef.current.length) await uploadPending(visitId);
-      else { router.push("/visits"); router.refresh(); }
+      else { setDone(true); }
     }catch(err: unknown){
       if(!serverRejected && (!navigator.onLine || !responseReceived || String(err).includes("Failed to fetch") || String(err).includes("تعذر قراءة استجابة الحفظ") || String(err).includes("invalid save response"))){
         queueOffline(payload);
@@ -256,256 +286,328 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
     } finally { setLoading(false); }
   }
 
-  const selectedDoctor = doctors.find(d=> d.id===doctorId);
+  // ───────────── smart context, today's plan, catalog ─────────────
+  const [mode, setMode] = useState<"phone" | "tablet" | "desktop">("desktop");
+  useEffect(() => { const f = () => setMode(window.innerWidth < 768 ? "phone" : window.innerWidth < 1200 ? "tablet" : "desktop"); f(); window.addEventListener("resize", f); return () => window.removeEventListener("resize", f); }, []);
+  const [wiz, setWiz] = useState(initialDoctorId ? 1 : 0);
+  const [ctx, setCtx] = useState<VisitContext | null>(null);
+  const [ctxLoading, setCtxLoading] = useState(false);
+  const [todayPlan, setTodayPlan] = useState<TodayItem[]>([]);
+  useEffect(() => {
+    const t = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date());
+    fetch(`/api/agenda?from=${t}&to=${t}`).then(r => r.ok ? r.json() : null).then(j => j && setTodayPlan((j.plan || []).map((p: Record<string, unknown>) => ({ id: String(p.id), doctor_id: String(p.doctor_id), doctor_name: String(p.doctor_name), clinic_name: String(p.clinic_name || ""), product_id: p.product_id ? String(p.product_id) : null, product_name: p.product_name ? String(p.product_name) : null, done: !!p.visit_id })))).catch(() => {});
+    fetch("/api/products/catalog").then(r => r.ok ? r.json() : null).then(j => j && setCatalog(j.products)).catch(() => {});
+  }, [setCatalog]);
+  useEffect(() => {
+    if (!doctorId) { setCtx(null); return; }
+    let alive = true; setCtxLoading(true);
+    fetch(`/api/visits/context?doctorId=${doctorId}`).then(r => r.ok ? r.json() : null).then(j => { if (alive) setCtx(j); }).catch(() => {}).finally(() => alive && setCtxLoading(false));
+    return () => { alive = false; };
+  }, [doctorId]);
+  useEffect(() => { setSampleMode(sampleRows.some(r => r.quantity > 0) ? "yes" : "no"); }, [sampleRows, setSampleMode]);
+
+  function pickDoctor(id: string, productId?: string | null) {
+    const d = doctors.find(x => x.id === id); if (!d) return;
+    setDoctorId(id); setQ(`${d.name} · ${d.clinic_name}`); setShowList(false);
+    if (productId && !presented.some(x => x.productId === productId) && products.some(p => p.id === productId)) setPresented(p => [...p, { productId, reaction: "neutral" }]);
+    if (mode === "phone") setWiz(1);
+  }
+  async function presentFrom(productId?: string) {
+    let list = catalog;
+    if (!list) { try { const r = await fetch("/api/products/catalog"); if (!r.ok) throw 0; list = (await r.json()).products as DetailProduct[]; setCatalog(list); } catch { toast("تعذر فتح البروشورات — تأكد من الاتصال", "error"); return; } }
+    if (!list.length) { toast("لا توجد منتجات للعرض", "info"); return; }
+    const first = productId || ctx?.suggested?.find(id => list!.some(p => p.id === id)) || presented[0]?.productId || list[0].id;
+    // suggested products first in the presenter strip
+    const pri = [...new Set([first, ...(ctx?.suggested || []), ...presented.map(x => x.productId)])];
+    setCatalog([...list].sort((a, b) => (pri.indexOf(a.id) + 1 || 99) - (pri.indexOf(b.id) + 1 || 99)));
+    setPresenting(first);
+  }
+  const addNote = (t: string) => setNotes(n => (n.trim() ? `${n.trim()}${/[.!؟?،,]$/.test(n.trim()) ? "" : "."} ` : "") + t);
+  const fuDate = (days: number) => { const d = new Date(Date.now() + days * 864e5); return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(d); };
+
+  const selectedDoctor = doctors.find(d => d.id === doctorId);
   const notesLen = notes.trim().length;
   const notesOk = notesLen >= 10;
-  const sampleState = collectSampleItems(sampleMode, sampleRows);
+  const sampleState = collectSampleItems(sampleRows.some(r => r.quantity > 0) ? "yes" : "no", sampleRows);
   const sampleInvalid = !!sampleState.error;
-  const step = !doctorId ? 1 : presented.length === 0 ? 2 : sampleInvalid ? 3 : 4;
-  const presentedProducts = presented.map((x) => ({ ...x, product: products.find((p) => p.id === x.productId) })).filter((x) => x.product);
   const locked = !!savedVisitId;
+  const productsView = useMemo(() => {
+    const cat = new Map((catalog || []).map(p => [p.id, p]));
+    const sug = ctx?.suggested || [];
+    return [...products].sort((a, b) => (sug.indexOf(a.id) + 1 || 99) - (sug.indexOf(b.id) + 1 || 99) || Number(b.id === assignedProductId) - Number(a.id === assignedProductId) || a.name.localeCompare(b.name))
+      .map(p => ({ ...p, cat: cat.get(p.id), suggested: sug.includes(p.id) }));
+  }, [products, catalog, ctx, assignedProductId]);
+  const checks = [
+    { ok: !!doctorId, label: "الطبيب" },
+    { ok: presented.length > 0, label: "المنتجات المشروحة", optional: true },
+    { ok: !sampleInvalid, label: "العينات" },
+    { ok: notesOk, label: "الملاحظات" },
+    { ok: !!gps, label: "الموقع", optional: true },
+  ];
+  const canSave = !loading && (locked || (!!doctorId && notesOk && !sampleInvalid));
 
-  return (
-    <div className="max-w-[640px] mx-auto">
-      {/* Header */}
-      <div className="rounded-2xl bg-[var(--navy)] text-white p-5 flex items-center justify-between">
-        <div>
-          <div className="text-[11px] tracking-widest text-[var(--gold)] font-bold">ELITE SKIN CRM</div>
-          <div className="text-lg font-extrabold mt-0.5">تسجيل زيارة جديدة</div>
-          <div className="text-xs text-white/70 mt-1">التاريخ والوقت يتسجلان تلقائيا — {new Date().toLocaleDateString("ar-EG",{weekday:"long", year:"numeric", month:"long", day:"numeric"})} — {new Date().toLocaleTimeString("ar-EG",{hour:"2-digit", minute:"2-digit"})}</div>
-        </div>
-        <div className="flex flex-col items-center gap-1">
-          <div className="flex gap-1.5">
-            {[1,2,3,4].map(n=> <span key={n} className={`h-2 w-6 rounded-full sm:w-8 ${n<=step? "bg-[var(--gold)]":"bg-white/20"}`} />)}
-          </div>
-          <span className="text-[11px] text-white/60">خطوة {step} من 4</span>
-        </div>
-      </div>
+  if (done) return <SuccessScreen doctor={selectedDoctor?.name || ""} presented={presented.length} samples={sampleState.items.reduce((a, x) => a + x.quantity, 0)} followUp={followUpAt} onNew={() => { window.location.href = "/visits/new"; }} />;
 
-      {offlineQueued>0 && (
-        <div className="mt-3 rounded-xl bg-amber-50 border border-amber-300 p-3 flex items-center justify-between">
-          <span className="text-sm font-semibold text-amber-900">{offlineQueued} زيارة محفوظة بدون نت</span>
-          <Button type="button" variant="outline" onClick={flushQueue}>مزامنة الآن</Button>
+  // ───────────── sections ─────────────
+  const doctorSection = (
+    <Section n={1} title="الطبيب" done={!!doctorId}>
+      {!doctorId && todayPlan.length > 0 && <div className="mb-3">
+        <div className="text-xs font-bold text-[var(--muted)] mb-1.5">من خطة النهارده</div>
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+          {todayPlan.map(t => <button key={t.id} type="button" onClick={() => pickDoctor(t.doctor_id, t.product_id)} disabled={t.done}
+            className={`shrink-0 rounded-2xl border px-3 py-2 text-right transition ${t.done ? "border-emerald-200 bg-emerald-50 opacity-60" : "border-[var(--border)] bg-white hover:border-[var(--navy)] hover:shadow"}`}>
+            <div className="text-sm font-bold whitespace-nowrap">{t.done ? "✓ " : ""}{t.doctor_name}</div>
+            <div className="text-[11px] text-[var(--muted)] whitespace-nowrap">{[t.product_name, t.clinic_name].filter(Boolean).join(" · ")}</div>
+          </button>)}
+        </div>
+      </div>}
+      {selectedDoctor ? (
+        <div className="rounded-2xl border border-[var(--navy)]/20 bg-[var(--sky-light)] p-3 flex items-center gap-3">
+          <div className="h-12 w-12 rounded-2xl bg-[var(--navy)] text-white grid place-items-center text-lg font-extrabold shrink-0">{ctx?.doctor.classification || selectedDoctor.name.slice(0, 1)}</div>
+          <div className="min-w-0 flex-1"><div className="font-extrabold text-[var(--navy)] truncate">{selectedDoctor.name}</div><div className="text-xs text-[var(--muted)] truncate">{[ctx?.doctor.specialty, selectedDoctor.clinic_name, selectedDoctor.city].filter(Boolean).join(" · ")}</div></div>
+          {ctx?.doctor.phone && <a href={`tel:${String(ctx.doctor.phone).replace(/\s/g, "")}`} className="h-10 w-10 rounded-xl bg-white border border-[var(--border)] grid place-items-center" title="اتصال">📞</a>}
+          {!locked && <button type="button" onClick={() => { setDoctorId(""); setQ(""); }} className="text-xs font-bold text-[var(--muted)] hover:text-red-600 px-2">تغيير</button>}
+        </div>
+      ) : (
+        <div className="relative">
+          <input value={q} onChange={e => { setQ(e.target.value); setShowList(true); }} onFocus={() => setShowList(true)} onBlur={() => setTimeout(() => setShowList(false), 200)}
+            placeholder="🔍 ابحث باسم الطبيب أو العيادة أو المدينة" className="w-full rounded-2xl border border-[var(--border)] bg-white px-4 py-3 text-base outline-none focus:border-[var(--navy)]" />
+          {showList && <div className="absolute z-30 mt-1 w-full rounded-2xl border border-[var(--border)] bg-white shadow-xl max-h-72 overflow-auto divide-y divide-[var(--border)]">
+            {filtered.map(d => <button key={d.id} type="button" onMouseDown={() => pickDoctor(d.id)} className="w-full text-right px-3 py-2.5 hover:bg-[var(--bg)] flex items-center gap-3">
+              <span className="h-9 w-9 rounded-xl bg-[var(--sky-soft)] text-[var(--navy)] grid place-items-center text-xs font-bold shrink-0">{d.name.slice(0, 2).toUpperCase()}</span>
+              <span className="min-w-0"><span className="block text-sm font-bold truncate">{d.name}</span><span className="block text-xs text-[var(--muted)] truncate">{d.clinic_name} — {d.city}</span></span>
+            </button>)}
+            {!filtered.length && <div className="p-3 text-sm text-[var(--muted)] text-center">لا نتائج</div>}
+          </div>}
         </div>
       )}
+    </Section>
+  );
 
-      {locked && <div role="status" className="mt-3 rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-sm font-bold text-emerald-900 inline-flex items-center gap-1.5"><Icon name="check" size={15} /> تم حفظ الزيارة. جارٍ التعامل مع الملفات المرفقة فقط.</div>}
+  const contextCard = doctorId ? <ContextCard ctx={ctx} loading={ctxLoading} products={products} onPresent={presentFrom} /> : null;
 
-      <form onSubmit={submit} className="mt-4 space-y-4">
-        <fieldset disabled={locked} className="m-0 min-w-0 space-y-4 border-0 p-0">
-        {/* 1 — Doctor */}
-        <Card className="p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <span className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-extrabold ${doctorId? "bg-emerald-600 text-white":"bg-[var(--navy)] text-white"}`}>{doctorId? <Icon name="check" size={14} /> : "1"}</span>
-            <span className="font-bold">الطبيب والعيادة</span>
-            <span className="text-xs text-red-600 font-bold">*</span>
-            {selectedDoctor && <span className="mr-auto text-xs bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-full px-2.5 py-1 font-semibold">{selectedDoctor.city}</span>}
-          </div>
-
-          <div className="relative">
-            <Input
-              value={q}
-              onChange={e=> {setQ(e.target.value); setShowList(true);}}
-              onFocus={()=> setShowList(true)}
-              onBlur={()=> setTimeout(()=> setShowList(false), 200)}
-              placeholder="ابحث باسم الطبيب أو العيادة أو المدينة..."
-              className="pr-10"
-            />
-            <span className="absolute right-3 top-2.5 text-[var(--muted)]">⌕</span>
-            {showList && (
-              <div className="absolute z-20 mt-1 w-full rounded-xl border border-[var(--border)] bg-white shadow-lg max-h-[260px] overflow-auto divide-y divide-[var(--border)]">
-                {filtered.map(d=>(
-                  <button key={d.id} type="button" onMouseDown={()=> { setDoctorId(d.id); setQ(`${d.name} · ${d.clinic_name}`); setShowList(false); }}
-                    className={`w-full text-right px-3 py-2.5 hover:bg-[var(--gold-soft)] flex items-center gap-3 ${doctorId===d.id ? "bg-[var(--gold-soft)]" : ""}`}>
-                    <span className="h-8 w-8 rounded-full bg-[var(--navy)] text-white flex items-center justify-center text-[11px] font-bold shrink-0">{d.name.slice(0,2).toUpperCase()}</span>
-                    <span className="flex-1 min-w-0">
-                      <span className="block text-sm font-semibold truncate">{d.name}</span>
-                      <span className="block text-xs text-[var(--muted)] truncate">{d.clinic_name} — {d.city}</span>
-                    </span>
-                    {doctorId===d.id && <span className="text-emerald-600"><Icon name="check" size={16} /></span>}
-                  </button>
-                ))}
-                {filtered.length===0 && <div className="p-3 text-sm text-[var(--muted)] text-center">لا نتائج — جرّب كتابة جزء من الاسم</div>}
-              </div>
-            )}
-          </div>
-          {selectedDoctor ? (
-            <div className="mt-3 rounded-xl bg-emerald-50 border border-emerald-200 p-3 flex items-center gap-3">
-              <span className="h-9 w-9 rounded-full bg-emerald-600 text-white flex items-center justify-center"><Icon name="check" size={18} /></span>
-              <div>
-                <div className="text-sm font-bold text-emerald-900">{selectedDoctor.name}</div>
-                <div className="text-xs text-emerald-800">{selectedDoctor.clinic_name} — {selectedDoctor.city}</div>
-              </div>
-              <button type="button" onClick={()=>{setDoctorId(""); setQ("");}} className="mr-auto min-h-11 px-2 text-xs text-[var(--muted)] hover:text-red-600">تغيير</button>
-            </div>
-          ) : (
-            <div className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">اختر الطبيب أولا للمتابعة</div>
-          )}
-        </Card>
-
-        {/* 2 — Presented products */}
-        <Card className="p-5">
-          <div className="flex items-center justify-between gap-3">
-            <div><div className="font-bold">ماذا شرحتَ للدكتور؟</div><div className="text-xs text-[var(--muted)]">اضغط على المنتجات التي عرضتها، ثم حدد رد فعل الدكتور.</div></div>
-            <span className="text-xs bg-sky-50 border border-sky-200 rounded-full px-3 py-1 font-bold">{presented.length} منتج</span>
-          </div>
-          <div className="mt-3 grid grid-cols-2 gap-3">
-            {orderedProducts.map((p) => {
-              const on = presented.some((x) => x.productId === p.id);
-              return <button key={p.id} type="button" onClick={() => togglePresented(p.id)} aria-pressed={on}
-                className={`overflow-hidden rounded-2xl border-2 text-right transition ${on ? "border-[var(--navy)] bg-sky-50 ring-2 ring-[var(--gold)]/40" : "border-[var(--border)] bg-white"}`}>
-                <div className="relative h-24 w-full bg-slate-100"><ProductThumb id={p.id} name={p.name} />
-                  {on && <span className="absolute left-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-[var(--navy)] text-white"><Icon name="check" size={15} /></span>}
-                  {p.id === assignedProductId && <span className="absolute right-2 top-2 rounded-full bg-[var(--gold)] px-2 py-0.5 text-[10px] font-bold text-white">منتجي</span>}
-                </div>
-                <div className="p-2.5"><div className="font-extrabold">{p.name}</div><div className="text-[11px] text-[var(--muted)]">{PRODUCT_DESC[p.name] || ""}</div></div>
-              </button>;
-            })}
-          </div>
-          {presentedProducts.length > 0 && <div className="mt-4 space-y-2">
-            <div className="text-xs font-bold text-[var(--muted)]">رد فعل الدكتور</div>
-            {presentedProducts.map(({ productId, reaction, product }) => <div key={productId} className="rounded-xl border border-[var(--border)] bg-white p-3">
-              <div className="mb-2 text-sm font-extrabold">{product!.name}</div>
-              <div className="grid grid-cols-3 gap-2">
-                {(Object.keys(REACTION_LABELS) as Reaction[]).map((value) => <button key={value} type="button" onClick={() => setReaction(productId, value)} aria-pressed={reaction === value}
-                  className={`min-h-11 rounded-lg border px-2 text-xs font-bold ${reaction === value ? "border-[var(--navy)] bg-[var(--navy)] text-white" : "border-[var(--border)] bg-white"}`}>{REACTION_ICONS[value]} {REACTION_LABELS[value]}</button>)}
-              </div>
-            </div>)}
-          </div>}
-          {presented.length === 0 && <div className="mt-3 text-xs text-[var(--muted)]">لم تحدد منتجات بعد — يمكنك المتابعة وتسجيل الزيارة دونها.</div>}
-        </Card>
-
-        {/* 3 — Samples */}
-        <Card className="p-5">
-          <div className="font-bold">هل أخذ الدكتور عينة؟</div>
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            {([["no", "لا"], ["yes", "نعم"]] as const).map(([value, label]) => <button key={value} type="button" onClick={() => setSampleMode(value)} aria-pressed={sampleMode === value}
-              className={`min-h-12 rounded-xl border-2 text-base font-extrabold ${sampleMode === value ? "border-[var(--navy)] bg-[var(--navy)] text-white" : "border-[var(--border)] bg-white"}`}>{label}</button>)}
-          </div>
-          {sampleMode === "yes" && <div className="mt-4 space-y-3">
-            {presentedProducts.length === 0 && <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-bold text-amber-800">اختر أولا المنتجات التي شرحتها في الخطوة السابقة، ثم حدد منها العينة.</div>}
-            {presentedProducts.map(({ productId, product }) => {
-              const row = sampleRows.find((x) => x.productId === productId);
-              const active = !!row && row.quantity > 0;
-              return <div key={productId} className={`rounded-xl border-2 p-3 ${active ? "border-[var(--navy)] bg-sky-50" : "border-[var(--border)] bg-white"}`}>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 font-extrabold">{product!.name}</div>
-                  {!active ? <button type="button" onClick={() => updateSample(productId, { quantity: 1 })} className="min-h-11 rounded-lg bg-[var(--navy)] px-4 text-xs font-bold text-white">＋ عينة</button>
-                    : <div className="flex items-center gap-1">
-                      <button type="button" aria-label="إنقاص" onClick={() => updateSample(productId, { quantity: Math.max(0, (row?.quantity || 0) - 1) })} className="h-11 w-11 rounded-lg border bg-white text-lg font-bold">−</button>
-                      <span className="w-9 text-center text-lg font-extrabold">{row?.quantity}</span>
-                      <button type="button" aria-label="زيادة" onClick={() => updateSample(productId, { quantity: Math.min(10000, (row?.quantity || 0) + 1) })} className="h-11 w-11 rounded-lg bg-[var(--navy)] text-lg font-bold text-white">+</button>
-                    </div>}
-                </div>
-                {active && <div className="mt-3"><div className="mb-1 text-xs font-bold">سبب العينة <span className="text-red-600">*</span></div>
-                  <div className="grid grid-cols-3 gap-2">{(Object.keys(PURPOSE_LABELS) as SamplePurpose[]).map((value) => <button type="button" key={value} onClick={() => updateSample(productId, { purpose: value })} aria-pressed={row?.purpose === value}
-                    className={`min-h-11 rounded-lg border px-2 text-xs font-bold ${row?.purpose === value ? "border-[var(--navy)] bg-[var(--navy)] text-white" : "border-[var(--border)] bg-white"}`}>{PURPOSE_LABELS[value]}</button>)}</div></div>}
-              </div>;
-            })}
-            {sampleState.error && presentedProducts.length > 0 && <div className="rounded-lg bg-red-50 border border-red-200 p-2 text-xs font-bold text-red-700">{sampleState.error}</div>}
-          </div>}
-          {sampleMode === "no" && <div className="mt-3 text-xs text-[var(--muted)]">لن تُسجَّل عينات لهذه الزيارة.</div>}
-        </Card>
-
-        {/* Status — segmented */}
-        <Card className="p-5">
-          <div className="font-bold mb-3">حالة الزيارة</div>
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              {v:"completed", label:"مكتملة", icon:"check", color:"bg-emerald-600 text-white border-emerald-600"},
-              {v:"planned", label:"مجدولة", icon:"clock", color:"bg-sky-600 text-white border-sky-600"},
-              {v:"cancelled", label:"ملغاة", icon:"x", color:"bg-red-600 text-white border-red-600"},
-            ].map(o=>{
-              const active=status===o.v;
-              return (
-                <button key={o.v} type="button" onClick={()=> setStatus(o.v)}
-                  className={`min-h-14 rounded-xl border-2 py-3 flex flex-col items-center gap-1 font-bold text-sm transition ${active? o.color: "bg-white border-[var(--border)] text-[var(--muted)] hover:border-[var(--navy)]/30"}`}>
-                  <Icon name={getVisitStatusMeta(o.v).icon} size={18} />{getVisitStatusMeta(o.v).label}
+  const productsSection = (
+    <Section n={2} title="المنتجات والعرض" done={presented.length > 0} hint="اضغط على المنتج اللي شرحته، وحدد رد فعل الطبيب والعينة">
+      <button type="button" onClick={() => void presentFrom()} disabled={locked} className="w-full mb-3 rounded-2xl bg-gradient-to-l from-[var(--navy)] to-[var(--navy-3)] text-white p-4 flex items-center gap-3 shadow-md hover:shadow-lg transition">
+        <span className="h-12 w-12 rounded-2xl bg-white/15 grid place-items-center text-2xl">▶</span>
+        <span className="text-right flex-1"><span className="block font-extrabold text-lg">ابدأ العرض للطبيب</span><span className="block text-xs text-white/75">بروشور ملء الشاشة — ردود الفعل بتتسجل هنا تلقائياً</span></span>
+      </button>
+      <div className={`grid gap-3 ${mode === "phone" ? "grid-cols-1" : "grid-cols-2"}`}>
+        {productsView.map(p => {
+          const sel = presented.find(x => x.productId === p.id); const row = sampleRows.find(x => x.productId === p.id); const qty = row?.quantity || 0;
+          const b = p.cat?.brochures?.[0];
+          return (
+            <div key={p.id} className={`rounded-2xl border-2 overflow-hidden transition ${sel ? "border-[var(--navy)] shadow-md" : "border-[var(--border)] bg-white"}`}>
+              <div className="flex">
+                <button type="button" onClick={() => togglePresented(p.id)} aria-pressed={!!sel} className="flex-1 flex items-center gap-3 p-2.5 text-right">
+                  <div className="relative h-16 w-16 shrink-0 rounded-xl overflow-hidden bg-slate-100" style={{ background: p.cat?.color || "var(--navy)" }}>
+                    {b ? <BrochureCover url={brochureUrl(b.id)} mime={b.mime} className="h-full w-full bg-white" /> : p.cat && !p.cat.image_available ? <div className="h-full w-full grid place-items-center text-white font-extrabold text-sm">{p.name.slice(0, 2).toUpperCase()}</div> : <ProductThumb id={p.id} name={p.name} />}
+                    {sel && <span className="absolute inset-0 bg-[var(--navy)]/60 grid place-items-center text-white text-xl">✓</span>}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap"><span className="font-extrabold">{p.name}</span>{p.suggested && <span className="rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold px-1.5">⭐ مقترح</span>}{p.id === assignedProductId && <span className="rounded-full bg-[var(--sky-soft)] text-[var(--navy)] text-[10px] font-bold px-1.5">منتجي</span>}</div>
+                    <div className="text-[11px] text-[var(--muted)] line-clamp-1">{p.cat?.tagline || PRODUCT_DESC[p.name] || ""}</div>
+                  </div>
                 </button>
-              );
-            })}
-          </div>
-        </Card>
-
-        {/* GPS */}
-        <Card className="p-5">
-          <div className="flex items-center gap-2">
-            <span className="font-bold">الموقع</span>
-            <span className="text-xs bg-sky-50 border border-sky-200 text-sky-800 rounded-full px-2 py-0.5">GPS</span>
-            <span className="mr-auto text-[11px] text-[var(--muted)]">يُلتقط تلقائيا</span>
-          </div>
-          <div className={`mt-3 rounded-xl border p-3 flex items-center gap-3 ${gps? "bg-emerald-50 border-emerald-200":"bg-amber-50 border-amber-200"}`}>
-            <span className={`h-8 w-8 rounded-full flex items-center justify-center ${gps? "bg-emerald-600 text-white":"bg-amber-500 text-white"}`}>{gps? <Icon name="check" size={16} /> : <Icon name="map" size={16} />}</span>
-            <span className="flex-1 text-xs font-medium">{gpsLoading? "جاري تحديد الموقع...": gpsStatus}</span>
-            <Button type="button" variant="outline" onClick={captureGps} disabled={gpsLoading} className="shrink-0 text-xs py-1.5">تحديث</Button>
-          </div>
-          {gps && <a href={`https://maps.google.com/?q=${gps.lat},${gps.lng}`} target="_blank" className="mt-2 inline-flex text-xs font-bold text-[var(--gold)] hover:underline">فتح في خرائط Google →</a>}
-        </Card>
-
-        {/* Follow-up — collapsible */}
-        <details className="rounded-2xl bg-white border border-[var(--border)] shadow-sm">
-          <summary className="p-4 flex items-center gap-2 cursor-pointer list-none">
-            <span className="font-bold text-sm">متابعة (اختياري)</span>
-            <span className="text-xs text-[var(--muted)]">حدد موعد متابعة</span>
-            <span className="mr-auto text-xs text-[var(--muted)]">▾</span>
-          </summary>
-          <div className="px-4 pb-4 grid grid-cols-2 gap-3 border-t border-[var(--border)] pt-3">
-            <div className="space-y-1.5"><Label>متابعة بتاريخ</Label><Input type="date" value={followUpAt} onChange={e=>setFollowUpAt(e.target.value)} /></div>
-            <div className="space-y-1.5"><Label>ملاحظة المتابعة</Label><Input value={followUpNote} onChange={e=>setFollowUpNote(e.target.value)} placeholder="مثال: اتصال بعد أسبوع" /></div>
-          </div>
-        </details>
-
-        {/* Notes */}
-        <Card className="p-5">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="font-bold">ملاحظات الزيارة</span><span className="text-xs text-red-600 font-bold">*</span>
-            <span className={`mr-auto text-xs rounded-full px-2 py-0.5 border font-bold ${notesOk? "bg-emerald-50 border-emerald-200 text-emerald-800":"bg-amber-50 border-amber-200 text-amber-800"}`}>{notesLen}/10 {notesOk? <Icon name="check" size={13} className="inline align-[-2px]" />:"مطلوب"}</span>
-          </div>
-          <Textarea value={notes} onChange={e=> setNotes(e.target.value)} rows={4} placeholder="مثال: تم عرض المنتج، الطبيب مهتم، طلب عينات إضافية، متابعة بعد 10 أيام..." required className="min-h-[96px]" />
-          {!notesOk && notes.length>0 && <div className="mt-1 text-xs text-amber-700">اكتب {10-notesLen} أحرف إضافية على الأقل</div>}
-        </Card>
-        </fieldset>
-
-        {/* Attachments */}
-        <Card className="p-5">
-          <div className="flex items-center justify-between gap-3"><div><div className="font-bold">مرفقات الزيارة (اختياري)</div><div className="text-xs text-[var(--muted)]">صور أو PDF. حتى {MAX_FILES} ملفات، وتُضغط الصور تلقائيا قبل الرفع.</div></div><span className="text-xs bg-sky-50 border border-sky-200 rounded-full px-3 py-1 font-bold">{files.length}</span></div>
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <label className="flex min-h-14 cursor-pointer items-center justify-center gap-2 rounded-xl bg-[var(--navy)] px-3 text-sm font-extrabold text-white">
-              <span aria-hidden>📷</span> التقاط صورة
-              <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => { void addFiles(e.target.files); e.target.value = ""; }} />
-            </label>
-            <label className="flex min-h-14 cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-[var(--navy)] bg-white px-3 text-sm font-extrabold text-[var(--navy)]">
-              <span aria-hidden>📎</span> من الجوال
-              <input type="file" accept="image/*,application/pdf" multiple className="sr-only" onChange={(e) => { void addFiles(e.target.files); e.target.value = ""; }} />
-            </label>
-          </div>
-          {files.length > 0 && <ul className="mt-3 space-y-2">
-            {files.map((item) => <li key={item.id} className="flex items-center gap-3 rounded-xl border border-[var(--border)] bg-white p-2">
-              <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-slate-100">
-                {item.preview ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={item.preview} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-xs font-bold">PDF</div>}
+                {p.cat && <button type="button" onClick={() => void presentFrom(p.id)} className="px-3 border-r border-[var(--border)] text-[var(--navy)] font-bold text-xs hover:bg-[var(--bg)]" title="عرض البروشور">▶<br />عرض</button>}
               </div>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-xs font-bold">{item.file.name}</div>
-                <div className="text-[11px] text-[var(--muted)]">{(item.file.size / 1024).toFixed(0)} KB</div>
-                {item.state === "uploading" && <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-valuenow={item.progress} aria-valuemin={0} aria-valuemax={100}><div className="h-full bg-[var(--gold)]" style={{ width: `${item.progress}%` }} /></div>}
-                {item.state === "done" && <div className="text-[11px] font-bold text-emerald-700 inline-flex items-center gap-1"><Icon name="check" size={12} /> تم الرفع</div>}
-                {item.state === "error" && <div className="text-[11px] font-bold text-red-700">{item.error || "تعذر الرفع"}</div>}
-              </div>
-              {item.state !== "uploading" && item.state !== "done" && <button type="button" onClick={() => removeFile(item.id)} aria-label="حذف الملف" className="h-11 w-11 shrink-0 rounded-lg border text-lg font-bold">×</button>}
-            </li>)}
-          </ul>}
-        </Card>
+              {sel && <div className="border-t border-[var(--border)] bg-[var(--sky-light)] p-2.5 space-y-2.5">
+                <div className="grid grid-cols-3 gap-1.5">{(Object.keys(REACTION_LABELS) as Reaction[]).map(v => <button key={v} type="button" onClick={() => setReaction(p.id, v)} aria-pressed={sel.reaction === v}
+                  className={`min-h-10 rounded-xl text-xs font-bold border transition ${sel.reaction === v ? v === "interested" ? "bg-emerald-600 border-emerald-600 text-white" : v === "not_interested" ? "bg-red-600 border-red-600 text-white" : "bg-slate-600 border-slate-600 text-white" : "bg-white border-[var(--border)]"}`}>{REACTION_ICONS[v]} {REACTION_LABELS[v]}</button>)}</div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-[var(--muted)] flex-1">عينة</span>
+                  <button type="button" onClick={() => updateSample(p.id, { quantity: Math.max(0, qty - 1) })} disabled={!qty} className="h-9 w-9 rounded-lg border bg-white font-bold disabled:opacity-30">−</button>
+                  <span className="w-8 text-center font-extrabold">{qty}</span>
+                  <button type="button" onClick={() => updateSample(p.id, { quantity: Math.min(10000, qty + 1) })} className="h-9 w-9 rounded-lg bg-[var(--navy)] text-white font-bold">+</button>
+                </div>
+                {qty > 0 && <div className="grid grid-cols-3 gap-1.5">{(Object.keys(PURPOSE_LABELS) as SamplePurpose[]).map(v => <button key={v} type="button" onClick={() => updateSample(p.id, { purpose: v })} aria-pressed={row?.purpose === v}
+                  className={`min-h-9 rounded-lg text-[11px] font-bold border ${row?.purpose === v ? "bg-[var(--navy)] border-[var(--navy)] text-white" : row?.purpose ? "bg-white border-[var(--border)]" : "bg-white border-amber-300"}`}>{PURPOSE_LABELS[v]}</button>)}</div>}
+              </div>}
+            </div>
+          );
+        })}
+      </div>
+      {sampleInvalid && <div className="mt-2 rounded-xl bg-amber-50 border border-amber-200 p-2 text-xs font-bold text-amber-800">{sampleState.error}</div>}
+      {presenting && catalog && <DetailingPresenter products={catalog} startId={presenting} doctor={selectedDoctor ? { id: selectedDoctor.id, name: selectedDoctor.name } : null} initialReactions={Object.fromEntries(presented.map(x => [x.productId, x.reaction]))} onClose={presenterClosed} />}
+    </Section>
+  );
 
-        {err && <div role="alert" className="rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm p-3 flex items-center gap-2"><Icon name="warn" size={16} className="shrink-0" /><span>{err}</span></div>}
-
-        <div className="flex gap-2">
-          {locked
-            ? <Button type="button" variant="outline" onClick={()=> { router.push("/visits"); router.refresh(); }} className="flex-1">متابعة دون الملفات</Button>
-            : <Button type="button" variant="outline" onClick={()=> router.back()} className="flex-1">إلغاء</Button>}
-          <Button type="submit" disabled={loading || (!locked && (!doctorId || !notesOk || sampleInvalid))} className="flex-[2] min-h-12 text-base py-3 inline-flex items-center justify-center gap-1.5">{loading ? "جاري الحفظ..." : locked ? "إعادة محاولة رفع الملفات" : <>حفظ الزيارة <Icon name="check" size={16} /></>}</Button>
+  const quick = status === "cancelled" ? ["الطبيب مش موجود", "العيادة مقفولة", "مشغول جداً — اتأجلت", "لا يستقبل مناديب"] : ["الطبيب مهتم وطلب تفاصيل أكتر", "طلب عينات إضافية", "هيبدأ يجرب المنتج مع المرضى", "عنده تحفظ على السعر", "طلب متابعة قريبة", "أكّد حضور الدعوة"];
+  const resultSection = (
+    <Section n={3} title="نتيجة الزيارة" done={notesOk}>
+      <div className="grid grid-cols-3 gap-2 mb-3">
+        {([["completed", "✓ مكتملة", "bg-emerald-600 border-emerald-600"], ["planned", "🕑 مجدولة", "bg-sky-600 border-sky-600"], ["cancelled", "✕ ملغاة", "bg-red-600 border-red-600"]] as const).map(([v, l, c]) =>
+          <button key={v} type="button" onClick={() => setStatus(v)} className={`min-h-12 rounded-2xl border-2 font-bold text-sm transition ${status === v ? `${c} text-white` : "bg-white border-[var(--border)] text-[var(--muted)]"}`}>{l}</button>)}
+      </div>
+      <div className="flex items-center justify-between mb-1.5"><span className="text-sm font-bold">الملاحظات <span className="text-red-600">*</span></span><span className={`text-[11px] font-bold rounded-full px-2 py-0.5 ${notesOk ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{notesOk ? "✓" : `${Math.max(0, 10 - notesLen)} حرف كمان`}</span></div>
+      <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={mode === "phone" ? 4 : 5} placeholder="اكتب اللي حصل في الزيارة…" className="w-full rounded-2xl border border-[var(--border)] px-3 py-3 text-base outline-none focus:border-[var(--navy)]" />
+      <div className="flex flex-wrap gap-1.5 mt-2">{quick.map(t => <button key={t} type="button" onClick={() => addNote(t)} className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-bold hover:border-[var(--navy)]">+ {t}</button>)}</div>
+      <div className="mt-4">
+        <div className="text-sm font-bold mb-1.5">متابعة قادمة <span className="text-xs font-normal text-[var(--muted)]">(اختياري — بتظهر في مخطط العمل)</span></div>
+        <div className="flex flex-wrap gap-1.5">
+          {([["بكرة", 1], ["بعد أسبوع", 7], ["بعد أسبوعين", 14], ["بعد شهر", 30]] as const).map(([l, d]) => { const v = fuDate(d); return <button key={l} type="button" onClick={() => setFollowUpAt(followUpAt === v ? "" : v)} className={`rounded-xl px-3 py-2 text-xs font-bold border ${followUpAt === v ? "bg-[var(--navy)] text-white border-[var(--navy)]" : "bg-white border-[var(--border)]"}`}>{l}</button>; })}
+          <input type="date" value={followUpAt} onChange={e => setFollowUpAt(e.target.value)} className="rounded-xl border border-[var(--border)] px-2 py-1.5 text-xs" />
         </div>
-        <div className="text-center text-[11px] text-[var(--muted)]">الحقول بعلامة * إجبارية — الزيارة تُحفظ بتاريخ اليوم تلقائيا</div>
+        {followUpAt && <input value={followUpNote} onChange={e => setFollowUpNote(e.target.value)} placeholder="المطلوب في المتابعة (مثال: توصيل عينات)" className="mt-2 w-full rounded-xl border border-[var(--border)] px-3 py-2 text-sm" />}
+      </div>
+    </Section>
+  );
+
+  const extrasSection = (
+    <Section n={4} title="المرفقات والموقع" done={files.length > 0 || !!gps} hint="اختياري">
+      <div className={`rounded-2xl border p-3 flex items-center gap-3 mb-3 ${gps ? "bg-emerald-50 border-emerald-200" : "bg-amber-50 border-amber-200"}`}>
+        <span className={`h-9 w-9 rounded-xl grid place-items-center text-white ${gps ? "bg-emerald-600" : "bg-amber-500"}`}>{gps ? "✓" : "📍"}</span>
+        <span className="flex-1 text-xs font-medium">{gpsLoading ? "جاري تحديد الموقع…" : gps ? `الموقع اتسجل (±${Math.round(gps.accuracy_m)}م)` : gpsStatus}</span>
+        <button type="button" onClick={captureGps} disabled={gpsLoading} className="rounded-xl border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-bold">تحديث</button>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-2xl bg-[var(--navy)] px-3 text-sm font-bold text-white">📷 صورة<input type="file" accept="image/*" capture="environment" className="sr-only" onChange={e => { void addFiles(e.target.files); e.target.value = ""; }} /></label>
+        <label className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-2xl border-2 border-[var(--navy)] bg-white px-3 text-sm font-bold text-[var(--navy)]">📎 ملف<input type="file" accept="image/*,application/pdf" multiple className="sr-only" onChange={e => { void addFiles(e.target.files); e.target.value = ""; }} /></label>
+      </div>
+      {files.length > 0 && <div className="mt-3 grid grid-cols-3 sm:grid-cols-4 gap-2">{files.map(item => (
+        <div key={item.id} className="relative rounded-xl border border-[var(--border)] bg-white overflow-hidden">
+          <div className="aspect-square bg-slate-100">{item.preview ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={item.preview} alt="" className="h-full w-full object-cover" /> : <div className="h-full grid place-items-center text-xs font-bold">PDF</div>}</div>
+          {item.state === "uploading" && <div className="absolute inset-x-0 bottom-0 h-1.5 bg-slate-200"><div className="h-full bg-[var(--navy)]" style={{ width: `${item.progress}%` }} /></div>}
+          {item.state === "done" && <span className="absolute top-1 left-1 h-6 w-6 rounded-full bg-emerald-600 text-white grid place-items-center text-xs">✓</span>}
+          {item.state === "error" && <div className="absolute inset-x-0 bottom-0 bg-red-600 text-white text-[10px] p-0.5 text-center truncate">{item.error || "تعذر"}</div>}
+          {item.state !== "uploading" && item.state !== "done" && <button type="button" onClick={() => removeFile(item.id)} className="absolute top-1 right-1 h-6 w-6 rounded-full bg-black/60 text-white text-sm" aria-label="حذف">×</button>}
+        </div>))}</div>}
+    </Section>
+  );
+
+  const saveButton = <>
+      {err && <div role="alert" className="rounded-xl bg-red-50 border border-red-200 text-red-800 text-sm p-3">{err}</div>}
+      <button type="submit" disabled={!canSave} className="w-full rounded-2xl bg-[var(--navy)] text-white py-3.5 text-base font-extrabold disabled:opacity-40 shadow-md">{loading ? "جاري الحفظ…" : locked ? "إعادة رفع الملفات" : "✓ حفظ الزيارة"}</button>
+      {locked && <button type="button" onClick={() => setDone(true)} className="w-full rounded-2xl border border-[var(--border)] py-2.5 text-sm font-bold">متابعة من غير الملفات</button>}
+    </>;
+  const summary = (
+    <div className="rounded-3xl border border-[var(--border)] bg-white p-4 space-y-3">
+      <div className="font-extrabold text-[var(--navy)]">ملخص الزيارة</div>
+      <div className="space-y-1.5">{checks.map(c => <div key={c.label} className="flex items-center gap-2 text-sm"><span className={`h-5 w-5 rounded-full grid place-items-center text-[11px] text-white ${c.ok ? "bg-emerald-600" : c.optional ? "bg-slate-300" : "bg-amber-500"}`}>{c.ok ? "✓" : c.optional ? "–" : "!"}</span><span className={c.ok ? "" : "text-[var(--muted)]"}>{c.label}{c.optional && !c.ok ? " (اختياري)" : ""}</span></div>)}</div>
+      {presented.length > 0 && <div className="flex flex-wrap gap-1">{presented.map(x => { const p = products.find(y => y.id === x.productId); const s = sampleRows.find(r => r.productId === x.productId)?.quantity || 0; return p && <span key={x.productId} className="rounded-full bg-[var(--bg)] px-2 py-0.5 text-[11px] font-bold">{REACTION_ICONS[x.reaction]} {p.name}{s ? ` · ${s} عينة` : ""}</span>; })}</div>}
+      {saveButton}
+    </div>
+  );
+  const banners = <>
+    {offlineQueued > 0 && <div className="rounded-2xl bg-amber-50 border border-amber-300 p-3 flex items-center justify-between"><span className="text-sm font-bold text-amber-900">📴 {offlineQueued} زيارة محفوظة على الجهاز من غير نت</span><button type="button" onClick={() => void flushQueue()} className="rounded-xl border border-amber-400 bg-white px-3 py-1.5 text-xs font-bold">مزامنة الآن</button></div>}
+    {locked && <div role="status" className="rounded-2xl border border-emerald-300 bg-emerald-50 p-3 text-sm font-bold text-emerald-900">✓ الزيارة اتحفظت — فاضل رفع الملفات بس</div>}
+  </>;
+
+  // ───────────── layouts ─────────────
+  if (mode === "phone") {
+    const steps = ["الطبيب", "المنتجات", "النتيجة", "الحفظ"];
+    const canNext = wiz === 0 ? !!doctorId : wiz === 1 ? !sampleInvalid : wiz === 2 ? notesOk && !sampleInvalid : true;
+    return (
+      <form onSubmit={submit} className="mt-3 pb-40 space-y-3">
+        <div className="flex gap-1">{steps.map((s, i) => <button key={s} type="button" onClick={() => (i <= wiz || (i === 1 && doctorId)) && setWiz(i)} className="flex-1 text-center"><div className={`h-1.5 rounded-full ${i <= wiz ? "bg-[var(--navy)]" : "bg-slate-200"}`} /><div className={`text-[11px] mt-1 font-bold ${i === wiz ? "text-[var(--navy)]" : "text-[var(--muted)]"}`}>{s}</div></button>)}</div>
+        {banners}
+        <fieldset disabled={locked} className="space-y-3 border-0 p-0 m-0 min-w-0">
+          {wiz === 0 && <>{doctorSection}{contextCard}</>}
+          {wiz === 1 && productsSection}
+          {wiz === 2 && resultSection}
+        </fieldset>
+        {wiz === 3 && <>{extrasSection}{summary}</>}
+        {wiz < 3 && <div className="fixed inset-x-0 bottom-[4.75rem] z-30 px-3">
+          <div className="rounded-2xl bg-white/95 backdrop-blur border border-[var(--border)] shadow-xl p-2 flex gap-2">
+            {wiz > 0 && <button type="button" onClick={() => setWiz(wiz - 1)} className="rounded-xl border border-[var(--border)] px-4 font-bold">›</button>}
+            <button type="button" disabled={!canNext} onClick={() => setWiz(wiz + 1)} className="flex-1 rounded-xl bg-[var(--navy)] text-white py-3 font-extrabold disabled:opacity-40">{wiz === 0 ? (doctorId ? "التالي: المنتجات ‹" : "اختار الطبيب الأول") : wiz === 1 ? "التالي: النتيجة ‹" : notesOk ? "التالي: الحفظ ‹" : "اكتب الملاحظات"}</button>
+          </div>
+        </div>}
       </form>
+    );
+  }
+
+  return (
+    <form onSubmit={submit} className={`mt-4 ${mode === "desktop" ? "grid grid-cols-[1fr_360px] gap-4 items-start" : "space-y-3 pb-28"}`}>
+      <div className="space-y-3 min-w-0">
+        {banners}
+        <fieldset disabled={locked} className="space-y-3 border-0 p-0 m-0 min-w-0">
+          {doctorSection}
+          {mode === "tablet" && contextCard}
+          {productsSection}
+          {resultSection}
+        </fieldset>
+        {extrasSection}
+      </div>
+      {mode === "desktop" ? <div className="space-y-3 sticky top-4">{contextCard}{summary}</div>
+        : <div className="fixed left-0 right-0 lg:right-[272px] bottom-0 z-30 p-3 bg-gradient-to-t from-[var(--bg)] via-[var(--bg)]/95 to-transparent">
+          <div className="max-w-3xl mx-auto rounded-2xl bg-white border border-[var(--border)] shadow-xl p-2.5 flex items-center gap-3">
+            <div className="flex gap-1">{checks.filter(c => !c.optional).map(c => <span key={c.label} title={c.label} className={`h-2.5 w-2.5 rounded-full ${c.ok ? "bg-emerald-500" : "bg-amber-400"}`} />)}</div>
+            <div className="text-xs text-[var(--muted)] flex-1 truncate">{!doctorId ? "اختار الطبيب" : !notesOk ? "اكتب ملاحظات الزيارة" : sampleInvalid ? sampleState.error : "جاهزة للحفظ"}</div>
+            {err && <div className="text-xs text-red-700 max-w-[40%] truncate" title={err}>{err}</div>}
+            <button type="submit" disabled={!canSave} className="rounded-xl bg-[var(--navy)] text-white px-6 py-3 font-extrabold disabled:opacity-40">{loading ? "…" : locked ? "إعادة الرفع" : "✓ حفظ الزيارة"}</button>
+          </div>
+        </div>}
+    </form>
+  );
+}
+
+// ───────────── helpers ─────────────
+type TodayItem = { id: string; doctor_id: string; doctor_name: string; clinic_name: string; product_id: string | null; product_name: string | null; done: boolean };
+type VisitContext = {
+  doctor: { classification: string | null; specialty: string | null; phone: string | null; visits_per_month: number | null };
+  history: Array<{ id: string; visited_at: string; status: string; notes: string; rep_name: string; mine: boolean; presented: Array<{ product_id: string; name: string; reaction: string }>; samples: number }>;
+  followups: Array<{ due: string; note: string }>; plan: { note: string; product_name: string | null; priority: string } | null; suggested: string[]; daysSince: number | null;
+};
+
+function Section({ n, title, done, hint, children }: { n: number; title: string; done: boolean; hint?: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-3xl border border-[var(--border)] bg-white p-4 sm:p-5">
+      <div className="flex items-center gap-2 mb-3">
+        <span className={`h-7 w-7 rounded-full grid place-items-center text-xs font-extrabold text-white ${done ? "bg-emerald-600" : "bg-[var(--navy)]"}`}>{done ? "✓" : n}</span>
+        <span className="font-extrabold">{title}</span>
+        {hint && <span className="text-[11px] text-[var(--muted)] mr-1 hidden sm:inline">{hint}</span>}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+const RX: Record<string, string> = { interested: "👍", neutral: "😐", not_interested: "👎" };
+function ContextCard({ ctx, loading, products, onPresent }: { ctx: VisitContext | null; loading: boolean; products: Array<{ id: string; name: string }>; onPresent: (id: string) => void }) {
+  if (loading && !ctx) return <div className="rounded-3xl border border-[var(--border)] bg-white p-4 space-y-2">{[0, 1, 2].map(i => <div key={i} className="h-5 rounded bg-[var(--bg)] animate-pulse" />)}</div>;
+  if (!ctx) return null;
+  const last = ctx.history[0];
+  const gap = ctx.doctor.visits_per_month ? Math.ceil(30 / ctx.doctor.visits_per_month) : null;
+  const late = gap !== null && ctx.daysSince !== null && ctx.daysSince > gap;
+  const name = (id: string) => products.find(p => p.id === id)?.name || "";
+  return (
+    <div className="rounded-3xl border border-[var(--navy)]/15 bg-gradient-to-b from-[var(--sky-light)] to-white p-4 space-y-3">
+      <div className="flex items-center gap-2"><span className="text-lg">✨</span><span className="font-extrabold text-[var(--navy)]">قبل ما تدخل</span></div>
+      <div className="grid grid-cols-2 gap-2 text-center">
+        <div className="rounded-2xl bg-white border border-[var(--border)] p-2"><div className="text-[11px] text-[var(--muted)]">آخر زيارة</div><div className={`font-extrabold ${late ? "text-red-700" : "text-[var(--navy)]"}`}>{ctx.daysSince === null ? "أول زيارة" : ctx.daysSince === 0 ? "النهارده" : `من ${ctx.daysSince} يوم`}</div></div>
+        <div className="rounded-2xl bg-white border border-[var(--border)] p-2"><div className="text-[11px] text-[var(--muted)]">الفئة</div><div className="font-extrabold text-[var(--navy)]">{ctx.doctor.classification || "—"}{gap ? <span className="text-[11px] font-normal text-[var(--muted)]"> · كل {gap} يوم</span> : null}</div></div>
+      </div>
+      {ctx.plan && <div className="rounded-2xl bg-white border border-[var(--border)] p-3 text-sm">🗓️ <b>في خطة النهارده</b>{ctx.plan.product_name ? ` — ${ctx.plan.product_name}` : ""}{ctx.plan.note ? <div className="text-xs text-[var(--muted)] mt-1">{ctx.plan.note}</div> : null}</div>}
+      {ctx.followups.length > 0 && <div className="rounded-2xl bg-amber-50 border border-amber-200 p-3 text-sm space-y-1">{ctx.followups.map((f, i) => <div key={i}>↻ <b>متابعة {f.due}</b>{f.note ? ` — ${f.note}` : ""}</div>)}</div>}
+      {last && <div className="rounded-2xl bg-white border border-[var(--border)] p-3 text-sm">
+        <div className="text-xs text-[var(--muted)] mb-1">آخر مرة ({last.mine ? "إنت" : last.rep_name})</div>
+        {last.presented.length > 0 && <div className="flex flex-wrap gap-1 mb-1">{last.presented.map(p => <span key={p.product_id} className="rounded-full bg-[var(--bg)] px-2 py-0.5 text-[11px] font-bold">{RX[p.reaction] || ""} {p.name}</span>)}</div>}
+        {last.notes && <div className="text-xs leading-5 line-clamp-3">«{last.notes}»</div>}
+      </div>}
+      {ctx.suggested.length > 0 && <div>
+        <div className="text-xs font-bold text-[var(--muted)] mb-1.5">اقتراح العرض</div>
+        <div className="flex flex-wrap gap-1.5">{ctx.suggested.map((id, i) => <button key={id} type="button" onClick={() => onPresent(id)} className={`rounded-xl px-3 py-2 text-xs font-bold ${i === 0 ? "bg-[var(--navy)] text-white" : "bg-white border border-[var(--border)]"}`}>▶ {name(id)}</button>)}</div>
+      </div>}
+      {ctx.history.length > 1 && <details className="text-xs"><summary className="cursor-pointer font-bold text-[var(--navy)]">سجل الزيارات ({ctx.history.length})</summary>
+        <div className="mt-2 space-y-1.5">{ctx.history.slice(1).map(h => <div key={h.id} className="rounded-xl bg-white border border-[var(--border)] p-2"><div className="text-[11px] text-[var(--muted)]">{new Intl.DateTimeFormat("ar-EG-u-nu-latn", { day: "numeric", month: "short", timeZone: "Asia/Riyadh" }).format(new Date(h.visited_at))} · {h.rep_name}</div><div className="line-clamp-2">{h.notes}</div></div>)}</div>
+      </details>}
+    </div>
+  );
+}
+
+function SuccessScreen({ doctor, presented, samples, followUp, onNew }: { doctor: string; presented: number; samples: number; followUp: string; onNew: () => void }) {
+  return (
+    <div className="mt-6 max-w-md mx-auto text-center rounded-3xl border border-[var(--border)] bg-white p-8 space-y-4">
+      <div className="mx-auto h-20 w-20 rounded-full bg-emerald-600 text-white grid place-items-center text-4xl animate-[pop_.35s_ease-out]">✓</div>
+      <div className="text-2xl font-extrabold text-[var(--navy)]">اتسجلت الزيارة</div>
+      <div className="text-sm text-[var(--muted)]">{doctor}{presented ? ` · ${presented} منتج` : ""}{samples ? ` · ${samples} عينة` : ""}{followUp ? ` · متابعة ${followUp}` : ""}</div>
+      <div className="grid gap-2 pt-2">
+        <a href="/calendar" className="rounded-2xl bg-[var(--navy)] text-white py-3 font-bold">🗓️ الزيارة الجاية في المخطط</a>
+        <button onClick={onNew} className="rounded-2xl border border-[var(--border)] py-3 font-bold">+ زيارة جديدة</button>
+        <a href="/visits" className="text-sm font-bold text-[var(--navy)]">زياراتي</a>
+      </div>
+      <style>{`@keyframes pop{0%{transform:scale(.4);opacity:0}70%{transform:scale(1.1)}100%{transform:scale(1);opacity:1}}`}</style>
     </div>
   );
 }

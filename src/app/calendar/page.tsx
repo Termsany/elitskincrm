@@ -1,2 +1,24 @@
-import {getCurrentUser} from "@/lib/session";import {redirect} from "next/navigation";import {AppShell} from "@/components/AppShell";import CalendarClient from "./CalendarClient";
-export default async function CalendarPage(){const user=await getCurrentUser();if(!user)redirect('/login');const {query}=await import('@/lib/db');const reps=user.role==='admin'?await query("SELECT id,name FROM users WHERE role='sales_rep' AND active=true ORDER BY name"): {rows:[]};const doctors=await query("SELECT id,name,clinic_name,city FROM doctors WHERE status='active' ORDER BY name LIMIT 500");const visits=user.role==='admin'?await query("SELECT v.id,v.visited_at,d.name doctor_name FROM visits v JOIN doctors d ON d.id=v.doctor_id ORDER BY v.visited_at DESC LIMIT 200"):await query("SELECT v.id,v.visited_at,d.name doctor_name FROM visits v JOIN doctors d ON d.id=v.doctor_id WHERE v.sales_rep_id=$1 ORDER BY v.visited_at DESC LIMIT 100",[user.id]);const tasks=user.role==='admin'?await query("SELECT id,title FROM tasks WHERE archived=false ORDER BY created_at DESC LIMIT 200"):await query("SELECT t.id,t.title FROM tasks t WHERE t.archived=false AND (t.assigned_to=$1 OR EXISTS(SELECT 1 FROM task_assignees ta WHERE ta.task_id=t.id AND ta.user_id=$1)) ORDER BY t.created_at DESC LIMIT 100",[user.id]);const serviceRequests=user.role==='admin'?await query("SELECT id,title,status FROM service_requests WHERE status IN ('pending','in_progress') ORDER BY created_at DESC LIMIT 200"):await query("SELECT id,title,status FROM service_requests WHERE requester_id=$1 AND status IN ('pending','in_progress') ORDER BY created_at DESC LIMIT 100",[user.id]);return <AppShell role={user.role} email={user.email} name={user.name} jobTitle={user.job_title} productName={user.product_name} active="/calendar"><CalendarClient isAdmin={user.role==='admin'} reps={reps.rows as any} currentUserId={user.id} doctors={doctors.rows as any} visits={visits.rows as any} tasks={tasks.rows as any} serviceRequests={serviceRequests.rows as any}/></AppShell>}
+import { getCurrentUser } from "@/lib/session";
+import { redirect } from "next/navigation";
+import { AppShell } from "@/components/AppShell";
+import WorkPlanner from "./WorkPlanner";
+
+export default async function CalendarPage() {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const { query } = await import("@/lib/db");
+  const reps = await query("SELECT id, name FROM users WHERE role='sales_rep' AND active=true ORDER BY name");
+  const doctors = await query("SELECT id, name, clinic_name, city, classification FROM doctors WHERE status='active' ORDER BY name");
+  const products = await query("SELECT id, name FROM products WHERE active=true ORDER BY sort_order, name");
+  return (
+    <AppShell role={user.role} email={user.email} name={user.name} jobTitle={user.job_title} productName={user.product_name} active="/calendar">
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h1 className="text-2xl font-extrabold text-[var(--navy)]">مخطط العمل</h1>
+          <p className="text-sm text-[var(--muted)]">الخطة والزيارات والمواعيد والمتابعات وطلبات التعاون — في مكان واحد</p>
+        </div>
+      </div>
+      <WorkPlanner isAdmin={user.role === "admin"} currentUserId={user.id} reps={reps.rows as any} doctors={doctors.rows as any} products={products.rows as any} />
+    </AppShell>
+  );
+}

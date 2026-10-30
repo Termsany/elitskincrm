@@ -4,6 +4,7 @@ import NotificationsBell from "./NotificationsBell";
 import MobileNav from "./MobileNav";
 import { Icon } from "@/components/Icon";
 import { Logo } from "@/components/Logo";
+import CommandPalette, { PaletteButton } from "@/components/CommandPalette";
 
 type NavItem = { href: string; label: string; icon: string; show: boolean; group: "primary" | "more" };
 
@@ -15,16 +16,16 @@ export function AppShell({ role, email, name, jobTitle, productName, children, a
     { href: "/visits/new", label: "تسجيل زيارة", icon: "new-visit", show: !isAdmin, group: "primary" },
     { href: "/doctors", label: "الأطباء والعيادات", icon: "doctors", show: true, group: "primary" },
     { href: "/visits", label: "الزيارات", icon: "visits", show: true, group: "primary" },
-    { href: "/plans", label: "الخطط والتقويم", icon: "plans", show: true, group: "primary" },
+    { href: "/calendar", label: "مخطط العمل", icon: "calendar", show: true, group: "primary" },
+    { href: "/plans", label: "الخطط والاعتماد", icon: "plans", show: true, group: "primary" },
     { href: "/products", label: "المنتجات", icon: "products", show: !isAdmin, group: "primary" },
-    { href: "/sales", label: "المبيعات", icon: "sales", show: !isAdmin, group: "primary" },
+    { href: "/sales", label: "المبيعات والأهداف", icon: "sales", show: true, group: "primary" },
+    { href: "/library", label: "مكتبة المستندات", icon: "library", show: true, group: "primary" },
     { href: "/admin/reps", label: "المناديب", icon: "reps", show: isAdmin, group: "primary" },
     { href: "/admin/reports", label: "التقارير", icon: "reports", show: isAdmin, group: "primary" },
     // ── more (secondary, collapsed) ──
     { href: "/work", label: "مركز العمل", icon: "work", show: !isAdmin, group: "more" },
-    { href: "/calendar", label: "التقويم والتعاون", icon: "calendar", show: true, group: "more" },
-    { href: "/map", label: "الخريطة", icon: "map", show: isAdmin, group: "more" },
-    { href: "/admin/doctor-stats", label: "أداء الأطباء", icon: "doctor-stats", show: isAdmin, group: "more" },
+    
     { href: "/admin/products", label: "المنتجات", icon: "products", show: isAdmin, group: "more" },
     { href: "/account", label: "حسابي", icon: "account", show: true, group: "more" },
   ];
@@ -38,6 +39,7 @@ export function AppShell({ role, email, name, jobTitle, productName, children, a
     <div className="fixed top-3 left-3 z-50 hidden lg:block"><NotificationsBell role={role}/></div>
     <aside className="hidden lg:flex w-[272px] shrink-0 flex-col bg-[var(--navy)] text-white p-7 gap-6 sticky top-0 h-screen overflow-auto">
       <div className="flex justify-center py-1"><Logo variant="stacked" tone="onDark" markSize={46} tagline="نظام إدارة الزيارات الطبية" /></div>
+      {isAdmin && <PaletteButton />}
       <nav className="flex flex-col gap-1.5 mt-2">
         {primary.map((n) => <Link key={n.href} href={n.href} className={linkCls(n.href)}><Icon name={n.icon} size={18} className="shrink-0 opacity-90" /><span>{n.label}</span></Link>)}
         {more.length > 0 && <details open={more.some((n) => isOn(n.href))} className="group mt-1">
@@ -55,5 +57,6 @@ export function AppShell({ role, email, name, jobTitle, productName, children, a
       <div className="mt-auto rounded-2xl bg-white/10 p-3"><div className="text-sm font-bold">{name}</div><div className="break-all text-xs text-[var(--sky)]">{email}</div><div className="mt-1 text-[11px] text-white/70">{isAdmin?"مدير النظام":(jobTitle||"مندوب")}</div>{!isAdmin&&productName&&<div className="mt-1 text-[10px] text-white/55">{productName}</div>}<form action="/api/auth/logout" method="post" className="mt-3"><button formAction={async()=>{"use server";const{destroySession}=await import("@/lib/session");await destroySession();}} className="w-full rounded-full bg-white/15 py-2 text-xs font-bold hover:bg-white/20">تسجيل خروج</button></form></div>
     </aside>
     <div className="flex min-w-0 flex-1 flex-col"><MobileNav items={items} active={active} name={name} role={role}/><main className="flex-1 p-4 pb-28 sm:p-5 sm:pb-28 lg:p-8 lg:pb-8">{children}</main></div>
+    {isAdmin && <CommandPalette />}
   </div>;
 }

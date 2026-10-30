@@ -16,7 +16,14 @@ export default function NotificationsBell({role="sales_rep"}:{role?:string}){
       setList(r.notifications||[]);
     }
   },[]);
-  useEffect(()=>{ load(); const id=setInterval(load, 30*1000); return ()=> clearInterval(id); },[load]);
+  useEffect(()=>{
+    // Poll every 60s only while the tab is visible; refresh as soon as it becomes visible again.
+    load();
+    const id=setInterval(()=>{ if(document.visibilityState==="visible") load(); }, 60*1000);
+    const onVis=()=>{ if(document.visibilityState==="visible") load(); };
+    document.addEventListener("visibilitychange", onVis);
+    return ()=>{ clearInterval(id); document.removeEventListener("visibilitychange", onVis); };
+  },[load]);
   useEffect(()=>{ if(hasNew) { const t=setTimeout(()=> setHasNew(false), 2000); return ()=> clearTimeout(t); } },[hasNew]);
   async function markAll(){ const response=await fetch("/api/notifications",{method:"PATCH", headers:{"content-type":"application/json"}, body:JSON.stringify({all:true})}); if(response.ok)setUnread(0); await load(); }
 
