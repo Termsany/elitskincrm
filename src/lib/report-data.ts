@@ -1,4 +1,5 @@
 import { query } from "@/lib/db";
+import { pausedSql } from "@/lib/doctor-pauses";
 import { riyadhDateParts } from "@/lib/plan-reminders";
 
 export class AnnualReportFilterError extends Error {}
@@ -126,7 +127,7 @@ export async function getDetailedReportData(searchParams: URLSearchParams, opts:
   const riyadhToday=riyadhDateParts().date;
   const coverageDateFrom=from||`${riyadhToday.slice(0,7)}-01`;
   const coverageDateTo=to||riyadhToday;
-  coverageVals.push(coverageDateFrom,coverageDateTo);const cFrom=coverageVals.length-1,cTo=coverageVals.length;
+  coverageVals.push(coverageDateFrom,coverageDateTo);const cFrom=coverageVals.length-1,cTo=coverageVals.length;coverageConds.push(`NOT ${pausedSql("u.id","d.id",`$${cFrom}::date`)}`);
   coverageVisitConds.push(`(v.visited_at AT TIME ZONE 'Asia/Riyadh')::date >= $${cFrom}::date`,`(v.visited_at AT TIME ZONE 'Asia/Riyadh')::date <= $${cTo}::date`);
   if(status)coverageVisitConds.push(addCoverage("v.status=?",status));
   if(productId){const pp=addCoverage("vpf.product_id=?",productId);coverageVisitConds.push(`(EXISTS(SELECT 1 FROM visit_items vpf WHERE vpf.visit_id=v.id AND ${pp}) OR EXISTS(SELECT 1 FROM visit_presented_products vpf WHERE vpf.visit_id=v.id AND ${pp}))`)}

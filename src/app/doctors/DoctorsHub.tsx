@@ -7,7 +7,7 @@ import type { HubDoctor } from "@/lib/doctors-hub";
 
 type Opt = { id: string; name: string };
 type Tab = "doctors" | "clinics" | "insights" | "requests";
-type Seg = "all" | "overdue" | "never" | "followup" | "interested" | "planned" | "favorites";
+type Seg = "all" | "overdue" | "never" | "followup" | "interested" | "planned" | "favorites" | "paused";
 type Form = { name: string; clinic_name: string; city: string; specialty: string; classification: string; phone: string; email: string };
 const EMPTY: Form = { name: "", clinic_name: "", city: "", specialty: "", classification: "", phone: "", email: "" };
 const FAV = "elite_doctor_favorites";
@@ -72,13 +72,13 @@ export default function DoctorsHub({ isAdmin, reps, initialQ = "", initialTab = 
   const clinics = useMemo(() => [...new Set(all.map(d => d.clinic_name).filter(Boolean) as string[])].sort(), [all]);
   const counts = useMemo(() => ({
     all: all.length, overdue: all.filter(d => health(d) === "overdue").length, never: all.filter(d => health(d) === "never").length,
-    followup: all.filter(d => d.next_follow_up).length, interested: all.filter(d => (interestPct(d) ?? 0) >= 50).length, planned: all.filter(d => d.in_plan_next).length, favorites: all.filter(d => fav.includes(d.id)).length,
+    followup: all.filter(d => d.next_follow_up).length, interested: all.filter(d => (interestPct(d) ?? 0) >= 50).length, planned: all.filter(d => d.in_plan_next).length, favorites: all.filter(d => fav.includes(d.id)).length, paused: all.filter(d => d.paused).length,
   }), [all, fav]);
   const list = useMemo(() => {
     const t = q.trim().toLowerCase();
     const xs = all.filter(d => (!t || `${d.name} ${d.clinic_name} ${d.city} ${d.specialty} ${d.phone}`.toLowerCase().includes(t)) && (!city || d.city === city) && (!cls || d.classification === cls) && (!clinic || d.clinic_name === clinic)
       && (seg === "all" || (seg === "overdue" && health(d) === "overdue") || (seg === "never" && health(d) === "never") || (seg === "followup" && !!d.next_follow_up)
-        || (seg === "interested" && (interestPct(d) ?? 0) >= 50) || (seg === "planned" && !!d.in_plan_next) || (seg === "favorites" && fav.includes(d.id))));
+        || (seg === "interested" && (interestPct(d) ?? 0) >= 50) || (seg === "planned" && !!d.in_plan_next) || (seg === "favorites" && fav.includes(d.id)) || (seg === "paused" && d.paused)));
     const pri = (d: HubDoctor) => { const h = health(d); const c = d.classification === "A" ? 0 : d.classification === "B" ? 1 : 2; return (h === "overdue" ? 0 : h === "never" ? 1 : h === "soon" ? 2 : 3) * 10 + c; };
     const val = (d: HubDoctor): number | string => sort.k === "priority" ? pri(d) * 10000 - (d.days_since ?? 9999) : sort.k === "name" ? d.name : sort.k === "visits" ? d.visits : sort.k === "interest" ? (interestPct(d) ?? -1) : sort.k === "last" ? (d.days_since ?? 99999) : sort.k === "samples" ? d.samples : d.name;
     return [...xs].sort((a, b) => { const x = val(a), y = val(b); return (typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y))) * sort.dir; });
@@ -93,6 +93,17 @@ export default function DoctorsHub({ isAdmin, reps, initialQ = "", initialTab = 
     }
     toast([ok && `${ok} اتضافوا للخطة`, req && `${req} اتبعتوا كطلب للمدير`, fail && `${fail} فشلوا`].filter(Boolean).join(" · ") || "تم", fail ? "error" : "success");
     setChecked([]); setReload(n => n + 1);
+  }
+  const canPause = !isAdmin || !!repId;
+  const monthName = new Intl.DateTimeFormat("ar-EG", { month: "long", timeZone: "Asia/Riyadh" }).format(new Date());
+  async function setPaused(ids: string[], paused: boolean) {
+    if (!canPause) { toast("اختار المندوب من فوق الأول", "info"); return; }
+    setRows(rs => rs && rs.map(d => ids.includes(d.id) ? { ...d, paused } : d)); // optimistic
+    const r = await fetch("/api/doctors/pauses", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ doctorIds: ids, paused, repId: isAdmin ? repId : undefined }) });
+    const j = await r.json().catch(() => null);
+    if (!r.ok) { toast(j?.error || "تعذر الحفظ", "error"); setReload(n => n + 1); return; }
+    toast(paused ? `⏸ ${ids.length === 1 ? "الطبيب" : `${ids.length} أطباء`} Inactive لشهر ${monthName} — مش هيتحسبوا في التغطية` : `▶ ${ids.length === 1 ? "الطبيب رجع" : `${ids.length} أطباء رجعوا`} Active`, "success");
+    setChecked([]);
   }
   async function saveForm() {
     if (!form) return;
@@ -109,7 +120,7 @@ export default function DoctorsHub({ isAdmin, reps, initialQ = "", initialTab = 
   const exportUrl = (ids?: string[]) => { const qs = new URLSearchParams({ days: String(days) }); if (isAdmin && repId) qs.set("repId", repId); if (ids?.length) qs.set("ids", ids.join(",")); return `/api/doctors/hub/export?${qs}`; };
   const effView = mode === "desktop" ? view : "cards";
 
-  const SEGS: Array<[Seg, string, string]> = [["all", "الكل", ""], ["overdue", "متأخرين", "text-red-700"], ["never", "ما اتزاروش", ""], ["followup", "متابعات", "text-amber-700"], ["interested", "مهتمين", "text-emerald-700"], ["planned", "في الخطة", ""], ["favorites", "★ المفضلة", ""]];
+  const SEGS: Array<[Seg, string, string]> = [["all", "الكل", ""], ["overdue", "متأخرين", "text-red-700"], ["never", "ما اتزاروش", ""], ["followup", "متابعات", "text-amber-700"], ["interested", "مهتمين", "text-emerald-700"], ["planned", "في الخطة", ""], ["favorites", "★ المفضلة", ""], ...(canPause ? [["paused", "⏸ Inactive الشهر ده", "text-slate-600"] as [Seg, string, string]] : [])];
   const TABS: Array<[Tab, string]> = [["doctors", "الأطباء"], ["clinics", "العيادات"], ["insights", "الأداء والتحليل"], ["requests", isAdmin ? `طلبات التعديل${pending ? ` (${pending})` : ""}` : `طلباتي${pending ? ` (${pending})` : ""}`]];
 
   return (
@@ -145,7 +156,8 @@ export default function DoctorsHub({ isAdmin, reps, initialQ = "", initialTab = 
       {!rows && tab !== "requests" && <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">{[0, 1, 2, 3, 4, 5].map(i => <div key={i} className="h-32 rounded-3xl bg-white animate-pulse" />)}</div>}
 
       {rows && tab === "doctors" && <>
-        {checked.length > 0 && <BulkBar n={checked.length} onPlan={d => void addToPlan(checked, d)} exportHref={exportUrl(checked)} onClear={() => setChecked([])} needRep={isAdmin && !repId} />}
+        {canPause && mode !== "phone" && Number(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh", day: "numeric" }).format(new Date())) <= 7 && !counts.paused && <div className="dz-in flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--sky-border)] bg-[var(--sky-light)] px-4 py-3 text-sm"><span className="text-lg">🗓️</span><span className="flex-1"><b className="text-[var(--navy)]">بداية شهر {monthName}:</b> حدد الأطباء اللي مش هتزورهم الشهر ده واعملهم <b>Inactive</b> — كده التغطية تتحسب على الأطباء الحقيقيين بس.</span><span className="text-[11px] text-[var(--muted)]">علّم عليهم من الجدول ← «Inactive الشهر ده»</span></div>}
+        {checked.length > 0 && <BulkBar n={checked.length} onPlan={d => void addToPlan(checked, d)} exportHref={exportUrl(checked)} onClear={() => setChecked([])} needRep={isAdmin && !repId} onPause={canPause ? (p => void setPaused(checked, p)) : undefined} />}
         {effView === "table" ? <Table list={list} checked={checked} setChecked={setChecked} fav={fav} toggleFav={toggleFav} onOpen={setSel} sort={sort} setSort={setSort} />
           : <div className={`grid gap-3 ${mode === "phone" ? "" : "sm:grid-cols-2 xl:grid-cols-3"}`}>{list.map(d => <DocCard key={d.id} d={d} fav={fav.includes(d.id)} toggleFav={() => toggleFav(d.id)} onOpen={() => setSel(d)} isAdmin={isAdmin} />)}</div>}
         {!list.length && <div className="rounded-3xl border border-dashed border-[var(--border-strong)] bg-white p-10 text-center text-[var(--muted)]">لا يوجد أطباء مطابقين</div>}
@@ -154,13 +166,14 @@ export default function DoctorsHub({ isAdmin, reps, initialQ = "", initialTab = 
       {rows && tab === "insights" && <Insights rows={all} days={days} onSeg={(s, c) => { setSeg(s); if (c !== undefined) setCls(c); setTab("doctors"); }} onOpen={setSel} />}
       {tab === "requests" && (isAdmin ? <div className="rounded-3xl border border-[var(--border)] bg-white p-3"><DoctorRequestsClient /></div> : <MyRequests />)}
 
-      {sel && <QuickView d={sel} isAdmin={isAdmin} onClose={() => setSel(null)} onPlan={date => { void addToPlan([sel.id], date); setSel(null); }} onEdit={() => { openForm(sel); setSel(null); }} fav={fav.includes(sel.id)} toggleFav={() => toggleFav(sel.id)} sheet={mode === "phone"} />}
+      {sel && <QuickView d={sel} isAdmin={isAdmin} onClose={() => setSel(null)} onPlan={date => { void addToPlan([sel.id], date); setSel(null); }} onEdit={() => { openForm(sel); setSel(null); }} fav={fav.includes(sel.id)} toggleFav={() => toggleFav(sel.id)} sheet={mode === "phone"} onPause={canPause ? (p => { void setPaused([sel.id], p); setSel({ ...sel, paused: p }); }) : undefined} monthName={monthName} />}
       {form && <DoctorForm form={form} setForm={setForm} isAdmin={isAdmin} cities={cities} clinics={clinics} onSave={() => void saveForm()} />}
     </div>
   );
 }
 
 // ───────────── pieces ─────────────
+const PausedPill = () => <span className="inline-flex items-center gap-1 rounded-full bg-slate-800 px-2 py-0.5 text-[11px] font-bold text-white" title="خارج حساب التغطية الشهر ده">⏸ Inactive الشهر ده</span>;
 function HealthPill({ d }: { d: HubDoctor }) {
   const h = health(d); const m = H[h];
   return <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${m.pill}`}><span className={`h-1.5 w-1.5 rounded-full ${m.dot}`} />{m.label}{d.days_since !== null ? ` · ${d.days_since} يوم` : ""}</span>;
@@ -170,13 +183,13 @@ const ClassBadge = ({ c }: { c: string | null }) => <span className={`h-9 w-9 sh
 function DocCard({ d, fav, toggleFav, onOpen, isAdmin }: { d: HubDoctor; fav: boolean; toggleFav: () => void; onOpen: () => void; isAdmin: boolean }) {
   const ip = interestPct(d); const phone = (d.phone || "").replace(/\s/g, "");
   return (
-    <div className="rounded-3xl border border-[var(--border)] bg-white overflow-hidden hover:shadow-md transition">
+    <div className={`rounded-3xl border border-[var(--border)] bg-white overflow-hidden transition hover:-translate-y-0.5 hover:shadow-md ${d.paused ? "opacity-60" : ""}`}>
       <button onClick={onOpen} className="w-full text-right p-3.5 flex gap-3">
         <ClassBadge c={d.classification} />
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-1"><div className="font-extrabold text-[var(--navy)] truncate flex-1">{d.name}</div></div>
           <div className="text-xs text-[var(--muted)] truncate">{[d.specialty, d.clinic_name, d.city].filter(Boolean).join(" · ")}</div>
-          <div className="flex flex-wrap gap-1 mt-1.5"><HealthPill d={d} />{d.next_follow_up && <span className="rounded-full bg-amber-50 text-amber-800 px-2 py-0.5 text-[11px] font-bold">↻ {fmtD(d.next_follow_up)}</span>}{d.in_plan_next && <span className="rounded-full bg-[var(--sky-soft)] text-[var(--navy)] px-2 py-0.5 text-[11px] font-bold">🗓 {fmtD(d.in_plan_next)}</span>}</div>
+          <div className="flex flex-wrap gap-1 mt-1.5">{d.paused && <PausedPill />}<HealthPill d={d} />{d.next_follow_up && <span className="rounded-full bg-amber-50 text-amber-800 px-2 py-0.5 text-[11px] font-bold">↻ {fmtD(d.next_follow_up)}</span>}{d.in_plan_next && <span className="rounded-full bg-[var(--sky-soft)] text-[var(--navy)] px-2 py-0.5 text-[11px] font-bold">🗓 {fmtD(d.in_plan_next)}</span>}</div>
         </div>
       </button>
       <div className="grid grid-cols-4 border-t border-[var(--border)] text-center text-xs">
@@ -206,11 +219,11 @@ function Table({ list, checked, setChecked, fav, toggleFav, onOpen, sort, setSor
             {th("name", "الطبيب")}<th className="p-3 text-right">العيادة</th>{th("last", "الحالة")}{th("visits", "زيارات")}{th("interest", "اهتمام")}{th("samples", "عينات")}<th className="p-3 text-right">متابعة / خطة</th><th className="p-3 text-right">آخر ملاحظة</th><th className="p-3" />
           </tr></thead>
           <tbody>{list.map(d => { const ip = interestPct(d); return (
-            <tr key={d.id} onClick={() => onOpen(d)} className={`border-t border-[var(--border)] cursor-pointer hover:bg-[var(--sky-light)] ${checked.includes(d.id) ? "bg-[var(--sky-light)]" : ""}`}>
+            <tr key={d.id} onClick={() => onOpen(d)} className={`border-t border-[var(--border)] cursor-pointer transition-colors hover:bg-[var(--sky-light)] ${checked.includes(d.id) ? "bg-[var(--sky-light)]" : ""} ${d.paused ? "opacity-60" : ""}`}>
               <td className="p-3" onClick={e => e.stopPropagation()}><input type="checkbox" checked={checked.includes(d.id)} onChange={() => setChecked(x => x.includes(d.id) ? x.filter(y => y !== d.id) : [...x, d.id])} /></td>
               <td className="p-3"><div className="flex items-center gap-2"><ClassBadge c={d.classification} /><div className="min-w-0"><div className="font-bold text-[var(--navy)]">{d.name}</div><div className="text-[11px] text-[var(--muted)]">{d.specialty || ""}</div></div></div></td>
               <td className="p-3 text-xs"><div>{d.clinic_name || "—"}</div><div className="text-[var(--muted)]">{d.city}</div></td>
-              <td className="p-3"><HealthPill d={d} /></td>
+              <td className="p-3"><div className="flex flex-wrap gap-1">{d.paused && <PausedPill />}<HealthPill d={d} /></div></td>
               <td className="p-3 font-bold">{d.visits}<span className="text-[10px] text-[var(--muted)] font-normal"> / {d.total_visits}</span></td>
               <td className="p-3">{ip === null ? <span className="text-[var(--muted)]">—</span> : <div className="w-20"><div className="text-xs font-bold">{ip}%</div><div className="h-1.5 rounded-full bg-[var(--bg)]"><div className={`h-full rounded-full ${ip >= 50 ? "bg-emerald-500" : ip >= 25 ? "bg-amber-500" : "bg-red-500"}`} style={{ width: `${ip}%` }} /></div></div>}</td>
               <td className="p-3 font-bold">{d.samples}</td>
@@ -225,7 +238,7 @@ function Table({ list, checked, setChecked, fav, toggleFav, onOpen, sort, setSor
   );
 }
 
-function BulkBar({ n, onPlan, exportHref, onClear, needRep }: { n: number; onPlan: (d: string) => void; exportHref: string; onClear: () => void; needRep: boolean }) {
+function BulkBar({ n, onPlan, exportHref, onClear, needRep, onPause }: { n: number; onPlan: (d: string) => void; exportHref: string; onClear: () => void; needRep: boolean; onPause?: (paused: boolean) => void }) {
   const [d, setD] = useState(addDays(today(), 1));
   return (
     <div className="rounded-2xl bg-[var(--navy)] text-white p-3 flex flex-wrap items-center gap-2 sticky top-[7.5rem] z-10 shadow-lg">
@@ -234,6 +247,8 @@ function BulkBar({ n, onPlan, exportHref, onClear, needRep }: { n: number; onPla
         <span className="text-xs text-white/80">إضافة للخطة يوم</span>
         <input type="date" value={d} min={today()} onChange={e => setD(e.target.value)} className="rounded-lg text-[var(--ink)] px-2 py-1.5 text-sm" />
         <button onClick={() => onPlan(d)} disabled={needRep} title={needRep ? "اختار المندوب من فوق" : ""} className="rounded-lg bg-white text-[var(--navy)] px-3 py-1.5 text-sm font-bold disabled:opacity-40">إضافة</button>
+        {onPause && <button onClick={() => onPause(true)} className="rounded-lg bg-white/15 px-3 py-1.5 text-sm font-bold hover:bg-white/25" title="مش هتزورهم الشهر ده — يتشالوا من حساب التغطية">⏸ Inactive الشهر ده</button>}
+        {onPause && <button onClick={() => onPause(false)} className="rounded-lg bg-white/15 px-3 py-1.5 text-sm font-bold hover:bg-white/25">▶ Active</button>}
         <a href={exportHref} className="rounded-lg border border-white/40 px-3 py-1.5 text-sm font-bold">Excel</a>
         <button onClick={onClear} className="rounded-lg px-2 text-white/80">✕</button>
       </div>
@@ -243,7 +258,7 @@ function BulkBar({ n, onPlan, exportHref, onClear, needRep }: { n: number; onPla
 
 type Ctx = { history: Array<{ id: string; visited_at: string; status: string; notes: string; rep_name: string; presented: Array<{ product_id: string; name: string; reaction: string }> }>; followups: Array<{ due: string; note: string }>; plan: { product_name: string | null } | null };
 const RX: Record<string, string> = { interested: "👍", neutral: "😐", not_interested: "👎" };
-function QuickView({ d, isAdmin, onClose, onPlan, onEdit, fav, toggleFav, sheet }: { d: HubDoctor; isAdmin: boolean; onClose: () => void; onPlan: (date: string) => void; onEdit: () => void; fav: boolean; toggleFav: () => void; sheet: boolean }) {
+function QuickView({ d, isAdmin, onClose, onPlan, onEdit, fav, toggleFav, sheet, onPause, monthName }: { d: HubDoctor; isAdmin: boolean; onClose: () => void; onPlan: (date: string) => void; onEdit: () => void; fav: boolean; toggleFav: () => void; sheet: boolean; onPause?: (paused: boolean) => void; monthName: string }) {
   const [ctx, setCtx] = useState<Ctx | null>(null);
   const [date, setDate] = useState(addDays(today(), 1));
   useEffect(() => { fetch(`/api/visits/context?doctorId=${d.id}`).then(r => r.ok ? r.json() : null).then(setCtx).catch(() => {}); }, [d.id]);
@@ -265,6 +280,7 @@ function QuickView({ d, isAdmin, onClose, onPlan, onEdit, fav, toggleFav, sheet 
           {!isAdmin && <Link href={`/visits/new?doctorId=${d.id}`} className="col-span-2 rounded-xl bg-[var(--navy)] text-white py-3 text-center">▶ ابدأ زيارة دلوقتي</Link>}
           {phone && <a href={`tel:${phone}`} className="rounded-xl border border-[var(--border)] py-2.5 text-center">📞 اتصال</a>}
           <Link href={`/doctors/${d.id}`} className="rounded-xl border border-[var(--border)] py-2.5 text-center">الملف الكامل</Link>
+          {onPause && <button onClick={() => onPause(!d.paused)} className={`col-span-2 flex items-center justify-center gap-2 rounded-xl py-2.5 transition ${d.paused ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-100" : "bg-slate-100 text-slate-700 ring-1 ring-slate-200 hover:bg-slate-200"}`}>{d.paused ? `▶ رجّعه Active لشهر ${monthName}` : `⏸ Inactive لشهر ${monthName} — مش هزوره`}<span className="text-[10.5px] font-normal opacity-70">{d.paused ? "هيرجع في حساب التغطية" : "مش هيتحسب في التغطية"}</span></button>}
           <button onClick={onEdit} className="rounded-xl border border-[var(--border)] py-2.5">{isAdmin ? "تعديل البيانات" : "طلب تعديل"}</button>
           {isAdmin && <Link href={`/admin/reports?type=visits&from=${addDays(today(), -89)}`} className="rounded-xl border border-[var(--border)] py-2.5 text-center">التقارير</Link>}
         </div>

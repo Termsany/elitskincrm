@@ -1,4 +1,5 @@
 import { query } from "@/lib/db";
+import { pausedByTeamSql } from "@/lib/doctor-pauses";
 import { enrichedVisits, summarize, todayBoard, riyadhToday, planAdherence } from "@/lib/visit-intel";
 import { salesHub } from "@/lib/sales-hub";
 
@@ -48,7 +49,7 @@ export async function adminDashboard(userName: string) {
     salesHub({ id: "", role: "admin" }, year, null).catch(() => null),
     query(`SELECT COALESCE(d.classification,'—') cls, count(*)::int total,
         count(*) FILTER (WHERE EXISTS(SELECT 1 FROM visits v WHERE v.doctor_id=d.id AND v.status::text<>'cancelled' AND v.visited_at >= (date_trunc('month', now() AT TIME ZONE 'Asia/Riyadh') AT TIME ZONE 'Asia/Riyadh')))::int visited
-      FROM doctors d WHERE d.status='active' GROUP BY 1 ORDER BY 1`),
+      FROM doctors d WHERE d.status='active' AND NOT ${pausedByTeamSql("d.id", "(now() AT TIME ZONE 'Asia/Riyadh')::date")} GROUP BY 1 ORDER BY 1`),
     query(`SELECT * FROM (
         SELECT 'visit' kind, v.visited_at at, u.name who, 'زار ' || d.name || COALESCE(' · ' || NULLIF(d.clinic_name,''),'') what, '/visits?visit=' || v.id href FROM visits v JOIN users u ON u.id=v.sales_rep_id JOIN doctors d ON d.id=v.doctor_id WHERE v.status::text<>'cancelled'
         UNION ALL SELECT 'plan', p.created_at, u.name, CASE WHEN p.status::text='pending' THEN 'بعت خطة للاعتماد' ELSE 'خطة ' || p.status::text END, '/plans?planId=' || p.id FROM plans p JOIN users u ON u.id=p.user_id

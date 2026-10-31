@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { query } from "@/lib/db";
 import { coverageMonthStart, resolveCoverageUserId } from "@/lib/plan-coverage";
+import { pausedSql } from "@/lib/doctor-pauses";
 export async function GET(req: Request){
   const user=await getCurrentUser(); if(!user) return NextResponse.json({error:"Unauthorized"},{status:401});
   const { searchParams }=new URL(req.url);
@@ -16,7 +17,8 @@ export async function GET(req: Request){
   const freqs=await query(`SELECT classification, visits_per_month FROM plan_frequencies`);
   const freqMap=new Map(freqs.rows.map((r:Record<string,unknown>)=> [String(r.classification), Number(r.visits_per_month)]));
   // All doctors grouped by classification
-  const doctorsByClass=await query(`SELECT classification, count(*)::int cnt FROM doctors WHERE status='active' GROUP BY classification`);
+  // Active doctors per class for a rep and month, minus doctors the rep marked "inactive" for that month
+  const docsByClass=(uid:string, month:string)=>query(`SELECT classification, count(*)::int cnt FROM doctors d WHERE status='active' AND NOT ${pausedSql("$1","d.id","$2::date")} GROUP BY classification`,[uid, month]);
   // If planId given: coverage of that plan
   if(planId){
     const plan=await query(`SELECT * FROM plans WHERE id=$1`,[planId]);
@@ -24,6 +26,8 @@ export async function GET(req: Request){
     const pr=plan.rows[0] as Record<string,unknown>;
     if(user.role!=="admin" && String(pr.user_id)!==user.id) return NextResponse.json({error:"Forbidden"},{status:403});
     const uid=String(pr.user_id);
+    const pm=(await query(`SELECT to_char(period_start,'YYYY-MM-01') m FROM plans WHERE id=$1`,[planId])).rows[0] as {m:string};
+    const doctorsByClass=await docsByClass(uid, pm.m);
     // Items in plan per classification
     const items=await query(`SELECT d.classification, count(*)::int cnt FROM plan_items pi JOIN doctors d ON d.id=pi.doctor_id WHERE pi.plan_id=$1 GROUP BY d.classification`,[planId]);
     const itemMap=new Map(items.rows.map((r:Record<string,unknown>)=> [String(r.classification)||"—", Number(r.cnt)]));
@@ -52,6 +56,7 @@ export async function GET(req: Request){
   // No planId: coverage for the selected rep's current Riyadh calendar month.
   const uid=userId;
   const monthStart=coverageMonthStart();
+  const doctorsByClass=await docsByClass(uid, monthStart);
   const allPlans=await query(`SELECT id FROM plans WHERE user_id=$1 AND status<>'rejected' AND period_start >= $2::date AND period_start < ($2::date + interval '1 month')`,[uid,monthStart]);
   const planIds=allPlans.rows.map((r:Record<string,unknown>)=> String(r.id));
   const plannedByClass=new Map<string,number>();

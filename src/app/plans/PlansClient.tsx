@@ -207,6 +207,15 @@ export default function PlansClient({ isAdmin, reps, doctors, products, initialS
     if (isAdmin) { const co = await fetch("/api/plans/compliance").then(x => x.json()).catch(() => null); if (co) setCompliance(co.compliance || []); }
   }
   const refreshAll = () => { void load(); void loadReview(); };
+  const [confirmDel, setConfirmDel] = useState("");
+  /** Admin: permanent delete — the plan disappears for the admin and the rep (two-tap confirm). */
+  async function deletePlan(id: string) {
+    if (confirmDel !== id) { setConfirmDel(id); setTimeout(() => setConfirmDel(c => c === id ? "" : c), 4000); return; }
+    setConfirmDel(""); setBusy(true);
+    const r = await fetch(`/api/plans/${id}`, { method: "DELETE" }); const j = await r.json().catch(() => null); setBusy(false);
+    if (!r.ok) { toast(j?.error || "تعذر حذف الخطة", "error"); return; }
+    setPlans(ps => ps.filter(x => String(x.id) !== id)); setDetail(null); toast("اتحذفت الخطة نهائياً ✓", "success"); refreshAll();
+  }
   useEffect(() => { void load(); }, [filter, periodFilter, viewRepId]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { void loadIQVIA(viewRepId); }, [viewRepId]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { void loadReview(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -457,6 +466,7 @@ export default function PlansClient({ isAdmin, reps, doctors, products, initialS
         {repCanEdit && !cr && <button onClick={() => startEdit(false)} className={btnPrimary}><Icon name="edit" size={14} /> {status === "approved" ? "اطلب تعديل على الخطة" : "عدّل الخطة"}</button>}
         <a href={`/calendar?date=${d10(p.period_start)}`} className={btnGhost}>🗓️ في المخطط</a>
         <a href={`/api/exports/plans?id=${p.id}&format=xlsx`} className={btnGhost}>Excel</a>
+        {isAdmin && <button type="button" disabled={busy} onClick={() => void deletePlan(String(p.id))} className={`${btn} ${confirmDel === String(p.id) ? "bg-red-600 text-white shadow-lg shadow-red-600/30 hover:bg-red-700" : "border border-red-200 bg-white text-red-700 hover:bg-red-50"}`}><Icon name="trash" size={14} /> {confirmDel === String(p.id) ? "متأكد؟ اضغط تاني للحذف النهائي" : "حذف الخطة"}</button>}
       </div>
       {!isAdmin && status === "approved" && !cr && <div className="text-[11px] text-[var(--muted)]">أي تعديل على الخطة المعتمدة بيتبعت للمدير، والخطة الحالية بتفضل شغالة لحد ما يوافق.</div>}
       <details className="rounded-2xl border border-[var(--border)] bg-white"><summary className="cursor-pointer list-none px-3 py-2.5 text-sm font-bold">⧉ انسخ الخطة لفترة تانية</summary><div className="flex gap-2 border-t border-[var(--border)] p-3"><input type="date" value={copyStart} onChange={e => setCopyStart(e.target.value)} className={field} /><button onClick={prepareCopy} className={`${btnPrimary} shrink-0`}>جهّز النسخة</button></div></details>

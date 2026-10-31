@@ -4,6 +4,7 @@ import MobileNav from "./MobileNav";
 import SidebarNav, { SidebarToggle } from "./SidebarNav";
 import { Logo } from "@/components/Logo";
 import CommandPalette, { PaletteButton } from "@/components/CommandPalette";
+import GlobalFx from "@/components/GlobalFx";
 
 type NavItem = { href: string; label: string; icon: string; show: boolean; group: "primary" | "more" };
 
@@ -59,7 +60,8 @@ export function AppShell({ role, email, name, jobTitle, productName, children, a
         <form action="/api/auth/logout" method="post" className="es-hide mt-2"><button formAction={async()=>{"use server";const{destroySession}=await import("@/lib/session");await destroySession();}} className="w-full rounded-full bg-white/10 py-2 text-xs font-bold transition hover:bg-white/20">تسجيل خروج</button></form>
       </div>
     </aside>
-    <div className="flex min-w-0 flex-1 flex-col"><MobileNav items={items} active={active} name={name} role={role}/><main className="flex-1 p-4 pb-28 sm:p-5 sm:pb-28 lg:p-8 lg:pb-8">{children}</main></div>
+    <div className="flex min-w-0 flex-1 flex-col"><MobileNav items={items} active={active} name={name} role={role}/><main className="es-page flex-1 p-4 pb-28 sm:p-5 sm:pb-28 lg:p-8 lg:pb-8">{children}</main></div>
     {isAdmin && <CommandPalette />}
+    <GlobalFx />
   </div>;
 }

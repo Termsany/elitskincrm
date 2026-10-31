@@ -119,6 +119,8 @@ const DUO: Record<string, Duo> = {
   travel: { duo: '<path d="M2 16l20-6-4-3-6 2-6-4-2 1 4 5-4 1-2-1z"/>', line: '<path d="M2 16l20-6c0-1.5-1.5-3-4-3l-6 2-6-4-2 1 4 5-4 1-2-1z"/><path d="M3 21h18"/>' },
   phone: { duo: '<rect x="6" y="2" width="12" height="20" rx="3"/>', line: '<rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18h2"/>' },
   receipt: { duo: '<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/>', line: '<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M9 8h6"/><path d="M9 12h6"/><path d="M9 16h3"/>' },
+  trash: { duo: '<path d="M6 7h12l-1 13a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1z"/>', line: '<path d="M4 7h16"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/><path d="M9 7V4h6v3"/>' },
+  pause: { duo: '<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>', line: '<rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/>' },
   pen: { duo: '<path d="M4 20v-4L15 5l4 4L8 20z"/>', line: '<path d="M4 20v-4L15 5l4 4L8 20z"/><path d="M13 7l4 4"/>' },
 };
 

@@ -1,4 +1,5 @@
 import { query } from "@/lib/db";
+import { pausedSql } from "@/lib/doctor-pauses";
 
 export type HubDoctor = {
   id: string; name: string; clinic_name: string | null; clinic_id: string | null; city: string | null; specialty: string | null; classification: string | null;
@@ -6,6 +7,8 @@ export type HubDoctor = {
   visits: number; completed: number; total_visits: number; last_visit: string | null; last_rep: string | null; last_note: string | null;
   days_since: number | null; next_follow_up: string | null; samples: number; orders: number; presented: number; interested: number; not_interested: number;
   reps: string | null; in_plan_next: string | null;
+  /** rep marked this doctor "inactive" for the current month (only when a single rep is in scope) */
+  paused: boolean;
 };
 
 /** One row per doctor with activity in the period. Reps see their own activity; admins see the team (or one rep). */
@@ -39,7 +42,8 @@ export async function hubDoctors(u: { id: string; role: string }, days: number, 
       COALESCE(a.visits,0) visits, COALESCE(a.completed,0) completed, COALESCE(a.total_visits,0) total_visits, a.last_visit, l.last_rep, l.last_note,
       CASE WHEN a.last_visit IS NULL THEN NULL ELSE ((now() AT TIME ZONE 'Asia/Riyadh')::date - (a.last_visit AT TIME ZONE 'Asia/Riyadh')::date) END days_since,
       fu.next_follow_up, COALESCE(i.samples,0) samples, COALESCE(i.orders,0) orders, COALESCE(pr.presented,0) presented, COALESCE(pr.interested,0) interested,
-      COALESCE(pr.not_interested,0) not_interested, a.reps, np.in_plan_next
+      COALESCE(pr.not_interested,0) not_interested, a.reps, np.in_plan_next,
+      ${scope ? pausedSql("$2", "d.id", "(now() AT TIME ZONE 'Asia/Riyadh')::date") : "false"} AS paused
     FROM doctors d LEFT JOIN plan_frequencies pf ON pf.classification=d.classification
       LEFT JOIN agg a ON a.doctor_id=d.id LEFT JOIN lastv l ON l.doctor_id=d.id LEFT JOIN items i ON i.doctor_id=d.id
       LEFT JOIN pres pr ON pr.doctor_id=d.id LEFT JOIN fu ON fu.doctor_id=d.id LEFT JOIN nextplan np ON np.doctor_id=d.id

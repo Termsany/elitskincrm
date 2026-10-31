@@ -151,6 +151,26 @@ html[data-sb="c"] .es-search { position: relative; }
 @keyframes es-drawer { from { transform: translateX(100%); } to { transform: none; } }
 @keyframes es-fadein { from { opacity: 0; } to { opacity: 1; } }
 
+/* ── global micro-interactions: every button responds ── */
+button, a, summary, [role="button"] { -webkit-tap-highlight-color: transparent; }
+button:not(:disabled), [role="button"], summary { transition: transform .18s var(--es-spring), box-shadow .22s var(--es-ease), background-color .2s, color .2s, border-color .2s, opacity .2s; }
+button:not(:disabled):active, [role="button"]:active, a.rounded-xl:active, a.rounded-lg:active, a.rounded-full:active, a.rounded-2xl:active { transform: scale(.96); }
+button.bg-\[var\(--navy\)\]:not(:disabled):hover, a.bg-\[var\(--navy\)\]:hover { box-shadow: 0 10px 22px -10px rgba(16,72,79,.6); transform: translateY(-1px); }
+button.bg-emerald-600:not(:disabled):hover, button.bg-red-600:not(:disabled):hover { transform: translateY(-1px); box-shadow: 0 10px 22px -12px currentColor; }
+a.rounded-xl, a.rounded-lg, a.rounded-full, a.rounded-2xl { transition: transform .18s var(--es-spring), box-shadow .22s var(--es-ease), background-color .2s, color .2s, border-color .2s; }
+input[type="checkbox"], input[type="radio"], input[type="range"] { accent-color: var(--navy); }
+input[type="checkbox"] { transition: transform .15s var(--es-spring); } input[type="checkbox"]:active { transform: scale(.85); }
+.es-ripple-box { position: fixed; z-index: 9999; overflow: hidden; pointer-events: none; }
+.es-ripple { position: absolute; border-radius: 9999px; opacity: .22; transform: scale(0); animation: es-ripple .6s var(--es-ease) forwards; }
+@keyframes es-ripple { to { transform: scale(1); opacity: 0; } }
+.es-page { animation: es-page .4s var(--es-ease) both; }
+@keyframes es-page { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  button, a, summary, [role="button"], input { transition: none !important; }
+  button:active, a:active, [role="button"]:active { transform: none !important; }
+  .es-page, .es-ripple { animation: none !important; }
+}
+
 /* ── dashboard v3: calm motion ── */
 .dz-in { animation: es-up .6s var(--es-ease) both; animation-delay: var(--d, 0ms); }
 .dz-card { transition: transform .35s var(--es-spring), box-shadow .35s var(--es-ease), border-color .2s; }

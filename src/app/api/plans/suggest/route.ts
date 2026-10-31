@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { pausedSql } from "@/lib/doctor-pauses";
 import { getCurrentUser } from "@/lib/session";
 import { query } from "@/lib/db";
 
@@ -44,7 +45,7 @@ export async function GET(req: Request){
       ) planned_visits
     FROM doctors d
     LEFT JOIN visits v ON v.doctor_id=d.id AND v.sales_rep_id=$1
-    WHERE d.status='active'
+    WHERE d.status='active' AND NOT ${pausedSql("$1","d.id","$2::date")}
     GROUP BY d.id
   `,[user.id,start]);
 

@@ -128,6 +128,8 @@ export async function DELETE(req: Request, {params}:{params:Promise<{id:string}>
   if(!existing.rows[0]) return NextResponse.json({error:"Not found"},{status:404});
   if(user.role!=="admin" && String(existing.rows[0].user_id)!==user.id) return NextResponse.json({error:"Forbidden"},{status:403});
   if(user.role!=="admin" && String(existing.rows[0].status)==="approved") return NextResponse.json({error:"الخطة المعتمدة لا يمكن حذفها إلا بواسطة المدير"},{status:400});
+  // Hard delete: items, comments, notifications and change requests cascade, so the plan disappears for admin and rep alike.
   await query(`DELETE FROM plans WHERE id=$1`,[id]);
+  await query(`INSERT INTO audit_logs(actor_id,action,entity,entity_id,details) VALUES($1,'delete','plan',$2,$3)`,[user.id,id,`status ${String(existing.rows[0].status)} · owner ${String(existing.rows[0].user_id)}`]).catch(()=>undefined);
   return NextResponse.json({ok:true});
 }
