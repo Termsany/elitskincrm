@@ -22,6 +22,7 @@ export function AppShell({ role, email, name, jobTitle, productName, children, a
     { href: "/plans", label: "الخطط والاعتماد", icon: "plans", show: true, group: "primary" },
     { href: "/products", label: "المنتجات", icon: "products", show: !isAdmin, group: "primary" },
     { href: "/sales", label: "المبيعات والأهداف", icon: "sales", show: true, group: "primary" },
+    { href: "/daftra-sales", label: "مبيعات دفترة", icon: "receipt", show: isAdmin, group: "primary" },
     { href: "/expenses", label: "المصروفات", icon: "wallet", show: true, group: "primary" },
     { href: "/library", label: "مكتبة المستندات", icon: "library", show: true, group: "primary" },
     { href: "/admin/reps", label: "المناديب", icon: "reps", show: isAdmin, group: "primary" },

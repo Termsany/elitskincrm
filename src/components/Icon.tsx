@@ -118,6 +118,7 @@ const DUO: Record<string, Duo> = {
   events: { duo: '<path d="M4 4h16v11H4z"/>', line: '<rect x="3" y="4" width="18" height="11" rx="1"/><path d="M12 15v4"/><path d="M8 21l4-2 4 2"/><path d="M7 11l3-3 2 2 4-4"/>' },
   travel: { duo: '<path d="M2 16l20-6-4-3-6 2-6-4-2 1 4 5-4 1-2-1z"/>', line: '<path d="M2 16l20-6c0-1.5-1.5-3-4-3l-6 2-6-4-2 1 4 5-4 1-2-1z"/><path d="M3 21h18"/>' },
   phone: { duo: '<rect x="6" y="2" width="12" height="20" rx="3"/>', line: '<rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18h2"/>' },
+  receipt: { duo: '<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/>', line: '<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M9 8h6"/><path d="M9 12h6"/><path d="M9 16h3"/>' },
   pen: { duo: '<path d="M4 20v-4L15 5l4 4L8 20z"/>', line: '<path d="M4 20v-4L15 5l4 4L8 20z"/><path d="M13 7l4 4"/>' },
 };
 
