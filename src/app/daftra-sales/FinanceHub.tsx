@@ -32,7 +32,12 @@ export default function FinanceHub({ subdomain }: { subdomain: string }) {
   }, [range, toast]);
   useEffect(() => { void load(); }, [load]);
   useEffect(() => { if (!d?.sync?.running) return; const t = setTimeout(() => void load(), 6000); return () => clearTimeout(t); }, [d, load]);
-  useEffect(() => { try { const t = sessionStorage.getItem("fin-tab"); if (t && TABS.some(x => x[0] === t)) setTab(t as Tab); } catch { /* ignore */ } }, []);
+  useEffect(() => {
+    // deep links from the dashboard (/daftra-sales?tab=ar) win over the remembered tab
+    const q = new URLSearchParams(window.location.search).get("tab");
+    if (q && TABS.some(x => x[0] === q)) { setTab(q as Tab); try { sessionStorage.setItem("fin-tab", q); } catch { /* ignore */ } return; }
+    try { const t = sessionStorage.getItem("fin-tab"); if (t && TABS.some(x => x[0] === t)) setTab(t as Tab); } catch { /* ignore */ }
+  }, []);
   const go = (t: Tab) => { setTab(t); try { sessionStorage.setItem("fin-tab", t); } catch { /* ignore */ } window.scrollTo({ top: 0, behavior: "smooth" }); };
   const pickMonth = (m: string) => { setPreset(-1); setRange([`${m}-01`, lastDay(m)]); toast(`بتشوف تفاصيل ${m}`, "success"); };
   async function sync() {
