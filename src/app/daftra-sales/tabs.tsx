@@ -4,6 +4,7 @@ import { Icon } from "@/components/Icon";
 import { useToast } from "@/components/Toast";
 import type { FinData, Tab } from "./FinanceHub";
 import { sar, num, pct, short, mLabel, C, Hint, Kpi, Card, ExcelBtn, Bars, MonthChart, Table, Pill, STATUS_PAY, AGE } from "./kit";
+import { GuardAndStock, ClientLinks } from "./guard";
 
 type X = (s: string) => string;
 const LEVEL: Record<string, [string, string, string]> = { danger: ["عاجل", "border-red-200 bg-red-50", "text-red-700"], warn: ["مهم", "border-amber-200 bg-amber-50", "text-amber-800"], good: ["ممتاز", "border-emerald-200 bg-emerald-50", "text-emerald-700"], info: ["للعلم", "border-sky-200 bg-sky-50", "text-sky-800"] };
@@ -142,6 +143,7 @@ export function Book({ d, kind, x, subdomain }: { d: FinData; kind: "ar" | "ap";
       <div className="mb-3 flex h-4 overflow-hidden rounded-full bg-[var(--bg)]">{AGE.map(([k, , c]) => b.buckets[k] ? <button type="button" key={k} onClick={() => setBk(bk === k ? null : k)} title={sar(b.buckets[k])} style={{ width: `${b.buckets[k] / (b.total || 1) * 100}%`, background: c, opacity: bk && bk !== k ? 0.3 : 1 }} /> : null)}</div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">{AGE.map(([k, l, c]) => <button type="button" key={k} onClick={() => setBk(bk === k ? null : k)} className={`rounded-xl border p-2.5 text-right transition ${bk === k ? "border-[var(--navy)] bg-[var(--sky-light)]" : "border-[var(--border)] hover:bg-[var(--bg)]"}`}><div className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--muted)]"><i className="h-2 w-2 rounded-full" style={{ background: c }} />{l}</div><div className="mt-1 font-extrabold">{sar(b.buckets[k])}</div></button>)}</div>
     </Card>
+    {isAr && <ClientLinks />}
     <Card title={`${isAr ? "العملاء" : "الموردين"}${bk ? ` — ${AGE.find(a => a[0] === bk)?.[1]}` : ""}`} right={bk && <button type="button" onClick={() => setBk(null)} className="text-xs font-bold text-[var(--sky-deep)]">إلغاء الفلتر</button>}>
       <Table rows={parties} rowKey={r => r.name} search={r => r.name} initialSort={["unpaid", -1]} empty="مفيش مستحقات 🎉" cols={[
         { key: "name", label: isAr ? "العميل" : "المورد", className: "max-w-72 truncate text-right font-bold" },
@@ -163,7 +165,7 @@ export function Book({ d, kind, x, subdomain }: { d: FinData; kind: "ar" | "ap";
 
 /* ═══════════════ المنتجات والتسعير ═══════════════ */
 const PSTAT: Record<string, [string, string]> = { loss: ["بيُباع بخسارة", "bg-red-50 text-red-700 ring-red-200"], below_breakeven: ["ما يغطيش المصاريف", "bg-orange-50 text-orange-700 ring-orange-200"], thin: ["هامش ضعيف", "bg-amber-50 text-amber-800 ring-amber-200"], healthy: ["هامش كويس", "bg-emerald-50 text-emerald-700 ring-emerald-200"], no_cost: ["بدون تكلفة", "bg-slate-100 text-slate-600 ring-slate-200"], dead_stock: ["مخزون راكد", "bg-violet-50 text-violet-700 ring-violet-200"], no_sales: ["بدون مبيعات", "bg-slate-50 text-slate-500 ring-slate-200"] };
-export function Pricing({ d, x, reload }: { d: FinData; x: X; reload: () => void }) {
+export function Pricing({ d, x, reload, subdomain }: { d: FinData; x: X; reload: () => void; subdomain: string }) {
   const toast = useToast();
   const [gm, setGm] = useState(d.settings.target_gross_margin); const [nm, setNm] = useState(d.settings.target_net_margin);
   const [f, setF] = useState<string | null>(null);
@@ -183,6 +185,7 @@ export function Pricing({ d, x, reload }: { d: FinData; x: X; reload: () => void
           {(gm !== d.settings.target_gross_margin || nm !== d.settings.target_net_margin) && <button type="button" onClick={() => void save()} className="mt-2 rounded-xl bg-[var(--navy)] px-3 py-1.5 text-xs font-bold text-white">احفظ كأهداف ثابتة</button>}</div>
       </div>
     </Card>
+    <GuardAndStock d={d} subdomain={subdomain} />
     <div className="flex flex-wrap items-center gap-1.5">
       <button type="button" onClick={() => setF(null)} className={`rounded-full px-3 py-1.5 text-xs font-bold ${!f ? "bg-[var(--navy)] text-white" : "bg-white ring-1 ring-[var(--border)]"}`}>الكل ({rows.length})</button>
       {Object.entries(PSTAT).filter(([k]) => counts[k]).map(([k, [l]]) => <button key={k} type="button" onClick={() => setF(f === k ? null : k)} className={`rounded-full px-3 py-1.5 text-xs font-bold ${f === k ? "bg-[var(--navy)] text-white" : "bg-white ring-1 ring-[var(--border)]"}`}>{l} ({counts[k]})</button>)}

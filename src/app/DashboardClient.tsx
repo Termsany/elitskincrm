@@ -7,6 +7,7 @@ import DashboardPlans from "./DashboardPlans";
 import DashboardDoctorSuggestions from "./DashboardDoctorSuggestions";
 import AdminTeamOverview from "./AdminTeamOverview";
 import RepDailyWorkspace from "./RepDailyWorkspace";
+import CollectionsCard from "./CollectionsCard";
 import { performanceTone, salesAttainment } from "@/lib/dashboard-workspace";
 import { Icon } from "@/components/Icon";
 import AdminActionCenter from "@/app/AdminActionCenter";
@@ -93,6 +94,7 @@ function RepDashboard({ salesSummary }: { salesSummary?: SalesSummary }) {
   return (
     <div className="space-y-5">
       <RepDailyWorkspace />
+      <CollectionsCard />
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,.65fr)]">
         <DashboardDoctorSuggestions />

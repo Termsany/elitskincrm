@@ -71,7 +71,7 @@ export default function FinanceHub({ subdomain }: { subdomain: string }) {
         {tab === "purchases" && <Purchases d={d} pickMonth={pickMonth} x={x} subdomain={subdomain} />}
         {tab === "ar" && <Book d={d} kind="ar" x={x} subdomain={subdomain} />}
         {tab === "ap" && <Book d={d} kind="ap" x={x} subdomain={subdomain} />}
-        {tab === "pricing" && <Pricing d={d} x={x} reload={load} />}
+        {tab === "pricing" && <Pricing d={d} x={x} reload={load} subdomain={subdomain} />}
         {tab === "pnl" && <Pnl d={d} pickMonth={pickMonth} x={x} reload={load} />}
         {tab === "advisor" && <Advisor d={d} go={go} x={x} reload={load} />}
         {tab === "plan" && <Planner />}

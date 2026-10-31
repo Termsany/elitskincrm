@@ -34,6 +34,8 @@ export async function daftraPulse() {
     top_clients: M.salesByClient.slice(0, 3).map(c => ({ name: c.name, net: c.net })),
     plan: pl && { target_revenue: pl.target_revenue, target_profit: pl.target_profit, be_revenue: pl.be_revenue },
     alert: Y.advice.find(a => a.level === "danger") || null,
+    stock: Y.stock_alerts.slice(0, 5).map(x => ({ name: x.name, status: x.stock_status, cover: x.months_cover, reorder: x.reorder_qty })), stock_n: Y.stock_alerts.length,
+    guard: (() => { const since = shift(m, -2) + "-01"; const l = Y.price_guard.lines.filter(g => g.date >= since); return { n: l.length, below_cost: l.filter(g => g.below_cost).length, lost: r2(l.reduce((s, g) => s + g.lost, 0)) }; })(),
   };
 }
 export type DaftraPulse = Awaited<ReturnType<typeof daftraPulse>>;

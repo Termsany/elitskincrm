@@ -75,6 +75,13 @@ export async function GET(req: Request) {
     sheet("قيود المصروفات", [["التاريخ", "date", 12], ["البيان", "note", 44], ["الجهة", "vendor", 20], ["الحساب", "account", 28], ["المعالجة", "t", 20], ["المبلغ", "amount", 14, true], ["الضريبة", "tax", 10, true]], f.entries.map(e => ({ ...e, t: TREAT[e.treatment] || e.treatment })), ["amount", "tax"]);
     sheet("المصروفات الثابتة", [["البند", "name", 30], ["النوع", "category", 14], ["شهرياً", "monthly_amount", 14, true], ["من", "start_month", 12], ["إلى", "end_month", 12], ["ملاحظات", "notes", 30]], f.fixed as unknown as Array<Record<string, unknown>>, ["monthly_amount"]);
   }
+  if (want("pricing")) {
+    sheet("حماية السعر", [["التاريخ", "date", 12], ["الفاتورة", "no", 10], ["العميل", "party", 40], ["الصنف", "item", 36], ["الكمية", "qty", 9], ["سعر البيع", "price", 12, true], ["التكلفة", "cost", 12, true], ["أقل سعر مسموح", "breakeven", 13, true], ["تحت التكلفة؟", "bc", 11], ["الفرق عن أقل سعر", "lost", 14, true]],
+      f.price_guard.lines.map(l => ({ ...l, bc: l.below_cost ? "نعم" : "" })), ["qty", "lost"]);
+    sheet("تنبيه المخزون", [["الصنف", "name", 40], ["الرصيد", "stock", 10], ["بيع آخر 90 يوم", "sold_90", 14], ["المعدل الشهري", "monthly_pace", 13], ["يكفي (شهر)", "months_cover", 11], ["الحالة", "st", 14], ["كمية مقترحة للطلب", "reorder_qty", 16]],
+      f.pricing.filter(p => p.stock_status !== "idle").map(p => ({ ...p, st: ({ negative: "رصيد بالسالب", out: "خلص", low: "أقل من شهر", watch: "أقل من شهرين", ok: "كويس" } as Record<string, string>)[p.stock_status] || p.stock_status })), ["reorder_qty"]);
+  }
+
   if (want("advisor")) {
     const p = f.plan;
     sheet("التخطيط", [["المؤشر", "label", 46], ["القيمة", "value", 18, true], ["التفسير", "note", 60]], [

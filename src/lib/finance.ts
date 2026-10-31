@@ -71,6 +71,7 @@ export function computeFinance(inp: Input, from: string, to: string) {
   const prod = new Map<string, { key: string; name: string; qty: number; net: number; cogs: number; costKnown: boolean; invoices: Set<number> }>();
   const clients = new Map<string, { name: string; city: string; net: number; n: number; last: string }>();
   let salesNet = 0, salesTax = 0, salesTotal = 0, refunds = 0, cogs = 0, knownNet = 0, lineNet = 0;
+  const sold: Array<{ id: number; no: string; date: string; party: string; key: string; item: string; qty: number; price: number; cost: number | null }> = [];
   for (const d of sales) {
     const f = keep(d), mm = M.get(month(d.date));
     salesNet += d.net * f; salesTax += d.tax * f; salesTotal += d.total; refunds += d.refund;
@@ -80,6 +81,7 @@ export function computeFinance(inp: Input, from: string, to: string) {
       const k = cb.keyOf(l), unit = cb.cost(l), q = l.quantity * f, n = l.net * f;
       const p = prod.get(k) || { key: k, name: l.item, qty: 0, net: 0, cogs: 0, costKnown: true, invoices: new Set<number>() };
       p.qty += q; p.net += n; p.invoices.add(d.id); lineNet += n;
+      if (f > 0 && l.quantity > 0 && l.net > 0) sold.push({ id: d.id, no: d.no, date: d.date, party: d.party, key: k, item: l.item, qty: q, price: l.net / l.quantity, cost: unit });
       if (unit !== null) { p.cogs += q * unit; cogs += q * unit; knownNet += n; if (mm) mm.cogs += q * unit; } else if (q > 0) p.costKnown = false;
       prod.set(k, p);
     }
@@ -154,6 +156,8 @@ export function computeFinance(inp: Input, from: string, to: string) {
   const opexRatio = B && B.sales > 0 ? Math.min(0.6, B.opex / B.sales) : 0;
   const tgtNet = inp.settings.target_net_margin / 100, tgtGross = inp.settings.target_gross_margin / 100;
   const keys = new Set<string>([...inp.products.filter(p => p.active).map(p => `p${p.id}`), ...prod.keys(), ...pprod.keys()]);
+  const d90 = addDays(inp.today, -90), sold90 = new Map<string, number>();
+  for (const d of inp.sales) if (d.date > d90 && d.date <= inp.today) { const f = keep(d); for (const l of d.lines) if (l.quantity > 0) { const k = cb.keyOf(l); sold90.set(k, (sold90.get(k) || 0) + l.quantity * f); } }
   const pricing = [...keys].map(k => {
     const pid = k.startsWith("p") ? Number(k.slice(1)) : null; const p = pid ? inp.products.find(x => x.id === pid) : undefined;
     const s = prod.get(k), pu = pprod.get(k), pc = cb.byKey.get(k);
@@ -169,13 +173,25 @@ export function computeFinance(inp: Input, from: string, to: string) {
       avg_cost: unit === null ? null : r2(unit), last_cost: pc?.last ? r2(pc.last.unit) : null, last_cost_date: pc?.last?.date || null, last_supplier: pc?.last?.supplier || "",
       qty_sold: r2(s?.qty || 0), revenue: r2(s?.net || 0), cogs: r2(s?.cogs || 0), gross: r2((s?.net || 0) - (s?.cogs || 0)), margin: margin === null ? null : r2(margin * 100),
       realized_price: realized === null ? null : r2(realized), breakeven_price: breakeven === null ? null : r2(breakeven), suggested_price: suggested === null ? null : r2(suggested),
-      qty_purchased: r2(pu?.qty || 0), purchased_value: r2(pu?.net || 0), stock, stock_value: unit === null ? null : r2(stock * unit), last_sale: last, status };
+      qty_purchased: r2(pu?.qty || 0), purchased_value: r2(pu?.net || 0), stock, stock_value: unit === null ? null : r2(stock * unit), last_sale: last, status,
+      ...stockCover(stock, sold90.get(k) || 0, p?.active !== false) };
   }).filter(x => x.name).sort((a, b) => b.revenue - a.revenue || b.purchased_value - a.purchased_value);
+
+  // ── price guard: real Daftra sales below break-even / below cost (break-even = cost ÷ (1 − opex share))
+  // floor = the price that keeps the target gross margin (admin-set, default 45%); below cost = selling at a loss
+  const floorM = Math.min(0.9, Math.max(0, inp.settings.target_gross_margin / 100));
+  const guard = sold.filter(x => x.cost !== null && x.cost > 0 && x.price < x.cost / (1 - floorM) - 0.005).map(x => {
+    const be = x.cost! / (1 - floorM);
+    return { id: x.id, no: x.no, date: x.date, party: x.party, key: x.key, item: x.item, qty: r2(x.qty), price: r2(x.price), cost: r2(x.cost!), breakeven: r2(be),
+      below_cost: x.price < x.cost!, gap: r2(be - x.price), lost: r2((be - x.price) * x.qty) };
+  }).sort((a, b) => b.date.localeCompare(a.date) || b.lost - a.lost);
+  const price_guard = { lines: guard, below_cost: guard.filter(g => g.below_cost).length, below_breakeven: guard.filter(g => !g.below_cost).length, lost: r2(guard.reduce((s, g) => s + g.lost, 0)), floor_margin: r2(floorM * 100) };
+  const stock_alerts = pricing.filter(p => ["negative", "out", "low"].includes(p.stock_status)).sort((a, b) => STOCK_RANK[a.stock_status] - STOCK_RANK[b.stock_status] || (a.months_cover ?? 0) - (b.months_cover ?? 0));
 
   // ── planning & advice
   const fixedMonthly = inp.fixed.filter(f => `${curM}-01` >= f.start_month.slice(0, 10) && (!f.end_month || `${curM}-01` <= f.end_month.slice(0, 10))).reduce((s, f) => s + f.monthly_amount, 0);
   const plan = planning(B, fixedMonthly, inp.settings);
-  const advice = adviseAll({ B, plan, ar, ap, pricing, clients: [...clients.values()], salesNet, inp, opexRatio, coverage: lineNet ? knownNet / lineNet : 1, entries });
+  const advice = adviseAll({ B, plan, ar, ap, pricing, price_guard, stock_alerts, clients: [...clients.values()], salesNet, inp, opexRatio, coverage: lineNet ? knownNet / lineNet : 1, entries });
 
   const gross = salesNet - cogs, net = gross - opex + other;
   return {
@@ -195,7 +211,7 @@ export function computeFinance(inp: Input, from: string, to: string) {
     entries: entries.sort((a, b) => b.date.localeCompare(a.date)),
     sales: sales.map(d => ({ id: d.id, no: d.no, date: d.date, party: d.party, city: d.city, branch: d.branch, status: d.payment_status, net: r2(d.net * keep(d)), tax: d.tax, total: d.total, paid: d.paid, unpaid: d.unpaid, refund: d.refund })).sort((a, b) => b.date.localeCompare(a.date)),
     purchases: purchases.map(d => ({ id: d.id, no: d.no, date: d.date, party: d.party, status: d.payment_status, net: r2(d.net * keep(d)), tax: d.tax, total: d.total, paid: d.paid, unpaid: d.unpaid })).sort((a, b) => b.date.localeCompare(a.date)),
-    pricing, fixed: inp.fixed, fixed_monthly: r2(fixedMonthly), settings: inp.settings, baseline: B && { ...B, months: base }, plan, advice,
+    pricing, price_guard, stock_alerts, fixed: inp.fixed, fixed_monthly: r2(fixedMonthly), settings: inp.settings, baseline: B && { ...B, months: base }, plan, advice,
   };
 }
 
@@ -231,8 +247,16 @@ export function planning(B: ReturnType<typeof computeCore> | null, fixedPlanned:
 }
 
 type Advice = { level: "danger" | "warn" | "good" | "info"; title: string; text: string; tab?: string };
+const STOCK_RANK: Record<string, number> = { negative: 0, out: 1, low: 2, watch: 3, ok: 4, idle: 5 };
+/** Months of stock left at the last-90-days selling pace; reorder up to 2 months of cover. */
+export function stockCover(stock: number, sold90: number, active = true) {
+  const monthly = sold90 / 3;
+  const months_cover = monthly > 0 ? Math.max(0, Math.round(stock / monthly * 10) / 10) : null;
+  const stock_status = stock < 0 ? "negative" : !active || monthly <= 0 ? "idle" : stock === 0 ? "out" : months_cover! < 1 ? "low" : months_cover! < 2 ? "watch" : "ok";
+  return { sold_90: Math.round(sold90 * 100) / 100, monthly_pace: Math.round(monthly * 10) / 10, months_cover, stock_status, reorder_qty: monthly > 0 ? Math.max(0, Math.ceil(monthly * 2 - Math.max(0, stock))) : 0 };
+}
 const fmt = (n: number) => `${Math.round(n).toLocaleString("en-US")} ر.س`;
-function adviseAll(a: { B: ReturnType<typeof computeCore> | null; plan: ReturnType<typeof planning>; ar: { total: number; overdue: number; buckets: Record<string, number>; parties: Array<{ name: string; unpaid: number; oldestDue: number }> }; ap: { total: number; overdue: number }; pricing: Array<{ name: string; status: string; realized_price: number | null; avg_cost: number | null; suggested_price: number | null; qty_sold: number; stock_value: number | null; breakeven_price: number | null }>; clients: Array<{ name: string; net: number }>; salesNet: number; inp: Input; opexRatio: number; coverage: number; entries: Array<{ treatment: string; account: string; amount: number }> }): Advice[] {
+function adviseAll(a: { price_guard: { lines: Array<{ item: string; below_cost: boolean }>; below_cost: number; below_breakeven: number; lost: number }; stock_alerts: Array<{ name: string; stock_status: string; months_cover: number | null; reorder_qty: number }>; B: ReturnType<typeof computeCore> | null; plan: ReturnType<typeof planning>; ar: { total: number; overdue: number; buckets: Record<string, number>; parties: Array<{ name: string; unpaid: number; oldestDue: number }> }; ap: { total: number; overdue: number }; pricing: Array<{ name: string; status: string; realized_price: number | null; avg_cost: number | null; suggested_price: number | null; qty_sold: number; stock_value: number | null; breakeven_price: number | null }>; clients: Array<{ name: string; net: number }>; salesNet: number; inp: Input; opexRatio: number; coverage: number; entries: Array<{ treatment: string; account: string; amount: number }> }): Advice[] {
   const out: Advice[] = []; const { B, plan } = a;
   if (plan.fixed_planned > 0 && plan.fixed_source === "actual") out.push({ level: "info", title: `المصاريف الثابتة اللي سجلتها (${fmt(plan.fixed_planned)}) أقل بكتير من مصروفك الفعلي`, text: `متوسط مصروفك الشهري الفعلي في دفترة ${fmt(plan.monthly_fixed)}، فحسبت الأهداف عليه عشان ما تتفاجئش. كمّل قائمة المصاريف الثابتة (رواتب، إيجار، تسويق…) وأنا هعتمدها.`, tab: "pnl" });
   if (B && B.sales > 0) {
@@ -251,6 +275,8 @@ function adviseAll(a: { B: ReturnType<typeof computeCore> | null; plan: ReturnTy
   const loss = a.pricing.filter(p => p.status === "loss"), below = a.pricing.filter(p => p.status === "below_breakeven");
   if (loss.length) out.push({ level: "danger", title: `${loss.length} منتج اتباع بأقل من تكلفة شرائه`, text: loss.slice(0, 4).map(p => `${p.name}: بيع ${p.realized_price} وتكلفة ${p.avg_cost}`).join(" · "), tab: "pricing" });
   if (below.length) out.push({ level: "warn", title: `${below.length} منتج سعره ما يغطيش نصيبه من المصاريف`, text: `يعني بيكسب على الورق لكن بعد المصاريف بيخسر. أمثلة: ${below.slice(0, 4).map(p => `${p.name} (سعر التعادل ${p.breakeven_price})`).join(" · ")}`, tab: "pricing" });
+ if (a.price_guard.lines.length) out.push({ level: a.price_guard.below_cost ? "danger" : "warn", title: `${a.price_guard.lines.length} بيعة في دفترة تحت أقل سعر مسموح`, text: `${a.price_guard.below_cost ? `${a.price_guard.below_cost} منهم أقل من تكلفة الشراء نفسها (خسارة مباشرة). ` : ""}أقل سعر مسموح = التكلفة ÷ (1 − هامش مجمل الربح المستهدف ${a.inp.settings.target_gross_margin}%). الفرق عن أقل سعر حوالي ${fmt(a.price_guard.lost)}. راجع حماية السعر في تبويب التسعير.`, tab: "pricing" });
+  const st = a.stock_alerts; if (st.length) { const neg = st.filter(s => s.stock_status === "negative"); out.push({ level: "warn", title: `${st.length} صنف مخزونه قرب يخلص أو خلص`, text: `${st.slice(0, 4).map(s => `${s.name} (${s.stock_status === "negative" ? "رصيد بالسالب" : s.stock_status === "out" ? "خلص" : `يكفي ${s.months_cover} شهر`})`).join(" · ")}${neg.length ? ` — الرصيد بالسالب معناه فواتير بيع اتعملت من غير ما المخزون يتسجل في دفترة، راجع الجرد.` : ""}`, tab: "pricing" }); }
   const dead = a.pricing.filter(p => p.status === "dead_stock" && (p.stock_value || 0) > 0); const deadV = dead.reduce((s, p) => s + (p.stock_value || 0), 0);
   if (deadV > 0) out.push({ level: "info", title: `بضاعة راكدة بقيمة ${fmt(deadV)}`, text: `${dead.length} منتج عليه رصيد وما اتباعش من أكتر من 90 يوم (${dead.slice(0, 3).map(p => p.name).join("، ")}). فكّر في عرض أو باقة لتحريكه.`, tab: "pricing" });
   const top = [...a.clients].sort((x, y) => y.net - x.net)[0];
