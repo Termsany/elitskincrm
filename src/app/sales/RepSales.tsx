@@ -50,6 +50,7 @@ export default function RepSales() {
   const [fd, setFd] = useState<ForecastData | null>(null);
   const [plan, setPlan] = useState<Plan>(null);
   const [lines, setLines] = useState<Line[]>([]);
+  const [tp, setTp] = useState<Array<{ period: string; product: string; quantity: number; amount: number }>>([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const year = Number(month.slice(0, 4));
@@ -62,6 +63,7 @@ export default function RepSales() {
         fetchForecast(month, "sales_rep") as Promise<ForecastData>, fetchTargetPlan(month, "sales_rep"),
       ]);
       setHub(h); setFd(f); setPlan(p as Plan); setLines((f.forecast?.lines ?? []).map(x => ({ ...x })));
+      fetch(`/api/sales/target-products?year=${year}`, { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(j => j && setTp(j.lines || [])).catch(() => {});
     } catch (e) { setErr(e instanceof Error ? e.message : "تعذر التحميل"); }
   }, [month, year]);
   useEffect(() => { void load(); }, [load]);
@@ -133,6 +135,7 @@ export default function RepSales() {
           <div className="min-w-0 flex-1 space-y-2">
             <Row l="المحقق" v={money(ytd)} c="text-emerald-700 text-lg" /><Row l="الهدف" v={hub.annual ? money(hub.annual) : "لسه ما اتحددش"} /><Row l="الباقي" v={hub.annual ? money(Math.max(0, hub.annual - ytd)) : "—"} c="text-[#c2410c]" />
             {need > 0 && <div className="rounded-xl bg-[var(--bg)] px-3 py-1.5 text-[11.5px]">محتاج <b className="text-[var(--navy)]">{money(need)}</b> كل شهر</div>}
+            <Units rows={tp.filter(t => t.period === String(hub.year))} />
           </div>
         </div>
       </button>
@@ -147,6 +150,7 @@ export default function RepSales() {
             <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-extrabold ring-1 ${mT.c}`}>{mT.l}</span>
             <Row l="بعت (معتمد)" v={money(av)} c="text-emerald-700 text-lg" /><Row l="هدف الشهر" v={tv ? money(tv) : monthTarget ? money(monthTarget) : "—"} />
             <div className="text-[11.5px] text-[var(--muted)]">{sq.toLocaleString("en-US")} من {tq.toLocaleString("en-US")} وحدة{isNow && s.pacing_qty ? ` · المفروض لحد النهارده ${s.pacing_qty}` : ""}</div>
+            <Units rows={tp.filter(t => t.period === month)} />
           </div>
         </div>
         <div className="relative mt-3 h-2 overflow-hidden rounded-full bg-[var(--bg)]"><div className="dz-grow-x h-full rounded-full" style={{ width: `${Math.min(100, mp)}%`, background: `linear-gradient(to left, ${mT.ring[0]}, ${mT.ring[1]})` }} />{isNow && <span className="absolute inset-y-0 w-0.5 bg-[var(--navy)]" style={{ right: `${monthPace}%` }} />}</div>
@@ -181,10 +185,12 @@ export default function RepSales() {
   </div>;
 }
 
+const Units = ({ rows }: { rows: Array<{ product: string; quantity: number }> }) => rows.length ? <div className="flex flex-wrap gap-1">{rows.map(r => <span key={r.product} className="rounded-full bg-[var(--sky-light)] px-2 py-0.5 text-[10.5px] font-bold text-[var(--navy)] ring-1 ring-[var(--sky-border)]" title="هدف حدده المدير">🎯 {r.product} · {r.quantity.toLocaleString("en-US")} وحدة</span>)}</div> : null;
 const Row = ({ l, v, c = "" }: { l: string; v: string; c?: string }) => <div className="flex items-baseline justify-between gap-2"><span className="text-[11px] font-bold text-[var(--muted)]">{l}</span><b className={`text-sm font-extrabold text-[var(--navy)] ${c}`}>{v}</b></div>;
 const card = "rounded-[28px] border border-[var(--border)] bg-white p-4 sm:p-5";
 const clinicName = (fd: ForecastData, id: string) => { const c = fd.clinics.find(x => x.id === id); return c ? `${c.name}${c.city ? ` — ${c.city}` : ""}` : "—"; };
-const priceOf = (fd: ForecastData, c: string, p: string) => Number(fd.prices.find(x => x.clinic_id === c && x.product_id === p)?.price ?? 0);
+// clinic special price first, then the product list price set by the admin
+const priceOf = (fd: ForecastData, c: string, p: string) => Number(fd.prices.find(x => x.clinic_id === c && x.product_id === p)?.price ?? (fd.products.find(x => x.id === p) as { unit_price?: number | string | null } | undefined)?.unit_price ?? 0);
 
 /* ═════ الشهر ده: سجّل بيع + مبيعاتي ═════ */
 function MonthTab({ fd, isNow, busy, onSale }: { fd: ForecastData; isNow: boolean; busy: boolean; onSale: (b: Record<string, unknown>) => Promise<boolean> }) {
@@ -340,7 +346,7 @@ export function TargetsTab({ plan, fd, month, busy, onAction }: { plan: RepPlanT
   const sel = plan.months.find(m => m.month === month); const target = Number(sel?.amount ?? 0);
   const bd = plan.breakdowns.find(b => b.month === month);
   const prices = plan.prices?.length ? plan.prices : fd.prices;
-  const pr = (c: string, p: string) => Number(prices.find(x => x.clinic_id === c && x.product_id === p)?.price ?? 0);
+  const pr = (c: string, p: string) => Number(prices.find(x => x.clinic_id === c && x.product_id === p)?.price ?? (fd.products.find(x => x.id === p) as { unit_price?: number | string | null } | undefined)?.unit_price ?? 0);
   const [q, setQ] = useState<Record<string, number>>({}); const [extra, setExtra] = useState<string[]>([]); const [mReason, setMReason] = useState(""); const [add, setAdd] = useState("");
   useEffect(() => { setQ(Object.fromEntries((bd?.lines ?? []).map(l => [`${l.clinic_id}:${l.product_id}`, Number(l.quantity)]))); setExtra([]); }, [bd, month]);
   const lines: TL[] = Object.entries(q).filter(([, v]) => v > 0).map(([k, v]) => { const [c, p] = k.split(":"); return { clinic_id: c, product_id: p, quantity: v }; });
@@ -382,7 +388,7 @@ export function TargetsTab({ plan, fd, month, busy, onAction }: { plan: RepPlanT
           : <div className="-mx-4 mt-4 overflow-x-auto px-4 sm:mx-0 sm:px-0"><table className="w-full min-w-[520px] text-sm"><thead className="text-[11px] text-[var(--muted)]"><tr><th className="p-2 text-right">العيادة</th>{fd.products.map(p => <th key={p.id} className="p-2">{p.name}</th>)}<th className="p-2">القيمة</th></tr></thead>
             <tbody className="divide-y divide-[var(--border)]">{rows.map(c => { const v = fd.products.reduce((n, p) => n + (q[`${c.id}:${p.id}`] || 0) * pr(c.id, p.id), 0); return <tr key={c.id} className="hover:bg-[var(--sky-light)]/40">
               <td className="max-w-[200px] p-2"><div className="truncate font-bold">{c.name}</div>{c.city && <div className="text-[10.5px] text-[var(--muted)]">{c.city}</div>}</td>
-              {fd.products.map(p => { const price = pr(c.id, p.id); return <td key={p.id} className="p-2 text-center">{mPending ? <b>{q[`${c.id}:${p.id}`] || "—"}</b> : <div className="inline-flex flex-col items-center gap-0.5"><Stepper v={q[`${c.id}:${p.id}`] || 0} set={n => setQ(x => ({ ...x, [`${c.id}:${p.id}`]: n }))} /><span className={`text-[10px] ${price ? "text-[var(--muted)]" : "font-bold text-red-600"}`}>{price ? `${money(price)} للوحدة` : "مفيش سعر"}</span></div>}</td>; })}
+              {fd.products.map(p => { const price = pr(c.id, p.id); return <td key={p.id} className="p-2 text-center">{mPending ? <b>{q[`${c.id}:${p.id}`] || "—"}</b> : <div className="inline-flex flex-col items-center gap-0.5"><Stepper v={q[`${c.id}:${p.id}`] || 0} set={n => setQ(x => ({ ...x, [`${c.id}:${p.id}`]: n }))} /><span className={`text-[10px] ${price ? "text-[var(--muted)]" : "font-bold text-red-600"}`}>{price ? `${money(price)} للوحدة` : "مفيش سعر — بلّغ المدير"}</span></div>}</td>; })}
               <td className="p-2 text-center text-xs font-bold text-[var(--navy)]">{v ? money(v) : "—"}</td></tr>; })}</tbody></table></div>}
         {!mPending && <div className="mt-3 flex flex-wrap items-center gap-2"><select value={add} onChange={e => { const id = e.target.value; if (id) { setExtra(x => [...x, id]); setAdd(""); } }} className="h-10 max-w-full rounded-xl border border-[var(--border)] bg-white px-3 text-sm"><option value="">+ ضيف عيادة…</option>{fd.clinics.filter(c => !rowIds.includes(c.id)).map(c => <option key={c.id} value={c.id}>{c.name}{c.city ? ` — ${c.city}` : ""}</option>)}</select></div>}
         {missing.length > 0 && <div className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-800 ring-1 ring-red-200">{missing.length} سطر من غير سعر — المدير لازم يحدد سعر العيادة/المنتج الأول</div>}

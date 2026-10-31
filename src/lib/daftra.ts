@@ -141,6 +141,8 @@ async function doSync(): Promise<SyncResult> {
     await replaceAll("daftra_cash_entries", ["id", "kind", "entry_date", "amount", "tax", "account_id", "vendor", "note", "modified"],
       entries.map(e => [e.id, e.kind, e.entry_date, e.amount, e.tax, e.account_id, e.vendor, e.note, e.modified]));
     const result = { invoices: sales.count, updated: sales.updated + purchases.updated, purchases: purchases.count, products: products.length, payments: payments.length, entries: entries.length };
+    // new Daftra customers become sales clinics (CRM only)
+    await import("@/lib/sales-admin").then(m => m.syncDaftraClinics()).catch(e => console.error("clinic sync", e));
     await query("UPDATE daftra_sync SET finished_at=now(), ok=true, message=$1, invoices=$2 WHERE id=1",
       [`تمت المزامنة — ${sales.count} فاتورة بيع، ${purchases.count} فاتورة شراء، ${entries.length} مصروف/إيراد`, sales.count]);
     return result;
