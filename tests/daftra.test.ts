@@ -9,12 +9,12 @@ describe("Daftra invoice mapping", () => {
     InvoiceItem: [{ item: "DIVES AMI 200", unit_price: "900", quantity: "50", product_id: "15", subtotal: 27427.5, summary_tax1: 3577.5, calculated_discount: 21150 }] };
   it("recognises revenue net of VAT and keeps payment figures", () => {
     const { row, lines } = mapInvoice(inv);
-    expect(row).toMatchObject({ id: 182, net: 23850, tax: 3577.5, total: 27427.5, paid: 10000, unpaid: 17427.5, branch: "dammam", due_days: 90, client_name: "مستشفى المواساة" });
+    expect(row).toMatchObject({ id: 182, net: 23850, tax: 3577.5, total: 27427.5, paid: 10000, unpaid: 17427.5, branch: "dammam", due_days: 90, party_name: "مستشفى المواساة" });
     expect(lines).toEqual([{ line: 1, product_id: 15, item: "DIVES AMI 200", quantity: 50, unit_price: 900, discount: 21150, net: 23850, tax: 3577.5 }]);
   });
   it("falls back to the contact name and tolerates missing taxes/items", () => {
     const { row, lines } = mapInvoice({ id: "1", date: "2026-01-02", client_first_name: "ayob", summary_total: "100" });
-    expect(row.client_name).toBe("ayob"); expect(row.net).toBe(100); expect(lines).toEqual([]);
+    expect(row.party_name).toBe("ayob"); expect(row.net).toBe(100); expect(lines).toEqual([]);
   });
   it("normalises Daftra date formats", () => { expect(isoDate("15/09/2026")).toBe("2026-09-15"); expect(isoDate("2026-09-15 10:00")).toBe("2026-09-15"); expect(isoDate("5/1/2026")).toBe("2026-01-05"); expect(isoDate("")).toBe(""); });
 });
