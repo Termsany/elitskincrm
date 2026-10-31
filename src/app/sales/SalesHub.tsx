@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import ForecastClient from "../forecast/ForecastClient";
+import RepSales from "./RepSales";
 
 type Opt = { id: string; name: string };
 type Month = { month: string; target: number; actual: number; actual_qty: number; forecast: number; allocated: boolean };
@@ -15,7 +16,12 @@ const short = (n: number) => Math.abs(n) >= 1e6 ? `${(n / 1e6).toFixed(n % 1e6 ?
 const mLabel = (m: string, o: Intl.DateTimeFormatOptions = { month: "short" }) => new Intl.DateTimeFormat(L, { ...o, timeZone: "UTC" }).format(new Date(`${m}-15T12:00:00Z`));
 const pct = (a: number, b: number) => b ? Math.round((a / b) * 100) : null;
 
-export default function SalesHub({ isAdmin, reps, initialTab = "overview" }: { isAdmin: boolean; reps: Opt[]; initialTab?: Tab }) {
+export default function SalesHub(props: { isAdmin: boolean; reps: Opt[]; initialTab?: Tab }) {
+  // Reps get one clear, task-driven page; the admin keeps the team console.
+  return props.isAdmin ? <AdminSalesHub {...props} /> : <RepSales />;
+}
+
+function AdminSalesHub({ isAdmin, reps, initialTab = "overview" }: { isAdmin: boolean; reps: Opt[]; initialTab?: Tab }) {
   const nowYear = Number(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date()).slice(0, 4));
   const [tab, setTab] = useState<Tab>(initialTab);
   const [year, setYear] = useState(nowYear);
