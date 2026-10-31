@@ -304,6 +304,11 @@ export function Advisor({ d, go, x, reload }: { d: FinData; go: (t: Tab) => void
   const max = Math.max(cur, target || 0, be || 0) * 1.1 || 1;
   async function saveTarget() { const r = await fetch("/api/admin/finance/settings", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ target_gross_margin: d.settings.target_gross_margin, target_net_margin: nm }) }); const j = await r.json().catch(() => null); if (r.ok) { toast("اتحفظ هدف صافي الربح", "success"); reload(); } else toast(j?.error || "تعذر الحفظ", "error"); }
   return <div className="space-y-4">
+    <button type="button" onClick={() => go("plan")} className="flex w-full flex-wrap items-center gap-3 rounded-2xl bg-gradient-to-l from-[var(--navy)] to-[#1b6f75] p-4 text-right text-white shadow-lg transition hover:-translate-y-0.5">
+      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15"><Icon name="plans" size={22} /></span>
+      <span className="min-w-0 flex-1"><b className="block text-[15px]">خطّط الشهر الجاي صنف بصنف</b><span className="text-xs text-white/80">اكتب الرواتب والمصاريف وسعر بيع كل صنف — وأنا أقولك تبيع كام حبة من كل صنف، وكام هتكسب، وتقارن بالفعلي.</span></span>
+      <span className="rounded-xl bg-white px-3 py-2 text-xs font-extrabold text-[var(--navy)]">افتح خطة الشهر ‹</span>
+    </button>
     <Card title="هدف المبيعات والمصاريف المسموحة" hint="الأرقام مبنية على متوسط آخر 6 شهور كاملة. حرّك المؤشرات وشوف النتيجة فوراً." right={<ExcelBtn href={x("advisor")} label="تقرير التخطيط Excel" />}>
       {!B ? <div className="text-sm text-[var(--muted)]">محتاج بيانات 6 شهور على الأقل.</div> : <>
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
