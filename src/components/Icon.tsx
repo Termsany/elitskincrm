@@ -110,6 +110,14 @@ const DUO: Record<string, Duo> = {
   send: { duo: '<path d="M21 3L3 10.5l7 3.5z"/>', line: '<path d="M21 3L3 10.5l7 3.5 3.5 7z"/><path d="M10 14l11-11"/>' },
   upload: { duo: '<path d="M4 15h16v3a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/>', line: '<path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/><path d="M12 15V4"/><path d="M7 9l5-5 5 5"/>' },
   time: { duo: '<circle cx="12" cy="13" r="8"/>', line: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2"/><path d="M5 3L2 6"/><path d="M19 3l3 3"/>' },
+  wallet: { duo: '<path d="M3 8h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>', line: '<path d="M19 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2H5"/><path d="M16 14h2"/>' },
+  fuel: { duo: '<rect x="4" y="9" width="10" height="12" rx="1"/>', line: '<path d="M4 21V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v16"/><path d="M3 21h12"/><path d="M4 9h10"/><path d="M14 12h2a2 2 0 0 1 2 2v3a1.5 1.5 0 0 0 3 0V8l-3-3"/>' },
+  parking: { duo: '<rect x="3" y="3" width="18" height="18" rx="4"/>', line: '<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/>' },
+  hospitality: { duo: '<path d="M3 11h18a9 9 0 0 1-18 0z"/>', line: '<path d="M3 11h18a9 9 0 0 1-18 0z"/><path d="M12 7V4"/><path d="M8 7.5c0-1 1-1.5 1-2.5"/><path d="M16 7.5c0-1-1-1.5-1-2.5"/>' },
+  gift: { duo: '<rect x="4" y="11" width="16" height="10" rx="1"/>', line: '<rect x="3" y="7" width="18" height="4" rx="1"/><path d="M4 11v9a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-9"/><path d="M12 7v14"/><path d="M12 7S10.5 3 8 3.5 7 7 12 7z"/><path d="M12 7s1.5-4 4-3.5S17 7 12 7z"/>' },
+  events: { duo: '<path d="M4 4h16v11H4z"/>', line: '<rect x="3" y="4" width="18" height="11" rx="1"/><path d="M12 15v4"/><path d="M8 21l4-2 4 2"/><path d="M7 11l3-3 2 2 4-4"/>' },
+  travel: { duo: '<path d="M2 16l20-6-4-3-6 2-6-4-2 1 4 5-4 1-2-1z"/>', line: '<path d="M2 16l20-6c0-1.5-1.5-3-4-3l-6 2-6-4-2 1 4 5-4 1-2-1z"/><path d="M3 21h18"/>' },
+  phone: { duo: '<rect x="6" y="2" width="12" height="20" rx="3"/>', line: '<rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18h2"/>' },
   pen: { duo: '<path d="M4 20v-4L15 5l4 4L8 20z"/>', line: '<path d="M4 20v-4L15 5l4 4L8 20z"/><path d="M13 7l4 4"/>' },
 };
 
@@ -144,7 +152,7 @@ const GLYPH: Record<string, [string, string]> = {
   "📄": ["file", "#10484f"], "🖋": ["signature", "#9676e3"], "📨": ["send", "#3b90e8"], "⚡": ["sparkle", "#e99608"],
   "📋": ["visits", "#33b3a6"], "📊": ["reports", "#e16201"], "📈": ["sales", "#1aa865"], "⬆": ["upload", "#10484f"],
   "🧭": ["calendar", "#3b90e8"], "📑": ["reports", "#e16201"], "👥": ["reps", "#33b3a6"], "🧪": ["samples", "#9676e3"],
-  "⏰": ["time", "#ef4b4e"], "✎": ["pen", "#e99608"], "🔎": ["search", "#10484f"], "⚠": ["warn", "#e99608"],
+  "⏰": ["time", "#ef4b4e"], "✎": ["pen", "#e99608"], "🔎": ["search", "#10484f"], "⚠": ["warn", "#e99608"], "💵": ["wallet", "#e16201"],
 };
 export function glyphIcon(g: string): [string, string] | null {
   return GLYPH[g] ?? GLYPH[g.replace(/️/g, "")] ?? null;

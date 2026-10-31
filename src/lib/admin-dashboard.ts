@@ -21,6 +21,7 @@ async function inbox(): Promise<Group[]> {
        UNION ALL SELECT 's'||s.id::text, 'مبيعات للاعتماد', u.name, s.submitted_at FROM forecast_sales s JOIN users u ON u.id=s.rep_id WHERE s.status='pending'
        UNION ALL SELECT 't'||t.id::text, 'توزيع هدف', u.name, t.created_at FROM rep_target_versions t JOIN users u ON u.id=t.rep_id WHERE t.status='pending' ORDER BY 4`).catch(() => []),
   ]);
+  const expenses = await q(`SELECT e.id::text id, c.name || ' · ' || to_char(e.amount, 'FM999,999,990.00') || ' ر.س' title, u.name owner, e.created_at at FROM expenses e JOIN users u ON u.id=e.rep_id JOIN expense_categories c ON c.id=e.category_id WHERE e.status='pending' ORDER BY e.created_at`).catch(() => []);
   const g = (key: string, label: string, icon: string, href: string, rows: Array<Record<string, any>>, link: (r: Record<string, any>) => string): Group =>
     ({ key, label, icon, href, count: rows.length, items: rows.slice(0, 5).map(r => ({ id: r.id, title: r.title, owner: r.owner, at: r.at, href: link(r) })) });
   return [
@@ -28,6 +29,7 @@ async function inbox(): Promise<Group[]> {
     g("changes", "تعديلات على خطط", "✎", "/plans?status=pending", changes, r => `/plans?planId=${r.id}`),
     g("signs", "طلبات توقيع", "🖋️", "/library?view=signreq", signs, () => "/library?view=signreq"),
     g("samples", "عينات وطلبات", "🧪", "/visits?tab=visits", samples, r => `/visits?visit=${r.id}`),
+    g("expenses", "مصروفات للاعتماد", "💵", "/expenses?tab=review", expenses, () => "/expenses?tab=review"),
     g("sales", "مبيعات وتوقعات", "💰", "/sales?tab=workspace", sales as Array<Record<string, any>>, () => "/sales?tab=workspace"),
     g("doctors", "طلبات أطباء", "🩺", "/admin/requests", doctorReqs, () => "/admin/requests"),
     g("service", "طلبات خدمة", "📨", "/admin/requests", service, r => `/admin/requests?request=${r.id}`),

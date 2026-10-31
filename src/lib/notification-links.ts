@@ -7,7 +7,7 @@ export type NotificationLink = {
 
 export function notificationHref(notification: NotificationLink, role: string): string {
   const explicit = notification.action_url;
-  const allowed = ['/requests', '/admin/requests', '/plans', '/tasks', '/admin/reps', '/calendar', '/library', '/visits'];
+  const allowed = ['/requests', '/admin/requests', '/plans', '/tasks', '/admin/reps', '/calendar', '/library', '/visits', '/expenses'];
   if (explicit && explicit.startsWith('/') && !explicit.startsWith('//')) {
     const pathname = explicit.split('?')[0];
     if (allowed.includes(pathname)) return explicit;
