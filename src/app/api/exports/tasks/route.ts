@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { query } from "@/lib/db";
-function esc(v:unknown){ return `"${String(v??"").replace(/"/g,'""')}"`; }
+import { csvSafe } from "@/lib/csv";
+function esc(v:unknown){ return `"${csvSafe(v).replace(/"/g,'""')}"`; }
 export async function GET(req: Request){
   const user=await getCurrentUser(); if(!user || user.role!=="admin") return NextResponse.json({error:"Forbidden"},{status:403});
   const { searchParams }=new URL(req.url);

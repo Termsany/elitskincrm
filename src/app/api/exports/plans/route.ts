@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { query } from "@/lib/db";
-function esc(v:unknown){ return `"${String(v??"").replace(/"/g,'""')}"`; }
+import { csvSafe } from "@/lib/csv";
+function esc(v:unknown){ return `"${csvSafe(v).replace(/"/g,'""')}"`; }
 export async function GET(req: Request){
   const user=await getCurrentUser(); if(!user) return NextResponse.json({error:"Unauthorized"},{status:401});
   const { searchParams }=new URL(req.url);

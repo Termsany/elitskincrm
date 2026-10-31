@@ -3,11 +3,12 @@ import { getCurrentUser } from "@/lib/session";
 import { pool, query } from "@/lib/db";
 import { canTransitionRequest, type RequestStatus } from "@/lib/request-workflow";
 import { PDFDocument } from "pdf-lib";
+import { badId, validIds } from "@/lib/ids";
 
 const priorities = new Set(["low", "normal", "high", "urgent"]);
 const categories = new Set(["general", "hr", "products", "documents", "support", "doctor", "visit", "plan", "samples"]);
 
-export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {if(!validIds(await params))return badId();
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
@@ -34,7 +35,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   });
 }
 
-export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {if(!validIds(await params))return badId();
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (user.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { GlyphIcon, Icon } from "@/components/Icon";
 
 type D = {
   greeting: string; name: string; today: string; summary: string; pendingTotal: number;
@@ -16,10 +17,11 @@ const L = "ar-EG-u-nu-latn";
 const card = "rounded-[28px] border border-[var(--border)] bg-white";
 const short = (n: number) => n >= 1e6 ? `${(n / 1e6).toFixed(n >= 1e7 ? 0 : 1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}K` : String(Math.round(n));
 const rel = (d: string) => { const m = Math.round((Date.now() - new Date(d).getTime()) / 60000); return m < 1 ? "دلوقتي" : m < 60 ? `من ${m} د` : m < 1440 ? `من ${Math.floor(m / 60)} س` : m < 2880 ? "امبارح" : `من ${Math.floor(m / 1440)} يوم`; };
-const qColor = (q: number | null) => q === null ? "#e2e8f0" : q >= 75 ? "#10b981" : q >= 50 ? "#f59e0b" : "#fb923c";
+const qColor = (q: number | null) => q === null ? "#dce5e6" : q >= 75 ? "#1aa865" : q >= 50 ? "#e99608" : "#ff8c50";
 const STATE: Record<string, [string, string]> = { active: ["شغال", "bg-emerald-500"], paused: ["متوقف", "bg-amber-500"], done: ["خلّص ✓", "bg-sky-500"], idle: ["مسجلش", "bg-slate-300"] };
 const TONE: Record<string, string> = { red: "border-r-red-500 bg-red-50/60", amber: "border-r-amber-400 bg-amber-50/60", green: "border-r-emerald-500 bg-emerald-50/60", blue: "border-r-sky-500 bg-sky-50/60" };
 const ACT: Record<string, string> = { visit: "🩺", plan: "🗓️", file: "📄", sign: "🖋️", signreq: "📨" };
+const actIcon = (k: string) => ACT[k] ? <GlyphIcon g={ACT[k]} chip size={16} box={32} /> : <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--bg)] text-sm">•</span>;
 
 function useCount(v: number) {
   const [n, setN] = useState(0); const from = useRef(0);
@@ -38,7 +40,7 @@ export default function CommandCenter() {
   useEffect(() => { void load(); const t = setInterval(() => { if (document.visibilityState === "visible") void load(); }, 120000); return () => clearInterval(t); }, []);
   useEffect(() => { if (d && (!grp || !d.inbox.some(g => g.key === grp))) setGrp(d.inbox[0]?.key || ""); }, [d]); // eslint-disable-line react-hooks/exhaustive-deps
   const openPalette = () => window.dispatchEvent(new Event("open-command-palette"));
-  if (err && !d) return <div className={`${card} mt-4 p-8 text-center`}><div className="text-3xl">⚠️</div><div className="mt-2 font-bold">تعذر تحميل لوحة القيادة</div><button onClick={() => void load()} className="mt-3 rounded-xl bg-[var(--navy)] px-4 py-2 text-sm font-bold text-white">إعادة المحاولة</button></div>;
+  if (err && !d) return <div className={`${card} mt-4 p-8 text-center`}><div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-500"><Icon name="warn" size={28} /></div><div className="mt-2 font-bold">تعذر تحميل لوحة القيادة</div><button onClick={() => void load()} className="mt-3 rounded-xl bg-[var(--navy)] px-4 py-2 text-sm font-bold text-white">إعادة المحاولة</button></div>;
   if (!d) return <div className="mt-4 space-y-4"><div className="h-28 animate-pulse rounded-[28px] bg-white" /><div className="grid grid-cols-2 gap-3 xl:grid-cols-4">{[0, 1, 2, 3].map(i => <div key={i} className="h-40 animate-pulse rounded-[28px] bg-white" />)}</div><div className="h-72 animate-pulse rounded-[28px] bg-white" /></div>;
 
   const p = d.pulse; const g = d.inbox.find(x => x.key === grp);
@@ -49,7 +51,7 @@ export default function CommandCenter() {
 
   const header = <section className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
     <div><div className="text-sm font-bold text-[var(--muted)]">{dateLabel}</div><h1 className="mt-1 text-3xl font-extrabold tracking-tight text-[var(--navy)] sm:text-4xl">{d.greeting}، {d.name} <span className="inline-block origin-bottom-right animate-[wave_1.6s_ease-in-out_1]">👋</span></h1><p className="mt-2 text-sm text-[var(--muted)] sm:text-base">{d.summary}</p></div>
-    <button onClick={openPalette} className="group flex h-12 w-full items-center gap-3 rounded-2xl border border-[var(--border)] bg-white px-4 text-right shadow-sm transition hover:border-[var(--sky-border)] hover:shadow-md lg:w-[380px]"><span>🔎</span><span className="flex-1 text-sm text-[var(--muted)]">دوّر على أي حاجة أو اعمل أي حاجة…</span><kbd className="hidden rounded-lg border border-[var(--border)] bg-[var(--bg)] px-2 py-0.5 text-[11px] font-bold text-[var(--muted)] sm:inline">Ctrl K</kbd></button>
+    <button onClick={openPalette} className="group flex h-12 w-full items-center gap-3 rounded-2xl border border-[var(--border)] bg-white px-4 text-right shadow-sm transition hover:border-[var(--sky-border)] hover:shadow-md lg:w-[380px]"><span className="text-[var(--navy)]"><Icon name="search" size={20} /></span><span className="flex-1 text-sm text-[var(--muted)]">دوّر على أي حاجة أو اعمل أي حاجة…</span><kbd className="hidden rounded-lg border border-[var(--border)] bg-[var(--bg)] px-2 py-0.5 text-[11px] font-bold text-[var(--muted)] sm:inline">Ctrl K</kbd></button>
     <style>{`@keyframes wave{0%,100%{transform:rotate(0)}20%{transform:rotate(-14deg)}40%{transform:rotate(10deg)}60%{transform:rotate(-8deg)}}`}</style>
   </section>;
 
@@ -58,7 +60,7 @@ export default function CommandCenter() {
       <div className="flex items-center justify-between"><span className="text-xs font-bold text-[var(--muted)]">النهارده</span>{p.today.active > 0 && <span className="flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />{p.today.active} شغال</span>}</div>
       <div className="mt-2 flex items-end gap-1.5"><Num v={p.today.visits} className="text-4xl font-extrabold text-[var(--navy)]" /><span className="pb-1.5 text-sm text-[var(--muted)]">زيارة</span></div>
       <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[var(--bg)]"><div className="h-full rounded-full bg-[var(--navy)] transition-all duration-1000" style={{ width: `${p.today.planned ? Math.min(100, p.today.done / p.today.planned * 100) : 0}%` }} /></div>
-      <div className="mt-1.5 flex justify-between text-[11px] text-[var(--muted)]"><span>{p.today.planned ? `${p.today.done} من ${p.today.planned} في الخطة` : "مفيش خطة معتمدة النهارده"}</span>{p.today.red > 0 && <span className="font-bold text-red-600">🚩 {p.today.red}</span>}</div>
+      <div className="mt-1.5 flex justify-between text-[11px] text-[var(--muted)]"><span>{p.today.planned ? `${p.today.done} من ${p.today.planned} في الخطة` : "مفيش خطة معتمدة النهارده"}</span>{p.today.red > 0 && <span className="flex items-center gap-1 font-bold text-red-600"><Icon name="flag" size={13} /> {p.today.red}</span>}</div>
     </Link>
     <Link href="/visits?tab=insights" className={`${card} group flex flex-col items-start gap-3 p-4 transition hover:-translate-y-0.5 hover:shadow-lg sm:flex-row sm:items-center sm:p-5`}>
       <Ring pct={p.quality.week} color={qColor(p.quality.visits ? p.quality.week : null)}><Num v={p.quality.week} className="text-xl font-extrabold text-[var(--navy)]" /><span className="text-[9px] text-[var(--muted)]">من 100</span></Ring>
@@ -66,7 +68,7 @@ export default function CommandCenter() {
         {p.quality.lastWeek > 0 && <div className={`mt-1.5 inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold ${qDelta >= 0 ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>{qDelta >= 0 ? "▲" : "▼"} {Math.abs(qDelta)} عن الأسبوع اللي فات</div>}</div>
     </Link>
     <Link href="/sales" className={`${card} group flex flex-col items-start gap-3 p-4 transition hover:-translate-y-0.5 hover:shadow-lg sm:flex-row sm:items-center sm:p-5`}>
-      <Ring pct={salesPct} color={salesPct >= p.sales.pace ? "#10b981" : "#c8a24a"}><span className="text-xl font-extrabold text-[var(--navy)]">{p.sales.target ? <><Num v={salesPct} />%</> : "—"}</span><span className="text-[9px] text-[var(--muted)]">من الهدف</span></Ring>
+      <Ring pct={salesPct} color={salesPct >= p.sales.pace ? "#1aa865" : "#c8a24a"}><span className="text-xl font-extrabold text-[var(--navy)]">{p.sales.target ? <><Num v={salesPct} />%</> : "—"}</span><span className="text-[9px] text-[var(--muted)]">من الهدف</span></Ring>
       <div className="min-w-0"><div className="text-xs font-bold text-[var(--muted)]">مبيعات الشهر</div><div className="mt-0.5 text-sm font-extrabold text-[var(--navy)]">{short(p.sales.actual)} <span className="text-[11px] font-normal text-[var(--muted)]">/ {p.sales.target ? short(p.sales.target) : "مفيش هدف"}</span></div>
         <div className="mt-1 text-[11px] text-[var(--muted)]">الشهر عدّى {p.sales.pace}%{p.sales.forecast ? ` · التوقع ${short(p.sales.forecast)}` : ""}</div></div>
     </Link>
@@ -78,10 +80,10 @@ export default function CommandCenter() {
 
   const inbox = <section className={`${card} overflow-hidden`}>
     <div className="flex items-center justify-between p-5 pb-3"><div className="flex items-center gap-2"><h2 className="text-lg font-extrabold text-[var(--navy)]">محتاج قرارك</h2>{d.pendingTotal > 0 && <span className="rounded-full bg-[var(--navy)] px-2.5 py-0.5 text-xs font-bold text-white">{d.pendingTotal}</span>}</div>{g && <Link href={g.href} className="text-xs font-bold text-[var(--navy)] opacity-70 hover:opacity-100">افتح الكل ‹</Link>}</div>
-    {!d.inbox.length ? <div className="px-5 pb-8 pt-4 text-center"><div className="text-5xl">🎉</div><div className="mt-2 font-extrabold text-[var(--navy)]">مفيش حاجة مستنياك</div><div className="text-sm text-[var(--muted)]">كل الخطط والطلبات والتوقيعات متراجعة</div></div> : <>
-      <div className="flex gap-1.5 overflow-x-auto px-5 pb-3">{d.inbox.map(x => <button key={x.key} onClick={() => setGrp(x.key)} className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition ${grp === x.key ? "bg-[var(--navy)] text-white shadow" : "bg-[var(--bg)] text-[var(--muted)] hover:text-[var(--navy)]"}`}><span>{x.icon}</span>{x.label}<span className={`rounded-full px-1.5 text-[10px] ${grp === x.key ? "bg-white/20" : "bg-white"}`}>{x.count}</span></button>)}</div>
+    {!d.inbox.length ? <div className="px-5 pb-8 pt-4 text-center"><div className="es-pop mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600"><Icon name="sparkle" size={30} /></div><div className="mt-2 font-extrabold text-[var(--navy)]">مفيش حاجة مستنياك</div><div className="text-sm text-[var(--muted)]">كل الخطط والطلبات والتوقيعات متراجعة</div></div> : <>
+      <div className="flex gap-1.5 overflow-x-auto px-5 pb-3">{d.inbox.map(x => <button key={x.key} onClick={() => setGrp(x.key)} className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition ${grp === x.key ? "bg-[var(--navy)] text-white shadow" : "bg-[var(--bg)] text-[var(--muted)] hover:text-[var(--navy)]"}`}><GlyphIcon g={x.icon} size={14} />{x.label}<span className={`rounded-full px-1.5 text-[10px] ${grp === x.key ? "bg-white/20" : "bg-white"}`}>{x.count}</span></button>)}</div>
       <div className="divide-y divide-[var(--border)] border-t border-[var(--border)]">{g?.items.map(it => <Link key={it.id} href={it.href} className="group flex items-center gap-3 px-5 py-3 transition hover:bg-[var(--sky-light)]/50">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--bg)] text-base">{g.icon}</span>
+        <GlyphIcon g={g.icon} chip size={18} box={36} />
         <div className="min-w-0 flex-1"><div className="truncate text-sm font-bold text-[var(--ink)]" dir="auto">{it.title}</div><div className="text-[11px] text-[var(--muted)]">{it.owner ? `${it.owner} · ` : ""}{rel(it.at)}</div></div>
         <span className="rounded-lg bg-[var(--navy)] px-2.5 py-1 text-[11px] font-bold text-white opacity-0 transition group-hover:opacity-100">راجع ‹</span>
       </Link>)}{g && g.count > g.items.length && <Link href={g.href} className="block px-5 py-2.5 text-center text-xs font-bold text-[var(--muted)] hover:text-[var(--navy)]">+ {g.count - g.items.length} كمان</Link>}</div>
@@ -90,7 +92,7 @@ export default function CommandCenter() {
 
   const insights = <section className={`${card} p-5`}>
     <h2 className="mb-3 text-lg font-extrabold text-[var(--navy)]">يستاهل انتباهك</h2>
-    {d.insights.length ? <div className="space-y-2">{d.insights.map((x, k) => <Link key={k} href={x.href} className={`block rounded-2xl border-r-4 p-3 transition hover:translate-x-[-2px] ${TONE[x.tone]}`}><div className="flex gap-2.5"><span className="text-lg leading-none">{x.icon}</span><div><div className="text-sm font-extrabold text-[var(--ink)]">{x.title}</div><div className="mt-0.5 text-[11px] leading-5 text-[var(--muted)]">{x.text}</div></div></div></Link>)}</div>
+    {d.insights.length ? <div className="space-y-2">{d.insights.map((x, k) => <Link key={k} href={x.href} className={`block rounded-2xl border-r-4 p-3 transition hover:translate-x-[-2px] ${TONE[x.tone]}`}><div className="flex items-center gap-3"><GlyphIcon g={x.icon} chip size={18} box={34} /><div><div className="text-sm font-extrabold text-[var(--ink)]">{x.title}</div><div className="mt-0.5 text-[11px] leading-5 text-[var(--muted)]">{x.text}</div></div></div></Link>)}</div>
       : <div className="rounded-2xl bg-emerald-50 p-4 text-center text-sm font-bold text-emerald-800">✓ كله تمام — مفيش ملاحظات مهمة دلوقتي</div>}
   </section>;
 
@@ -98,10 +100,10 @@ export default function CommandCenter() {
     <div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-extrabold text-[var(--navy)]">الفريق النهارده</h2><Link href="/visits" className="text-xs font-bold text-[var(--navy)] opacity-70 hover:opacity-100">لوحة المتابعة ‹</Link></div>
     <div className="space-y-1">{d.team.map(t => { const [lbl, dot] = STATE[t.state] || STATE.idle; return <Link key={t.rep_id} href={`/visits?tab=visits&repId=${t.rep_id}`} className="flex items-center gap-3 rounded-2xl px-2 py-2.5 transition hover:bg-[var(--bg)]">
       <div className="relative"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--navy)] to-[#1f7a7f] text-xs font-extrabold text-white">{t.rep_name.split(/\s+/).map(x => x[0]).slice(0, 2).join("").toUpperCase()}</div><span className={`absolute -bottom-0.5 -left-0.5 h-3 w-3 rounded-full border-2 border-white ${dot} ${t.state === "active" ? "animate-pulse" : ""}`} /></div>
-      <div className="min-w-0 flex-1"><div className="flex items-center gap-2"><span className="truncate text-sm font-bold">{t.rep_name}</span>{t.redFlags > 0 && <span className="text-[10px] font-bold text-red-600">🚩{t.redFlags}</span>}</div>
+      <div className="min-w-0 flex-1"><div className="flex items-center gap-2"><span className="truncate text-sm font-bold">{t.rep_name}</span>{t.redFlags > 0 && <span className="flex items-center gap-0.5 text-[10px] font-bold text-red-600"><Icon name="flag" size={11} />{t.redFlags}</span>}</div>
         <div className="mt-1 flex items-center gap-2"><div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--bg)]"><div className="h-full rounded-full bg-[var(--navy)] transition-all duration-1000" style={{ width: `${t.planned ? Math.min(100, t.done / t.planned * 100) : t.visits ? 100 : 0}%`, opacity: t.planned ? 1 : 0.35 }} /></div><span className="w-24 text-left text-[10px] text-[var(--muted)]">{t.visits} زيارة{t.planned ? ` · ${t.done}/${t.planned}` : ""}</span></div></div>
       <span className="hidden w-16 text-center text-[10px] text-[var(--muted)] sm:block">{lbl}</span>
-      <span className="flex h-8 w-10 items-center justify-center rounded-lg text-xs font-extrabold" style={{ background: t.avgQuality === null ? "#f1f5f9" : `${qColor(t.avgQuality)}22`, color: t.avgQuality === null ? "#94a3b8" : qColor(t.avgQuality) }}>{t.avgQuality ?? "—"}</span>
+      <span className="flex h-8 w-10 items-center justify-center rounded-lg text-xs font-extrabold" style={{ background: t.avgQuality === null ? "#edf2f3" : `${qColor(t.avgQuality)}22`, color: t.avgQuality === null ? "#889799" : qColor(t.avgQuality) }}>{t.avgQuality ?? "—"}</span>
     </Link>; })}</div>
   </section>;
 
@@ -117,7 +119,7 @@ export default function CommandCenter() {
 
   const activity = <section className={`${card} p-5`}>
     <h2 className="mb-3 text-lg font-extrabold text-[var(--navy)]">آخر النشاط</h2>
-    <div className="grid gap-x-6 gap-y-1 md:grid-cols-2">{d.activity.map((a, k) => <Link key={k} href={a.href} className={`items-center gap-3 rounded-xl px-2 py-2 transition hover:bg-[var(--bg)] ${k >= 6 ? "hidden md:flex" : "flex"}`}><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--bg)] text-sm">{ACT[a.kind] || "•"}</span><div className="min-w-0 flex-1 truncate text-sm"><span className="font-bold">{a.who}</span> <span className="text-[var(--muted)]" dir="auto">{a.what}</span></div><span className="shrink-0 text-[10px] text-[var(--muted)]">{rel(a.at)}</span></Link>)}</div>
+    <div className="grid grid-cols-1 gap-x-6 gap-y-1 md:grid-cols-2">{d.activity.map((a, k) => <Link key={k} href={a.href} className={`min-w-0 items-center gap-3 rounded-xl px-2 py-2 transition hover:bg-[var(--bg)] ${k >= 6 ? "hidden md:flex" : "flex"}`}>{actIcon(a.kind)}<div className="min-w-0 flex-1 truncate text-sm"><span className="font-bold">{a.who}</span> <span className="text-[var(--muted)]" dir="auto">{a.what}</span></div><span className="shrink-0 text-[10px] text-[var(--muted)]">{rel(a.at)}</span></Link>)}</div>
   </section>;
 
   return <div className="mt-2 flex flex-col gap-4 pb-24 lg:gap-5 lg:pb-6">

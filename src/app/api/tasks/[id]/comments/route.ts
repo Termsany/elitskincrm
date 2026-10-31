@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { query } from "@/lib/db";
-export async function GET(_req: Request, { params }: { params: Promise<{id:string}> }){
+import { badId, validIds } from "@/lib/ids";
+export async function GET(_req: Request, { params }: { params: Promise<{id:string}> }){if(!validIds(await params))return badId();
   const user=await getCurrentUser(); if(!user) return NextResponse.json({error:"Unauthorized"},{status:401});
   const {id}=await params;
   const r=await query(`SELECT c.*, u.name user_name FROM task_comments c JOIN users u ON u.id=c.user_id WHERE c.task_id=$1 ORDER BY c.created_at`,[id]);
   return NextResponse.json({comments:r.rows});
 }
-export async function POST(req: Request, { params }: { params: Promise<{id:string}> }){
+export async function POST(req: Request, { params }: { params: Promise<{id:string}> }){if(!validIds(await params))return badId();
   const user=await getCurrentUser(); if(!user) return NextResponse.json({error:"Unauthorized"},{status:401});
   const {id}=await params;
   const body=await req.json().catch(()=>null) as Record<string,unknown>|null;

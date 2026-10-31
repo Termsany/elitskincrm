@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { query } from "@/lib/db";
 import { taskReminderDateWindow } from "@/lib/plan-reminders";
+import { badId, validIds } from "@/lib/ids";
 
 function isAdmin(user:{role:string}){ return user.role==="admin"; }
 
-export async function GET(_req: Request, { params }: { params: Promise<{id:string}> }){
+export async function GET(_req: Request, { params }: { params: Promise<{id:string}> }){if(!validIds(await params))return badId();
   const user = await getCurrentUser();
   if(!user) return NextResponse.json({error:"Unauthorized"},{status:401});
   const {id}=await params;
@@ -26,7 +27,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{id:strin
   return NextResponse.json({ task, checklist: checklist.rows, comments: comments.rows, attachments: atts.rows });
 }
 
-export async function PATCH(req: Request, { params }: { params: Promise<{id:string}> }){
+export async function PATCH(req: Request, { params }: { params: Promise<{id:string}> }){if(!validIds(await params))return badId();
   const user = await getCurrentUser();
   if(!user) return NextResponse.json({error:"Unauthorized"},{status:401});
   const {id}=await params;
@@ -115,7 +116,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{id:stri
   return NextResponse.json({ok:true});
 }
 
-export async function DELETE(req: Request, { params }: { params: Promise<{id:string}> }){
+export async function DELETE(req: Request, { params }: { params: Promise<{id:string}> }){if(!validIds(await params))return badId();
   const user = await getCurrentUser();
   if(!user || !isAdmin(user)) return NextResponse.json({error:"Forbidden"},{status:403});
   const {id}=await params;

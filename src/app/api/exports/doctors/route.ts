@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { query } from "@/lib/db";
-function csv(v:unknown){return `"${String(v??"").replace(/"/g,'""')}"`}
+import { csvSafe } from "@/lib/csv";
+function csv(v:unknown){return `"${csvSafe(v).replace(/"/g,'""')}"`}
 export async function GET(req:Request){
  const user=await getCurrentUser();if(!user||user.role!=="admin")return NextResponse.json({error:"Forbidden"},{status:403});
  const format=new URL(req.url).searchParams.get("format")||"xlsx",r=await query("SELECT id,name,clinic_name,city,specialty,classification,phone,status FROM doctors ORDER BY name"),stamp=new Date().toISOString().slice(0,10);

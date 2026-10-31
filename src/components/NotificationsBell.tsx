@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { notificationHref } from "@/lib/notification-links";
+import { Icon } from "@/components/Icon";
 type N = { id:string; message:string; kind:string; is_read:boolean; created_at:string; task_id:string|null; task_title:string|null; plan_title:string|null; plan_id:string|null; action_url:string|null };
 export default function NotificationsBell({role="sales_rep"}:{role?:string}){
   const router = useRouter();
@@ -33,16 +34,16 @@ export default function NotificationsBell({role="sales_rep"}:{role?:string}){
   }
   return (
     <div className="relative">
-      <button onClick={()=>setOpen(!open)} className={`relative flex items-center justify-center h-11 w-11 rounded-2xl border-2 shadow-md transition ${unread>0? "bg-[var(--navy)] border-[var(--gold)] text-white animate-pulse":"bg-white border-[var(--border)] text-[var(--navy)] hover:border-[var(--gold)]"} ${hasNew? "scale-110":""}`} title="الإشعارات" aria-label="الإشعارات">
-        <span className="text-lg">🔔</span>
-        {unread>0 && <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[11px] font-extrabold rounded-full h-6 min-w-6 flex items-center justify-center px-1 border-2 border-white shadow">{unread>99? "99+": unread}</span>}
+      <button onClick={()=>setOpen(!open)} className={`relative flex items-center justify-center h-11 w-11 rounded-2xl border-2 shadow-md transition ${unread>0? "bg-[var(--navy)] border-[var(--sky)] text-white es-bell-ring":"bg-white border-[var(--border)] text-[var(--navy)] hover:border-[var(--sky)] es-bell-idle"} ${hasNew? "scale-110":""}`} title="الإشعارات" aria-label="الإشعارات">
+        <Icon name="bell" size={22} />
+        {unread>0 && <span key={unread} className="es-badge-pop absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[11px] font-extrabold rounded-full h-6 min-w-6 flex items-center justify-center px-1 border-2 border-white shadow">{unread>99? "99+": unread}</span>}
       </button>
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={()=>setOpen(false)} />
           <div className="absolute left-0 mt-2 w-[360px] max-w-[90vw] rounded-2xl bg-white border border-[var(--border)] shadow-2xl z-50 overflow-hidden">
             <div className="p-3 flex items-center justify-between border-b border-[var(--border)] bg-[var(--navy)] text-white">
-              <span className="font-bold text-sm flex items-center gap-2">🔔 الإشعارات {unread>0 && <span className="bg-red-500 text-white text-xs rounded-full px-2 py-0.5">{unread} جديد</span>}</span>
+              <span className="font-bold text-sm flex items-center gap-2"><Icon name="bell" size={16} /> الإشعارات {unread>0 && <span className="bg-red-500 text-white text-xs rounded-full px-2 py-0.5">{unread} جديد</span>}</span>
               <button onClick={markAll} className="text-xs bg-white/15 hover:bg-white/20 rounded-full px-2 py-1 font-bold">تعليم الكل مقروء</button>
             </div>
             <div className="max-h-[50vh] overflow-auto divide-y divide-[var(--border)]">

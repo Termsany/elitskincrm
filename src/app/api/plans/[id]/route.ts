@@ -3,8 +3,9 @@ import { getCurrentUser } from "@/lib/session";
 import { pool, query } from "@/lib/db";
 import { canAdminReviewPlan, planDateOnly } from "@/lib/plan-review";
 import { planItemsNow, planRequests, submitPlanChange } from "@/lib/plan-changes";
+import { badId, validIds } from "@/lib/ids";
 
-export async function GET(_req: Request, {params}:{params:Promise<{id:string}>}){
+export async function GET(_req: Request, {params}:{params:Promise<{id:string}>}){if(!validIds(await params))return badId();
   const user=await getCurrentUser();
   if(!user) return NextResponse.json({error:"Unauthorized"},{status:401});
   const {id}=await params;
@@ -27,7 +28,7 @@ export async function GET(_req: Request, {params}:{params:Promise<{id:string}>})
   return NextResponse.json({plan, items:items.rows.map((x:Record<string,unknown>)=> ({...x, done: !!doneMap.get(String(x.id))})), revisions:revis.rows, comments: comments.rows, change_request: changes.request, change_history: changes.history});
 }
 
-export async function PATCH(req: Request, {params}:{params:Promise<{id:string}>}){
+export async function PATCH(req: Request, {params}:{params:Promise<{id:string}>}){if(!validIds(await params))return badId();
   const user=await getCurrentUser();
   if(!user) return NextResponse.json({error:"Unauthorized"},{status:401});
   const {id}=await params;
@@ -119,7 +120,7 @@ export async function PATCH(req: Request, {params}:{params:Promise<{id:string}>}
   return NextResponse.json({error:"أرسل items مع note"},{status:400});
 }
 
-export async function DELETE(req: Request, {params}:{params:Promise<{id:string}>}){
+export async function DELETE(req: Request, {params}:{params:Promise<{id:string}>}){if(!validIds(await params))return badId();
   const user=await getCurrentUser();
   if(!user) return NextResponse.json({error:"Unauthorized"},{status:401});
   const {id}=await params;

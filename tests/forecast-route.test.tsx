@@ -50,13 +50,9 @@ describe('admin forecast workspace',()=>{
   expect(canCloseMonth('2026-10',admin as never,new Date('2026-10-30T22:00:00Z'))).toBe(false);
   expect(canCloseMonth('2026-10',{...admin,pending:[],sales:[]} as never,new Date('2026-10-30T22:00:00Z'))).toBe(true);
  });
- it('uses a protected shared route with the session projection and role-scoped shell',()=>{
+ it('routes the legacy /forecast page into the sales hub workspace',()=>{
   const page=readFileSync('src/app/forecast/page.tsx','utf8');
-  const shell=readFileSync('src/components/AppShell.tsx','utf8');
-  expect(page).toContain('getCurrentUser'); expect(page).toContain('redirect("/login")');
-  expect(page).toContain('user.role'); expect(page).toContain('jobTitle={user.job_title}');
-  expect(page).toContain('productName={user.product_name}');
-  expect(shell).toContain('href: "/forecast"');
+  expect(page).toContain('redirect("/sales?tab=workspace")');
  });
 });
 

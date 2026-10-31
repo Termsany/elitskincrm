@@ -6,21 +6,21 @@ vi.mock('@/lib/db', () => ({ query: mocks.query, pool: { connect: mocks.connect 
 
 import { GET, POST } from '@/app/api/requests/[id]/activity/route';
 
-const params = { params: Promise.resolve({ id: 'request-1' }) };
+const params = { params: Promise.resolve({ id: '11111111-1111-4111-8111-111111111111' }) };
 
 describe('request activity authorization and lifecycle', () => {
   beforeEach(() => vi.resetAllMocks());
 
   it('requires authentication before reading activity', async () => {
     mocks.session.mockResolvedValue(null);
-    const response = await GET(new Request('http://localhost/api/requests/request-1/activity'), params);
+    const response = await GET(new Request('http://localhost/api/requests/11111111-1111-4111-8111-111111111111/activity'), params);
     expect(response.status).toBe(401);
     expect(mocks.query).not.toHaveBeenCalled();
   });
 
   it('requires authentication before posting activity', async () => {
     mocks.session.mockResolvedValue(null);
-    const response = await POST(new Request('http://localhost/api/requests/request-1/activity', {
+    const response = await POST(new Request('http://localhost/api/requests/11111111-1111-4111-8111-111111111111/activity', {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ message: 'hello' }),
     }), params);
     expect(response.status).toBe(401);
@@ -39,7 +39,7 @@ describe('request activity authorization and lifecycle', () => {
       .mockResolvedValueOnce({});
     mocks.connect.mockResolvedValue(client);
 
-    const response = await POST(new Request('http://localhost/api/requests/request-1/activity', {
+    const response = await POST(new Request('http://localhost/api/requests/11111111-1111-4111-8111-111111111111/activity', {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ message: 'تم استلام النتيجة', close: true }),
     }), params);

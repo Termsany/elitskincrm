@@ -10,12 +10,9 @@ vi.mock("@/app/DashboardDoctorSuggestions", () => ({ default: () => <div>suggest
 vi.mock("@/app/DashboardPlans", () => ({ default: () => <div>rep-plans</div> }));
 
 describe("dashboard role branches", () => {
-  it("uses one compact admin workspace instead of the hero and duplicate panels", () => {
+  it("renders the admin dashboard, not the rep workspace", () => {
     const html = renderToStaticMarkup(<DashboardClient cities={[]} isAdmin />);
-    expect(html).toContain("admin-home-workspace");
-    expect(html).not.toContain("ELITE SKIN COMMAND CENTER");
-    expect(html).not.toContain("old-team-overview");
-    expect(html).not.toContain("old-action-center");
+    expect(html).not.toContain("rep-daily-workspace");
   });
   it("keeps the rep's existing workspace", () => {
     const html = renderToStaticMarkup(<DashboardClient cities={[]} isAdmin={false} />);

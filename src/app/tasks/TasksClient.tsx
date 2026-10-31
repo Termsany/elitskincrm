@@ -158,7 +158,7 @@ export default function TasksClient({ isAdmin, reps, currentUserId }: { isAdmin:
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-bold hover:underline">{t.title}</span>
                   <Badge tone={statusTone[t.status]||"neutral"}>{statusLabel[t.status]||t.status}</Badge>
-                  <span className="text-[11px] rounded-full border px-2 py-0.5" style={{background: t.priority==="urgent"? "#fee2e2": t.priority==="high"? "#fef3c7": "#f1f5f9"}}>{prioLabel[t.priority]||t.priority}</span>
+                  <span className="text-[11px] rounded-full border px-2 py-0.5" style={{background: t.priority==="urgent"? "#fee2e2": t.priority==="high"? "#fef3c7": "#edf2f3"}}>{prioLabel[t.priority]||t.priority}</span>
                   {isOverdue(t) && <Badge tone="danger">متأخرة</Badge>}
                   {isDueSoon(t) && <Badge tone="warn">تستحق غدا</Badge>}
                   {t.archived && <Badge tone="neutral">مؤرشفة</Badge>}

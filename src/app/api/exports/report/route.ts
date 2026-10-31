@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { getDetailedReportData, AnnualReportFilterError } from "@/lib/report-data";
 import { normalizeReportType,reportDefinition,reportTitle } from "@/lib/reporting";
-function csv(v:unknown){return `"${String(v??"").replace(/"/g,'""')}"`}
+import { csvSafe } from "@/lib/csv";
+function csv(v:unknown){return `"${csvSafe(v).replace(/"/g,'""')}"`}
 function display(key:string,value:unknown){if(value===null||value===undefined)return "";if(["visited_at","last_visit","last_activity","last_sample"].includes(key))return new Date(String(value)).toLocaleString("ar-EG");const labels:Record<string,string>={completed:"مكتملة",planned:"مخططة",cancelled:"ملغاة"};return labels[String(value)]||String(value)}
 export async function GET(req:Request){
  const user=await getCurrentUser();if(!user||user.role!=="admin")return NextResponse.json({error:"Forbidden"},{status:403});

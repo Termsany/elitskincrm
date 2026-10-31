@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { GlyphIcon, Icon } from "@/components/Icon";
 
 type R = { kind: string; icon: string; title: string; sub: string; href: string };
 const ACTIONS: R[] = [
@@ -44,7 +45,7 @@ export default function CommandPalette() {
     <div onClick={e => e.stopPropagation()} className="w-full max-w-xl overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-black/5" style={{ animation: "cp-in .16s cubic-bezier(.2,.8,.2,1)" }}>
       <style>{`@keyframes cp-in{from{opacity:0;transform:translateY(-8px) scale(.98)}to{opacity:1;transform:none}}`}</style>
       <div className="flex items-center gap-3 border-b border-[var(--border)] px-4">
-        <span className="text-lg">🔎</span>
+        <span className="text-[var(--navy)]"><Icon name="search" size={22} /></span>
         <input ref={input} value={q} onChange={e => setQ(e.target.value)} onKeyDown={e => { if (e.key === "ArrowDown") { e.preventDefault(); setI(x => Math.min(list.length - 1, x + 1)); } if (e.key === "ArrowUp") { e.preventDefault(); setI(x => Math.max(0, x - 1)); } if (e.key === "Enter") go(list[i]); }}
           placeholder="دوّر على طبيب، مندوب، منتج، ملف… أو اكتب اللي عايز تعمله" className="h-14 flex-1 !border-0 bg-transparent text-base !shadow-none !outline-none !ring-0" />
         {busy ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--navy)] border-t-transparent" /> : <kbd className="rounded-md border border-[var(--border)] px-1.5 text-[10px] text-[var(--muted)]">Esc</kbd>}
@@ -52,10 +53,10 @@ export default function CommandPalette() {
       <div className="max-h-[56vh] overflow-auto p-2">
         {list.map((r, k) => { const head = GROUP[r.kind] !== last ? (last = GROUP[r.kind]) : null; return <div key={`${r.kind}${r.href}${k}`}>
           {head && <div className="px-3 pb-1 pt-2 text-[11px] font-bold text-[var(--muted)]">{head}</div>}
-          <button onMouseEnter={() => setI(k)} onClick={() => go(r)} className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-right transition ${i === k ? "bg-[var(--sky-light)]" : ""}`}>
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--bg)] text-base">{r.icon}</span>
+          <button onMouseEnter={() => setI(k)} onClick={() => go(r)} className={`relative flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-right transition ${i === k ? "bg-[var(--sky-soft)]" : ""}`}>
+            <GlyphIcon g={r.icon} chip size={19} box={38} className={i === k ? "es-chip-on" : ""} />
             <span className="min-w-0 flex-1"><span className="block truncate text-sm font-bold text-[var(--navy)]" dir="auto">{r.title}</span><span className="block truncate text-[11px] text-[var(--muted)]">{r.sub}</span></span>
-            {i === k && <span className="text-xs text-[var(--muted)]">↵</span>}
+            {i === k && <><kbd className="rounded-md border border-[var(--border)] bg-white px-1.5 text-[10px] text-[var(--muted)]">Enter</kbd><span className="absolute inset-y-2.5 right-0 w-[3px] rounded-full bg-[var(--sky)]" /></>}
           </button>
         </div>; })}
         {q.trim().length >= 2 && !busy && !res.length && <div className="px-3 py-2 text-xs text-[var(--muted)]">مفيش نتايج لـ «{q}» — جرّب اسم تاني</div>}
@@ -67,7 +68,7 @@ export default function CommandPalette() {
 
 /** Sidebar trigger (desktop) — the palette itself is mounted once in AppShell. */
 export function PaletteButton() {
-  return <button type="button" onClick={() => window.dispatchEvent(new Event("open-command-palette"))} className="flex w-full items-center gap-2.5 rounded-xl border border-white/15 bg-white/5 px-3.5 py-2.5 text-sm text-white/70 transition hover:bg-white/10 hover:text-white">
-    <span>🔎</span><span className="flex-1 text-right">بحث سريع</span><kbd className="rounded-md bg-white/10 px-1.5 text-[10px]">Ctrl K</kbd>
+  return <button type="button" onClick={() => window.dispatchEvent(new Event("open-command-palette"))} data-tip="بحث سريع (Ctrl K)" className="es-search flex w-full items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.07] px-3.5 py-2.5 text-sm text-white/70 transition hover:bg-white/10 hover:text-white">
+    <Icon name="search" size={18} className="shrink-0" /><span className="es-hide flex-1 text-right">بحث سريع</span><kbd className="es-hide rounded-md bg-white/10 px-1.5 text-[10px]" dir="ltr">Ctrl K</kbd>
   </button>;
 }

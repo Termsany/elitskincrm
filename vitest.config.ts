@@ -7,7 +7,7 @@ const rootDir = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   test: {
     environment: 'node',
-    exclude: [...configDefaults.exclude, '**/.next/**', '**/out/**'],
+    exclude: [...configDefaults.exclude, '**/.next/**', '**/out/**', 'backups/**'],
   },
   resolve: { alias: { '@': path.resolve(rootDir, 'src') } },
 });

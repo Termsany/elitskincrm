@@ -6,6 +6,7 @@ import { BrochureCover, PageThumb } from "@/components/detailing/BrochureViewer"
 import { brochureUrl, loadPdf } from "@/components/detailing/pdf";
 import { lines, type Brochure, type DetailProduct } from "@/components/detailing/types";
 import { useToast } from "@/components/Toast";
+const daysAgo = (n: number) => new Date(Date.now() - n * 864e5).toISOString().slice(0, 10);
 
 type Stats = { presented: number; interested: number; neutral: number; not_interested: number; doctors: number; reps: number; last: string | null };
 type SP = DetailProduct & {
@@ -384,7 +385,7 @@ function StatsTab({ p }: { p: SP }) {
         <div className="flex gap-3 overflow-x-auto pb-1">{p.top_pages.map((x, i) => x.brochure_id && <div key={i} className="shrink-0 text-center"><div dir="ltr"><PageThumb url={brochureUrl(x.brochure_id)} n={x.page} height={130} /></div><div className="text-xs mt-1"><b>صفحة {x.page}</b> · {Math.round(x.seconds / 60) || "<1"} د</div></div>)}</div></div>}
       <div className="flex flex-wrap gap-2">
         <Link href={`/admin/reports?type=repProduct&productId=${p.id}`} className="rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-bold">تقرير المندوب × المنتج</Link>
-        <Link href={`/admin/reports?type=products&productId=${p.id}&from=${new Date(Date.now() - 89 * 864e5).toISOString().slice(0, 10)}`} className="rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-bold">تقرير المنتج</Link>
+        <Link href={`/admin/reports?type=products&productId=${p.id}&from=${daysAgo(89)}`} className="rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-bold">تقرير المنتج</Link>
       </div>
     </div>
   );

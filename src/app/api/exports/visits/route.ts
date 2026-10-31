@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { query } from "@/lib/db";
+import { csvSafe } from "@/lib/csv";
 
-function csvEscape(v: unknown){ const s=String(v??""); return `"${s.replace(/"/g,'""')}"`; }
+function csvEscape(v: unknown){ const s=csvSafe(v); return `"${s.replace(/"/g,'""')}"`; }
 
 export async function GET(req: Request) {
   const user = await getCurrentUser();

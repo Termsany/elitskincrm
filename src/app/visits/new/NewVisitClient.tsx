@@ -28,6 +28,8 @@ const REACTION_ICONS: Record<Reaction, string> = { interested: "👍", neutral: 
 const MAX_FILES = 10;
 const MAX_BYTES = 10 * 1024 * 1024;
 
+const fuDate = (days: number) => { const d = new Date(Date.now() + days * 864e5); return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(d); };
+
 function ProductThumb({ id, name }: { id: string; name: string }) {
   const [failed, setFailed] = useState(false);
   if (failed) return <div className="flex h-full w-full items-center justify-center bg-slate-100 text-lg font-extrabold text-[var(--navy)]">{name.slice(0, 2).toUpperCase()}</div>;
@@ -323,7 +325,6 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
     setPresenting(first);
   }
   const addNote = (t: string) => setNotes(n => (n.trim() ? `${n.trim()}${/[.!؟?،,]$/.test(n.trim()) ? "" : "."} ` : "") + t);
-  const fuDate = (days: number) => { const d = new Date(Date.now() + days * 864e5); return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(d); };
 
   const selectedDoctor = doctors.find(d => d.id === doctorId);
   const notesLen = notes.trim().length;
@@ -401,7 +402,7 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
               <div className="flex">
                 <button type="button" onClick={() => togglePresented(p.id)} aria-pressed={!!sel} className="flex-1 flex items-center gap-3 p-2.5 text-right">
                   <div className="relative h-16 w-16 shrink-0 rounded-xl overflow-hidden bg-slate-100" style={{ background: p.cat?.color || "var(--navy)" }}>
-                    {b ? <BrochureCover url={brochureUrl(b.id)} mime={b.mime} className="h-full w-full bg-white" /> : p.cat && !p.cat.image_available ? <div className="h-full w-full grid place-items-center text-white font-extrabold text-sm">{p.name.slice(0, 2).toUpperCase()}</div> : <ProductThumb id={p.id} name={p.name} />}
+                    {b ? <BrochureCover url={brochureUrl(b.id)} mime={b.mime} className="h-full w-full bg-white" /> : !p.cat?.image_available ? <div className="h-full w-full grid place-items-center text-white font-extrabold text-sm">{p.name.slice(0, 2).toUpperCase()}</div> : <ProductThumb id={p.id} name={p.name} />}
                     {sel && <span className="absolute inset-0 bg-[var(--navy)]/60 grid place-items-center text-white text-xl">✓</span>}
                   </div>
                   <div className="min-w-0 flex-1">

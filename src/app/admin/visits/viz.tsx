@@ -2,9 +2,9 @@
 /* Small shared visual pieces for the visits hub. */
 export const L = "ar-EG-u-nu-latn";
 export const BAND: Record<string, { label: string; ring: string; chip: string; bar: string; text: string }> = {
-  excellent: { label: "ممتازة", ring: "#059669", chip: "bg-emerald-100 text-emerald-800", bar: "bg-emerald-500", text: "text-emerald-700" },
-  good: { label: "جيدة", ring: "#f59e0b", chip: "bg-amber-100 text-amber-800", bar: "bg-amber-400", text: "text-amber-700" },
-  weak: { label: "ضعيفة", ring: "#f97316", chip: "bg-orange-100 text-orange-800", bar: "bg-orange-400", text: "text-orange-700" },
+  excellent: { label: "ممتازة", ring: "#02884e", chip: "bg-emerald-100 text-emerald-800", bar: "bg-emerald-500", text: "text-emerald-700" },
+  good: { label: "جيدة", ring: "#e99608", chip: "bg-amber-100 text-amber-800", bar: "bg-amber-400", text: "text-amber-700" },
+  weak: { label: "ضعيفة", ring: "#e16201", chip: "bg-orange-100 text-orange-800", bar: "bg-orange-400", text: "text-orange-700" },
 };
 export const REACT: Record<string, { label: string; icon: string; tone: string }> = {
   interested: { label: "مهتم", icon: "😊", tone: "bg-emerald-50 text-emerald-800 border-emerald-200" },
@@ -17,7 +17,7 @@ export const secs = (s: number) => s < 60 ? `${s} ث` : `${Math.floor(s / 60)}:$
 
 export function Ring({ value, size = 44, stroke = 5, band, label }: { value: number | null; size?: number; stroke?: number; band?: string | null; label?: string }) {
   const r = (size - stroke) / 2, c = 2 * Math.PI * r, v = value ?? 0;
-  const color = band ? BAND[band]?.ring : value === null ? "#cbd5e1" : v >= 75 ? "#059669" : v >= 50 ? "#f59e0b" : "#f97316";
+  const color = band ? BAND[band]?.ring : value === null ? "#c4d5d7" : v >= 75 ? "#02884e" : v >= 50 ? "#e99608" : "#e16201";
   return <div className="relative inline-flex shrink-0 items-center justify-center" style={{ width: size, height: size }}>
     <svg width={size} height={size} className="-rotate-90"><circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#eef2f6" strokeWidth={stroke} />
       <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - Math.min(100, v) / 100)} style={{ transition: "stroke-dashoffset .8s cubic-bezier(.2,.8,.2,1)" }} /></svg>

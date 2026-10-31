@@ -170,7 +170,7 @@ function Ring({ value, marker }: { value: number; marker: number }) {
     <svg viewBox="0 0 160 160" className="w-44 h-44" aria-label={`${value}%`}>
       <circle cx="80" cy="80" r={r} fill="none" stroke="rgba(255,255,255,.15)" strokeWidth="14" />
       <circle cx="80" cy="80" r={r} fill="none" stroke="var(--sky)" strokeWidth="14" strokeLinecap="round" strokeDasharray={`${(v / 100) * C} ${C}`} transform="rotate(-90 80 80)" style={{ transition: "stroke-dasharray .8s ease" }} />
-      {m > 0 && <circle cx={80 + r * Math.cos(ang)} cy={80 + r * Math.sin(ang)} r="5" fill="#f59e0b" stroke="white" strokeWidth="2" />}
+      {m > 0 && <circle cx={80 + r * Math.cos(ang)} cy={80 + r * Math.sin(ang)} r="5" fill="#e99608" stroke="white" strokeWidth="2" />}
       <text x="80" y="88" textAnchor="middle" fill="white" fontSize="30" fontWeight="800">{value}%</text>
     </svg>
   );
@@ -179,8 +179,8 @@ function Ring({ value, marker }: { value: number; marker: number }) {
 function Chart({ months, now }: { months: Month[]; now: string }) {
   const [hover, setHover] = useState<number | null>(null);
   const max = Math.max(1, ...months.map(m => Math.max(m.target, m.actual, m.forecast)));
-  const cumT = useMemo(() => { let a = 0; return months.map(m => (a += m.target)); }, [months]);
-  const cumA = useMemo(() => { let a = 0; return months.map(m => (a += m.actual)); }, [months]);
+  const cumT = useMemo(() => months.reduce<number[]>((acc, m) => [...acc, (acc.at(-1) ?? 0) + m.target], []), [months]);
+  const cumA = useMemo(() => months.reduce<number[]>((acc, m) => [...acc, (acc.at(-1) ?? 0) + m.actual], []), [months]);
   const cmax = Math.max(1, cumT[11], cumA[11]);
   const W = 1200, H = 260, pad = 30, bw = (W - pad * 2) / 12;
   const y = (v: number) => H - pad - (v / max) * (H - pad * 2);
@@ -200,8 +200,8 @@ function Chart({ months, now }: { months: Month[]; now: string }) {
             {m.actual !== 0 && <rect x={bx + inner * 0.27} y={y(Math.max(0, m.actual))} width={inner * 0.46} height={Math.max(2, H - pad - y(Math.max(0, m.actual)))} rx="4" fill={m.month === now ? "var(--sky)" : "var(--navy)"} />}
             <text x={x + bw / 2} y={H - 8} textAnchor="middle" fontSize="13" fill={m.month === now ? "var(--navy)" : "var(--muted)"} fontWeight={m.month === now ? 800 : 400}>{mLabel(m.month)}</text>
           </g>); })}
-        <polyline points={cumT.map((v, i) => `${pad + bw * i + bw / 2},${yc(v)}`).join(" ")} fill="none" stroke="#f59e0b" strokeWidth="2" strokeDasharray="6 5" opacity=".7" />
-        {actualPts ? <polyline points={actualPts} fill="none" stroke="#f59e0b" strokeWidth="3" /> : null}
+        <polyline points={cumT.map((v, i) => `${pad + bw * i + bw / 2},${yc(v)}`).join(" ")} fill="none" stroke="#e99608" strokeWidth="2" strokeDasharray="6 5" opacity=".7" />
+        {actualPts ? <polyline points={actualPts} fill="none" stroke="#e99608" strokeWidth="3" /> : null}
       </svg>
       {h && <div className="absolute top-2 right-2 rounded-xl bg-white/95 border border-[var(--border)] shadow p-3 text-xs space-y-0.5 pointer-events-none">
         <div className="font-extrabold text-[var(--navy)]">{mLabel(h.month, { month: "long", year: "numeric" })}</div>

@@ -317,6 +317,12 @@ function Clinics({ rows, onPick }: { rows: HubDoctor[]; onPick: (c: string) => v
   );
 }
 
+const InsightKpi = ({ l, v, s, c = "" }: { l: string; v: string | number; s?: string; c?: string }) => <div className="rounded-2xl border border-[var(--border)] bg-white p-4"><div className="text-xs text-[var(--muted)]">{l}</div><div className={`text-2xl font-extrabold text-[var(--navy)] mt-1 ${c}`}>{v}</div>{s && <div className="text-[11px] text-[var(--muted)]">{s}</div>}</div>;
+const InsightList = ({ title, list, metric, empty, onOpen }: { title: string; list: HubDoctor[]; metric: (d: HubDoctor) => string; empty: string; onOpen: (d: HubDoctor) => void }) => (
+    <div className="rounded-3xl border border-[var(--border)] bg-white p-4"><div className="font-bold mb-2">{title}</div>
+      {list.length ? <div className="divide-y divide-[var(--border)]">{list.map((d, i) => <button key={d.id} onClick={() => onOpen(d)} className="w-full flex items-center gap-2 py-2 text-right hover:bg-[var(--bg)] rounded-lg px-1"><span className="w-5 text-xs text-[var(--muted)]">{i + 1}</span><ClassBadge c={d.classification} /><div className="min-w-0 flex-1"><div className="text-sm font-bold truncate">{d.name}</div><div className="text-[11px] text-[var(--muted)] truncate">{d.clinic_name}</div></div><span className="text-sm font-extrabold whitespace-nowrap">{metric(d)}</span></button>)}</div> : <div className="text-sm text-[var(--muted)] py-4 text-center">{empty}</div>}
+    </div>);
+
 function Insights({ rows, days, onSeg, onOpen }: { rows: HubDoctor[]; days: number; onSeg: (s: Seg, cls?: string) => void; onOpen: (d: HubDoctor) => void }) {
   const covered = rows.filter(d => d.visits > 0).length;
   const pres = rows.reduce((a, d) => a + d.presented, 0), intr = rows.reduce((a, d) => a + d.interested, 0);
@@ -325,17 +331,12 @@ function Insights({ rows, days, onSeg, onOpen }: { rows: HubDoctor[]; days: numb
   const top = [...rows].filter(d => d.visits).sort((a, b) => b.visits - a.visits).slice(0, 8);
   const hot = [...rows].filter(d => d.presented >= 2).sort((a, b) => (interestPct(b) ?? 0) - (interestPct(a) ?? 0) || b.presented - a.presented).slice(0, 8);
   const cold = [...rows].filter(d => d.classification !== "C" && (health(d) === "overdue" || health(d) === "never")).sort((a, b) => (a.classification || "").localeCompare(b.classification || "") || (b.days_since ?? 9999) - (a.days_since ?? 9999)).slice(0, 8);
-  const K = ({ l, v, s, c = "" }: { l: string; v: string | number; s?: string; c?: string }) => <div className="rounded-2xl border border-[var(--border)] bg-white p-4"><div className="text-xs text-[var(--muted)]">{l}</div><div className={`text-2xl font-extrabold text-[var(--navy)] mt-1 ${c}`}>{v}</div>{s && <div className="text-[11px] text-[var(--muted)]">{s}</div>}</div>;
-  const Mini = ({ title, list, metric, empty }: { title: string; list: HubDoctor[]; metric: (d: HubDoctor) => string; empty: string }) => (
-    <div className="rounded-3xl border border-[var(--border)] bg-white p-4"><div className="font-bold mb-2">{title}</div>
-      {list.length ? <div className="divide-y divide-[var(--border)]">{list.map((d, i) => <button key={d.id} onClick={() => onOpen(d)} className="w-full flex items-center gap-2 py-2 text-right hover:bg-[var(--bg)] rounded-lg px-1"><span className="w-5 text-xs text-[var(--muted)]">{i + 1}</span><ClassBadge c={d.classification} /><div className="min-w-0 flex-1"><div className="text-sm font-bold truncate">{d.name}</div><div className="text-[11px] text-[var(--muted)] truncate">{d.clinic_name}</div></div><span className="text-sm font-extrabold whitespace-nowrap">{metric(d)}</span></button>)}</div> : <div className="text-sm text-[var(--muted)] py-4 text-center">{empty}</div>}
-    </div>);
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <K l="الأطباء" v={rows.length} /><K l={`اتزاروا في ${days} يوم`} v={`${covered}`} s={`${rows.length ? Math.round((covered / rows.length) * 100) : 0}% تغطية`} />
-        <K l="متأخرين عن ميعادهم" v={rows.filter(d => health(d) === "overdue").length} c="text-red-700" /><K l="لسه ما اتزاروش" v={rows.filter(d => health(d) === "never").length} />
-        <K l="نسبة الاهتمام" v={pres ? `${Math.round((intr / pres) * 100)}%` : "—"} s={`${pres} مرة شرح`} />
+        <InsightKpi l="الأطباء" v={rows.length} /><InsightKpi l={`اتزاروا في ${days} يوم`} v={`${covered}`} s={`${rows.length ? Math.round((covered / rows.length) * 100) : 0}% تغطية`} />
+        <InsightKpi l="متأخرين عن ميعادهم" v={rows.filter(d => health(d) === "overdue").length} c="text-red-700" /><InsightKpi l="لسه ما اتزاروش" v={rows.filter(d => health(d) === "never").length} />
+        <InsightKpi l="نسبة الاهتمام" v={pres ? `${Math.round((intr / pres) * 100)}%` : "—"} s={`${pres} مرة شرح`} />
       </div>
       <div className="grid lg:grid-cols-2 gap-3">
         <div className="rounded-3xl border border-[var(--border)] bg-white p-4"><div className="font-bold mb-3">التغطية حسب الفئة</div>
@@ -350,9 +351,9 @@ function Insights({ rows, days, onSeg, onOpen }: { rows: HubDoctor[]; days: numb
         </div>
       </div>
       <div className="grid lg:grid-cols-3 gap-3">
-        <Mini title="⚠ أطباء A و B محتاجين زيارة" list={cold} metric={d => d.days_since === null ? "ما اتزارش" : `${d.days_since} يوم`} empty="كله في الميعاد 👌" />
-        <Mini title="🔥 الأكثر اهتماماً" list={hot} metric={d => `${interestPct(d)}%`} empty="لسه مفيش شرح كفاية" />
-        <Mini title="🏆 الأكثر زيارة" list={top} metric={d => `${d.visits} زيارة`} empty="مفيش زيارات في الفترة" />
+        <InsightList onOpen={onOpen} title="⚠ أطباء A و B محتاجين زيارة" list={cold} metric={d => d.days_since === null ? "ما اتزارش" : `${d.days_since} يوم`} empty="كله في الميعاد 👌" />
+        <InsightList onOpen={onOpen} title="🔥 الأكثر اهتماماً" list={hot} metric={d => `${interestPct(d)}%`} empty="لسه مفيش شرح كفاية" />
+        <InsightList onOpen={onOpen} title="🏆 الأكثر زيارة" list={top} metric={d => `${d.visits} زيارة`} empty="مفيش زيارات في الفترة" />
       </div>
     </div>
   );

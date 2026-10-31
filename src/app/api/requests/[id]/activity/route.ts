@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { pool, query } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 import { canTransitionRequest } from "@/lib/request-workflow";
+import { badId, validIds } from "@/lib/ids";
 
 async function authorizedRequest(id: string, user: { id: string; role: string }) {
   const result = await query("SELECT requester_id,title,status,assigned_to FROM service_requests WHERE id=$1", [id]);
@@ -11,7 +12,7 @@ async function authorizedRequest(id: string, user: { id: string; role: string })
   return { request };
 }
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {if(!validIds(await params))return badId();
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
@@ -30,7 +31,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   return NextResponse.json({ events: events.rows });
 }
 
-export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {if(!validIds(await params))return badId();
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;

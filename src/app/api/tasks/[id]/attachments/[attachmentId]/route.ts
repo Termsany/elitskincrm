@@ -2,8 +2,9 @@ import { readFile } from "node:fs/promises";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { query } from "@/lib/db";
+import { badId, validIds } from "@/lib/ids";
 
-export async function GET(_request:Request,{params}:{params:Promise<{id:string;attachmentId:string}>}){
+export async function GET(_request:Request,{params}:{params:Promise<{id:string;attachmentId:string}>}){if(!validIds(await params))return badId();
   const user=await getCurrentUser();
   if(!user)return NextResponse.json({error:"Unauthorized"},{status:401});
   const {id,attachmentId}=await params;

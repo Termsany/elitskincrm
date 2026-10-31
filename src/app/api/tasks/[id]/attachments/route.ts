@@ -4,19 +4,20 @@ import { query } from "@/lib/db";
 import { writeFile, mkdir } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
+import { badId, validIds } from "@/lib/ids";
 const UPLOAD_DIR=process.env.UPLOAD_DIR||"/tmp/elite-crm-uploads";
 async function canAccessTask(id:string,user:{id:string;role:string}){
   const r=await query(`SELECT 1 FROM tasks t WHERE t.id=$1 AND ($3::boolean OR t.created_by=$2 OR EXISTS(SELECT 1 FROM task_assignees a WHERE a.task_id=t.id AND a.user_id=$2))`,[id,user.id,user.role==="admin"]);
   return Boolean(r.rowCount);
 }
-export async function GET(_req: Request, { params }: { params: Promise<{id:string}> }){
+export async function GET(_req: Request, { params }: { params: Promise<{id:string}> }){if(!validIds(await params))return badId();
   const user=await getCurrentUser(); if(!user) return NextResponse.json({error:"Unauthorized"},{status:401});
   const {id}=await params;
   if(!(await canAccessTask(id,user))) return NextResponse.json({error:"Not found"},{status:404});
   const r=await query(`SELECT id,file_name,mime_type,size_bytes,created_at FROM task_attachments WHERE task_id=$1 ORDER BY created_at`,[id]);
   return NextResponse.json({attachments:r.rows});
 }
-export async function POST(req: Request, { params }: { params: Promise<{id:string}> }){
+export async function POST(req: Request, { params }: { params: Promise<{id:string}> }){if(!validIds(await params))return badId();
   const user=await getCurrentUser(); if(!user) return NextResponse.json({error:"Unauthorized"},{status:401});
   const {id}=await params;
   if(!(await canAccessTask(id,user))) return NextResponse.json({error:"Not found"},{status:404});
