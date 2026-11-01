@@ -39,6 +39,8 @@ export async function studioProducts() {
   const r = await query(`SELECT p.id,p.name,p.active,p.tagline,p.category,p.color,p.sort_order,COALESCE(p.description,'') description,
       COALESCE(p.detailing_points,'') detailing_points,COALESCE(p.key_questions,'') key_questions,COALESCE(p.detailing_version,'') detailing_version,
       p.content_updated_at,p.created_at,(p.image_data IS NOT NULL) image_available, ${BROCHURES_JSON("")} brochures,
+      (SELECT json_build_object('file_name',h.file_name,'title',h.title,'size_bytes',h.size_bytes,'warnings',h.warnings,'updated_at',h.updated_at,'created_at',h.created_at)
+        FROM product_html_files h WHERE h.product_id=p.id) html_file,
       (SELECT count(*)::int FROM users u WHERE u.assigned_product_id=p.id AND u.role='sales_rep' AND u.active) reps_count,
       (SELECT json_build_object(
           'presented', count(*), 'interested', count(*) FILTER (WHERE pp.reaction='interested'),

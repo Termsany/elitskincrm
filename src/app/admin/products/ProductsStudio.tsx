@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import Link from "next/link";
 import DetailingPresenter from "@/components/detailing/DetailingPresenter";
 import { BrochureCover, PageThumb } from "@/components/detailing/BrochureViewer";
@@ -13,11 +13,13 @@ type SP = DetailProduct & {
   active: boolean; sort_order: number; created_at: string; reps_count: number; in_use: boolean;
   presentations: Stats; items: { samples: number; orders: number }; detailing: { sessions: number; seconds: number };
   top_pages: Array<{ brochure_id: string | null; page: number; seconds: number }>;
+  html_file: HtmlFile | null;
 };
-type Tab = "info" | "brochures" | "points" | "image" | "stats";
+type HtmlFile = { file_name: string; title: string; size_bytes: number; warnings: string[]; updated_at: string; created_at: string };
+type Tab = "info" | "brochures" | "html" | "points" | "image" | "stats";
 const COLORS = ["#10484f", "#0f766e", "#2563eb", "#7c3aed", "#db2777", "#dc2626", "#ea580c", "#ca8a04", "#16a34a", "#334155"];
-const TABS: Array<[Tab, string]> = [["info", "البيانات"], ["brochures", "البروشورات"], ["points", "نقاط الشرح"], ["image", "الصورة"], ["stats", "الأداء"]];
-const kb = (n: number) => n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.round(n / 1024)} KB`;
+const TABS: Array<[Tab, string]> = [["info", "البيانات"], ["brochures", "البروشورات"], ["html", "ملف HTML"], ["points", "نقاط الشرح"], ["image", "الصورة"], ["stats", "الأداء"]];
+const kb = (n: number) => n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : n < 1024 ? `${n} B` : `${Math.round(n / 1024)} KB`;
 const ago = (s: string) => new Intl.DateTimeFormat("ar-EG-u-nu-latn", { day: "numeric", month: "short", year: "numeric" }).format(new Date(s));
 
 async function pdfPages(file: File): Promise<number> {
@@ -81,7 +83,7 @@ export default function ProductsStudio() {
           <div key={String(l)} className="rounded-2xl border border-[var(--border)] bg-white p-4"><div className="text-xs text-[var(--muted)]">{l}</div><div className={`text-2xl font-extrabold text-[var(--navy)] mt-1 ${c}`}>{ps ? v : "…"}</div></div>)}
       </div>
 
-      <div className="grid lg:grid-cols-[340px_1fr] gap-4 items-start">
+      <div className="grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[340px_minmax(0,1fr)] gap-4 items-start">
         {/* List */}
         <div className="rounded-3xl border border-[var(--border)] bg-white p-3 lg:sticky lg:top-4">
           <div className="flex gap-2 mb-3">
@@ -102,7 +104,7 @@ export default function ProductsStudio() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-bold truncate">{x.name}</div>
-                  <div className="text-[11px] text-[var(--muted)] truncate">{x.brochures.length} بروشور · {x.presentations?.presented || 0} شرح</div>
+                  <div className="text-[11px] text-[var(--muted)] truncate">{x.brochures.length} بروشور{x.html_file ? " · HTML" : ""} · {x.presentations?.presented || 0} شرح</div>
                 </div>
                 {!x.active ? <span className="rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-0.5">موقوف</span>
                   : warn ? <span className="rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold px-2 py-0.5" title={warn}>!</span> : null}
@@ -120,11 +122,12 @@ export default function ProductsStudio() {
             </div>
           </div>
           <div className="flex gap-1 px-3 border-b border-[var(--border)] overflow-x-auto">
-            {TABS.map(([k, l]) => <button key={k} onClick={() => setTab(k)} className={`shrink-0 px-4 py-2.5 text-sm font-bold border-b-2 -mb-px ${tab === k ? "border-[var(--navy)] text-[var(--navy)]" : "border-transparent text-[var(--muted)] hover:text-[var(--ink)]"}`}>{l}{k === "brochures" ? ` (${p.brochures.length})` : ""}</button>)}
+            {TABS.map(([k, l]) => <button key={k} onClick={() => setTab(k)} className={`shrink-0 px-4 py-2.5 text-sm font-bold border-b-2 -mb-px ${tab === k ? "border-[var(--navy)] text-[var(--navy)]" : "border-transparent text-[var(--muted)] hover:text-[var(--ink)]"}`}>{l}{k === "brochures" ? ` (${p.brochures.length})` : ""}{k === "html" && p.html_file ? <span className="ms-1.5 inline-block h-2 w-2 rounded-full bg-emerald-500 align-middle" /> : null}</button>)}
           </div>
           <div className="p-4 sm:p-5">
             {tab === "info" && <InfoTab key={p.id} p={p} all={ps || []} onSaved={load} onDeleted={() => { setSel(null); void load(); }} />}
             {tab === "brochures" && <BrochuresTab key={p.id} p={p} onChanged={load} onPreview={bid => setPreview({ id: p.id, brochureId: bid })} />}
+            {tab === "html" && <HtmlTab key={p.id} p={p} onChanged={load} />}
             {tab === "points" && <PointsTab key={p.id} p={p} onSaved={load} />}
             {tab === "image" && <ImageTab key={p.id} p={p} onChanged={load} />}
             {tab === "stats" && <StatsTab p={p} />}
@@ -281,6 +284,125 @@ function BrochuresTab({ p, onChanged, onPreview }: { p: SP; onChanged: () => voi
         ))}
       </div>
       {p.brochures.length > 1 && <div className="text-xs text-[var(--muted)]">أول بروشور ظاهر هو اللي بيفتح تلقائياً عند المندوب، والباقي بيظهروا كتابات فوق العرض.</div>}
+    </div>
+  );
+}
+
+const HTML_MAX = 2 * 1024 * 1024;
+const HTML_WARN: Record<string, string> = {
+  scripts: "فيه JavaScript — متعطّل في المعاينة", embeds: "فيه iframe/embed — متعطّل",
+  forms: "فيه نماذج — الإرسال متعطّل", external: "بيحمّل صور/خطوط من مواقع خارجية",
+};
+function htmlFileError(f: File): string | null {
+  if (!/\.html?$/i.test(f.name)) return `«${f.name}» مش ملف HTML — المسموح ملفات HTML أو HTM بس`;
+  if (!f.size) return "الملف فاضي";
+  if (f.size > HTML_MAX) return `حجم الملف ${kb(f.size)} — الحد الأقصى 2 ميجابايت`;
+  return null;
+}
+
+function HtmlTab({ p, onChanged }: { p: SP; onChanged: () => void }) {
+  const toast = useToast();
+  const input = useRef<HTMLInputElement>(null);
+  const [over, setOver] = useState(false);
+  const [pct, setPct] = useState<number | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
+  const [frame, setFrame] = useState<"loading" | "ready">("loading");
+  const [confirmDel, setConfirmDel] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const h = p.html_file;
+  const src = `/api/products/${p.id}/html?v=${encodeURIComponent(h?.updated_at || "")}`;
+  useEffect(() => { if (!confirmDel) return; const t = setTimeout(() => setConfirmDel(false), 4000); return () => clearTimeout(t); }, [confirmDel]);
+
+  async function send(f: File | undefined) {
+    if (!f || pct !== null) return;
+    const bad = htmlFileError(f);
+    if (bad) { setErr(bad); toast(bad, "error"); return; }
+    setErr(null); setPct(0);
+    const form = new FormData(); form.append("file", f);
+    const r = await upload(`/api/admin/products/${p.id}/html`, "POST", form, setPct);
+    setPct(null);
+    if (!r.ok) { const m = r.error || "تعذر رفع الملف"; setErr(m); toast(m, "error"); return; }
+    toast(h ? "تم استبدال ملف HTML" : "تم رفع ملف HTML وربطه بالمنتج", "success");
+    setFrame("loading"); setShowPreview(true); onChanged();
+  }
+  async function remove() {
+    if (!confirmDel) { setConfirmDel(true); return; }
+    setDeleting(true);
+    const r = await fetch(`/api/admin/products/${p.id}/html`, { method: "DELETE" }).catch(() => null);
+    setDeleting(false); setConfirmDel(false);
+    if (r?.ok) { toast("تم حذف ملف HTML", "success"); setShowPreview(false); onChanged(); }
+    else { const j = await r?.json().catch(() => ({})); toast(typeof j?.error === "string" ? j.error : "تعذر الحذف — حاول تاني", "error"); }
+  }
+  const picker = <input ref={input} type="file" accept=".html,.htm,text/html" className="hidden" onChange={e => { void send(e.target.files?.[0]); e.target.value = ""; }} />;
+  const dropProps = {
+    onDragOver: (e: DragEvent<HTMLDivElement>) => { e.preventDefault(); setOver(true); },
+    onDragLeave: () => setOver(false),
+    onDrop: (e: DragEvent<HTMLDivElement>) => { e.preventDefault(); setOver(false); void send(e.dataTransfer.files[0]); },
+  };
+  const progress = pct !== null && <div className="rounded-xl border border-[var(--border)] p-3 text-sm dz-in" role="status">
+    <div className="flex justify-between"><span className="font-bold">{h ? "جاري الاستبدال…" : "جاري الرفع…"}</span><span className="text-[var(--muted)]">{pct}%</span></div>
+    <div className="h-1.5 mt-2 rounded-full bg-[var(--bg)] overflow-hidden"><div className="h-full bg-[var(--navy)] transition-all" style={{ width: `${pct}%` }} /></div>
+  </div>;
+  const errBox = err && <div className="rounded-xl border border-red-200 bg-red-50 text-red-800 p-3 text-sm flex items-start gap-2 dz-in" role="alert">
+    <span>⚠️</span><span className="flex-1">{err}</span><button onClick={() => setErr(null)} className="text-red-700 font-bold" aria-label="إغلاق">✕</button>
+  </div>;
+
+  if (!h) return (
+    <div className="space-y-3">
+      <div {...dropProps} onClick={() => pct === null && input.current?.click()} role="button" tabIndex={0} onKeyDown={e => (e.key === "Enter" || e.key === " ") && input.current?.click()}
+        className={`cursor-pointer rounded-3xl border-2 border-dashed p-8 text-center transition ${over ? "border-[var(--navy)] bg-[var(--sky-light)]" : "border-[var(--border-strong)] hover:bg-[var(--bg)]"}`}>
+        <div className="text-4xl">🌐</div>
+        <div className="font-extrabold text-[var(--navy)] mt-2">اسحب ملف HTML هنا أو اضغط للاختيار</div>
+        <div className="text-xs text-[var(--muted)] mt-1">HTML أو HTM · حتى 2 ميجا · ملف واحد لكل منتج</div>
+        <span className="inline-block mt-4 rounded-xl bg-[var(--navy)] text-white px-5 py-2.5 text-sm font-bold">⬆ رفع ملف HTML</span>
+        {picker}
+      </div>
+      {progress}{errBox}
+      <p className="text-xs text-[var(--muted)] leading-6">🔒 الملف بيتعرض في مساحة معزولة: أي JavaScript أو نماذج أو نوافذ منبثقة بتتعطّل، ومينفعش يوصل لحساب المستخدم أو بيانات السيستم.</p>
+    </div>
+  );
+
+  return (
+    <div className="space-y-4" {...dropProps}>
+      <div className={`rounded-2xl border p-4 transition ${over ? "border-[var(--navy)] bg-[var(--sky-light)]" : "border-[var(--border)]"}`}>
+        <div className="flex gap-3 items-start">
+          <div className="h-12 w-12 shrink-0 rounded-xl bg-[var(--sky-soft)] text-[var(--navy)] grid place-items-center text-xl">🌐</div>
+          <div className="flex-1 min-w-0">
+            <div className="font-bold truncate" dir="ltr" style={{ textAlign: "right" }}>{h.file_name}</div>
+            {h.title && <div className="text-xs text-[var(--muted)] truncate">{h.title}</div>}
+            <div className="text-xs text-[var(--muted)] mt-0.5">{kb(h.size_bytes)} · {h.updated_at !== h.created_at ? "اتستبدل" : "اترفع"} {ago(h.updated_at)}</div>
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              <span className="rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-bold px-2 py-0.5">✓ جاهز ومربوط بالمنتج</span>
+              {h.warnings.map(w => <span key={w} className="rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-[11px] font-bold px-2 py-0.5">{HTML_WARN[w] || w}</span>)}
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-1.5 mt-3">
+          <button onClick={() => { setFrame("loading"); setShowPreview(v => !v); }} className="rounded-lg bg-[var(--navy)] text-white px-3 py-2 text-xs font-bold">{showPreview ? "إخفاء المعاينة" : "👁 معاينة"}</button>
+          <a href={src} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-bold">↗ فتح في تبويب</a>
+          <a href={`/api/products/${p.id}/html?download=1`} className="rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-bold">⬇ تنزيل</a>
+          <button disabled={pct !== null} onClick={() => input.current?.click()} className="rounded-lg border border-sky-200 bg-sky-50 text-sky-800 px-3 py-2 text-xs font-bold disabled:opacity-40">⟳ استبدال</button>
+          <button disabled={deleting} onClick={remove} className={`rounded-lg px-3 py-2 text-xs font-bold transition ${confirmDel ? "bg-red-600 text-white" : "border border-red-200 text-red-700"}`}>{deleting ? "جاري الحذف…" : confirmDel ? "اضغط تاني للتأكيد" : "🗑 حذف"}</button>
+          {picker}
+        </div>
+        <div className="text-[11px] text-[var(--muted)] mt-2 hidden sm:block">تقدر كمان تسحب ملف جديد فوق الكارت ده عشان تستبدله</div>
+      </div>
+      {progress}{errBox}
+      {showPreview && <div className="rounded-2xl border border-[var(--border)] overflow-hidden dz-in">
+        <div className="flex items-center justify-between gap-2 px-3 py-2 bg-[var(--bg)] border-b border-[var(--border)]">
+          <span className="text-xs font-bold text-[var(--muted)]">🔒 معاينة معزولة</span>
+          <div className="flex gap-1 rounded-lg bg-white p-0.5 border border-[var(--border)]">
+            {([["desktop", "🖥 شاشة"], ["mobile", "📱 موبايل"]] as const).map(([k, l]) => <button key={k} onClick={() => setDevice(k)} className={`rounded-md px-2.5 py-1 text-xs font-bold ${device === k ? "bg-[var(--navy)] text-white" : "text-[var(--muted)]"}`}>{l}</button>)}
+          </div>
+        </div>
+        <div className="relative bg-slate-100 p-2 sm:p-3 flex justify-center">
+          {frame === "loading" && <div className="absolute inset-0 grid place-items-center text-sm text-[var(--muted)]"><span className="animate-pulse">جاري تحميل المعاينة…</span></div>}
+          <iframe key={src} src={src} title={`معاينة ${h.file_name}`} sandbox="" referrerPolicy="no-referrer" loading="lazy" onLoad={() => setFrame("ready")}
+            className={`bg-white rounded-lg border border-[var(--border)] h-[60vh] sm:h-[70vh] transition-all ${device === "mobile" ? "w-[375px] max-w-full" : "w-full"}`} />
+        </div>
+      </div>}
     </div>
   );
 }
