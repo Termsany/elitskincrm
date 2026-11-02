@@ -3,6 +3,7 @@ import { query } from "@/lib/db";
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const BROCHURE_MAX = 19 * 1024 * 1024;
 export const BROCHURE_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
+export const isHtmlFile = (f: File) => /\.html?$/i.test(f.name) || f.type === "text/html";
 export const COLOR_RE = /^#[0-9a-f]{6}$/i;
 
 export type BrochureMeta = { id: string; title: string; file_name: string; mime: string; size_bytes: number; pages: number; sort_order: number; active: boolean; updated_at: string };
@@ -30,7 +31,7 @@ export async function syncLegacyBrochure(productId: string) {
   await query(`UPDATE products p SET
       brochure_data = b.data, brochure_name = b.file_name, brochure_mime = b.mime, content_updated_at = now()
     FROM (SELECT NULL::int k) z
-    LEFT JOIN LATERAL (SELECT data, file_name, mime FROM product_brochures WHERE product_id=$1 AND active ORDER BY sort_order, created_at LIMIT 1) b ON true
+    LEFT JOIN LATERAL (SELECT data, file_name, mime FROM product_brochures WHERE product_id=$1 AND active AND mime <> 'text/html' ORDER BY sort_order, created_at LIMIT 1) b ON true
     WHERE p.id=$1`, [productId]);
 }
 
@@ -39,8 +40,6 @@ export async function studioProducts() {
   const r = await query(`SELECT p.id,p.name,p.active,p.tagline,p.category,p.color,p.sort_order,COALESCE(p.description,'') description,
       COALESCE(p.detailing_points,'') detailing_points,COALESCE(p.key_questions,'') key_questions,COALESCE(p.detailing_version,'') detailing_version,
       p.content_updated_at,p.created_at,(p.image_data IS NOT NULL) image_available, ${BROCHURES_JSON("")} brochures,
-      (SELECT json_build_object('file_name',h.file_name,'title',h.title,'size_bytes',h.size_bytes,'warnings',h.warnings,'updated_at',h.updated_at,'created_at',h.created_at)
-        FROM product_html_files h WHERE h.product_id=p.id) html_file,
       (SELECT count(*)::int FROM users u WHERE u.assigned_product_id=p.id AND u.role='sales_rep' AND u.active) reps_count,
       (SELECT json_build_object(
           'presented', count(*), 'interested', count(*) FILTER (WHERE pp.reaction='interested'),

@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import BrochureViewer, { PageThumb } from "./BrochureViewer";
 import { brochureUrl } from "./pdf";
 import { REACTIONS, imageUrl, lines, type DetailProduct, type PresenterResult, type Reaction } from "./types";
@@ -92,8 +93,10 @@ export default function DetailingPresenter({ products, startId, startBrochureId,
   const mm = `${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, "0")}`;
   if (!product) return null;
 
-  return (
-    <div ref={root} dir="rtl" className="fixed inset-0 z-[60] flex flex-col bg-[#0b1d20] text-white" style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}>
+  // Portal to <body>: page-entry animations use transform, which would otherwise trap this
+  // "fixed" overlay inside the page column (sidebar showing over the presentation).
+  return createPortal(
+    <div ref={root} dir="rtl" className="fixed inset-0 z-[60] flex flex-col bg-[#0b1d20] text-white" style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)", overflow: "clip" }}>
       {/* Top: product switcher */}
       <div className={`shrink-0 transition-all duration-300 ${chrome ? "opacity-100" : "opacity-0 pointer-events-none -translate-y-2"}`}>
         <div className="flex items-center gap-2 px-3 pt-3">
@@ -120,10 +123,10 @@ export default function DetailingPresenter({ products, startId, startBrochureId,
       </div>
 
       {/* Stage */}
-      <div className="relative flex-1 min-h-0" onDoubleClick={e => e.stopPropagation()}>
+      <div className="relative flex-1 min-h-0" style={{ overflow: "clip" }} onDoubleClick={e => e.stopPropagation()}>
         <div className="absolute inset-x-0 top-0 h-1" style={{ background: accent }} />
         {brochure
-          ? <BrochureViewer url={brochureUrl(brochure.id)} mime={brochure.mime} page={cur.page} onPage={setPage} onPages={n => setPages(p => ({ ...p, [brochure.id]: n }))} />
+          ? <BrochureViewer key={brochure.id} url={brochureUrl(brochure.id)} mime={brochure.mime} page={cur.page} onPage={setPage} onPages={n => setPages(p => ({ ...p, [brochure.id]: n }))} />
           : <NoBrochure p={product} admin={admin} />}
         <button onClick={() => setChrome(c => !c)} className="absolute bottom-2 left-2 z-10 hidden sm:block rounded-full bg-black/40 text-white/70 text-[11px] px-3 py-1 hover:text-white" title="إخفاء/إظهار الأزرار">{chrome ? "وضع العرض النظيف" : "إظهار الأزرار"}</button>
       </div>
@@ -166,7 +169,8 @@ export default function DetailingPresenter({ products, startId, startBrochureId,
         </div>
       </div>
       <style>{`.no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{scrollbar-width:none}`}</style>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

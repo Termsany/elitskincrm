@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { query } from "@/lib/db";
-import { BROCHURE_MAX, BROCHURE_TYPES, UUID_RE, countPdfPages, syncLegacyBrochure } from "@/lib/product-studio";
+import { BROCHURE_MAX, BROCHURE_TYPES, UUID_RE, countPdfPages, isHtmlFile, syncLegacyBrochure } from "@/lib/product-studio";
+import { checkHtmlUpload } from "@/lib/product-html";
 
 async function guard(params: Promise<{ bid: string }>) {
   const u = await getCurrentUser();
@@ -21,11 +22,18 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ bid: s
     const file = form.get("file");
     if (!(file instanceof File) || !file.size) return NextResponse.json({ error: "اختر الملف" }, { status: 400 });
     if (file.size > BROCHURE_MAX) return NextResponse.json({ error: "حجم الملف أكبر من 19 ميجابايت" }, { status: 400 });
-    if (!BROCHURE_TYPES.includes(file.type)) return NextResponse.json({ error: "الصيغ المسموحة: PDF أو صورة" }, { status: 400 });
+    const html = isHtmlFile(file);
+    if (!html && !BROCHURE_TYPES.includes(file.type)) return NextResponse.json({ error: "الصيغ المسموحة: PDF أو صورة أو ملف HTML" }, { status: 400 });
     const buf = Buffer.from(await file.arrayBuffer());
-    const pages = file.type === "application/pdf" ? await countPdfPages(buf, Number(form.get("pages"))) : 1;
+    let name = file.name.slice(0, 200), mime = file.type;
+    if (html) {
+      const c = checkHtmlUpload(file.name, buf, BROCHURE_MAX);
+      if (!c.ok) return NextResponse.json({ error: c.error }, { status: 400 });
+      name = c.fileName; mime = "text/html";
+    }
+    const pages = mime === "application/pdf" ? await countPdfPages(buf, Number(form.get("pages"))) : 1;
     await query("UPDATE product_brochures SET data=$2, mime=$3, file_name=$4, size_bytes=$5, pages=$6, updated_at=now() WHERE id=$1",
-      [g.bid, buf, file.type, file.name.slice(0, 200), buf.length, pages]);
+      [g.bid, buf, mime, name, buf.length, pages]);
   } else {
     const body = await req.json().catch(() => null) as { title?: string; active?: boolean } | null;
     if (!body) return NextResponse.json({ error: "Invalid" }, { status: 400 });

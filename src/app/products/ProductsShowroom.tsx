@@ -119,6 +119,7 @@ export default function ProductsShowroom({ doctors, canVisit }: { doctors: Docto
                   <div className="text-sm text-[var(--muted)] mt-1 line-clamp-2 min-h-[2.5rem]">{p.tagline || p.description || "—"}</div>
                   <div className="flex items-center gap-3 mt-3 text-xs text-[var(--muted)]">
                     <span>📄 {p.brochures.length ? `${pages} صفحة` : "بدون بروشور"}</span>
+                    {p.brochures.some(x => x.mime === "text/html") && <span>🌐 تفاعلي</span>}
                     {p.brochures.length > 1 && <span>{p.brochures.length} بروشور</span>}
                     {p.detailing_points && <span>📝 نقاط شرح</span>}
                   </div>

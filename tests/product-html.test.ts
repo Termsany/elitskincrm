@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HTML_MAX, checkHtmlUpload, htmlServeHeaders } from "@/lib/product-html";
+import { HTML_MAX, checkHtmlUpload, htmlServeHeaders, withSandboxShim } from "@/lib/product-html";
 
 const b = (s: string) => Buffer.from(s, "utf8");
 const page = `<!doctype html><html><head><title> عرض  المنتج </title></head><body><h1>مرحبا</h1></body></html>`;
@@ -34,12 +34,32 @@ describe("checkHtmlUpload", () => {
 });
 
 describe("htmlServeHeaders", () => {
-  it("sandboxes the document and blocks scripts", () => {
-    const h = htmlServeHeaders("ملف.html", false);
-    expect(h["content-security-policy"]).toMatch(/^sandbox;/);
-    expect(h["content-security-policy"]).toContain("script-src 'none'");
+  it("runs scripts only in an opaque-origin sandbox with no network to the CRM", () => {
+    const csp = htmlServeHeaders("ملف.html")["content-security-policy"];
+    expect(csp).toMatch(/^sandbox allow-scripts/);
+    expect(csp).not.toContain("allow-same-origin");
+    expect(csp).not.toContain("allow-top-navigation");
+    expect(csp).not.toContain("allow-forms");
+    expect(csp).toContain("connect-src 'none'");
+    expect(csp).toContain("frame-ancestors 'self'");
+    const h = htmlServeHeaders("a.html");
     expect(h["x-content-type-options"]).toBe("nosniff");
     expect(h["content-disposition"]).toMatch(/^inline/);
     expect(htmlServeHeaders("a.html", true)["content-disposition"]).toMatch(/^attachment/);
+  });
+  it("accepts a larger limit for brochures", () => {
+    expect(checkHtmlUpload("big.html", Buffer.from("<p>" + "a".repeat(HTML_MAX) + "</p>"), 19 * 1048576).ok).toBe(true);
+  });
+});
+
+describe("withSandboxShim", () => {
+  it("injects the storage stand-in right after <head>", () => {
+    const out = withSandboxShim(b("<html><head><title>x</title></head><body>hi</body></html>")).toString();
+    expect(out.indexOf("<script>")).toBe("<html><head>".length);
+    expect(out).toContain("localStorage");
+    expect(out.endsWith("<body>hi</body></html>")).toBe(true);
+  });
+  it("prepends when there is no head/html tag", () => {
+    expect(withSandboxShim(b("<p>x</p>")).toString().startsWith("<script>")).toBe(true);
   });
 });

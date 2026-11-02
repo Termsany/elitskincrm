@@ -15,21 +15,29 @@ export default function BrochureViewer({ url, mime, page, onPage, onPages, dark 
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [dir, setDir] = useState(0);
   const isPdf = mime === "application/pdf";
+  const isHtml = mime === "text/html";
 
   useEffect(() => {
     const el = stage.current; if (!el) return;
     const ro = new ResizeObserver(([e]) => setSize({ w: Math.floor(e.contentRect.width), h: Math.floor(e.contentRect.height) }));
     ro.observe(el); return () => ro.disconnect();
-  }, []);
+  }, [isHtml]);
 
   useEffect(() => {
     let dead = false; setZoom(1);
+    if (isHtml) { setDoc(null); setPages(1); onPages?.(1); setState("loading"); return; }
     if (!isPdf) { setDoc(null); setPages(1); onPages?.(1); setState("ready"); return; }
     setState("loading");
-    loadPdf(url).then(d => { if (dead) return; setDoc(d); setPages(d.numPages); onPages?.(d.numPages); }).catch(() => !dead && setState("error"));
+    loadPdf(url).then(d => { if (dead) return; setDoc(d); setPages(d.numPages); onPages?.(d.numPages); }).catch(e => { console.warn("brochure: pdf load failed", e); if (!dead) setState("error"); });
     return () => { dead = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url, isPdf]);
+  }, [url, isPdf, isHtml]);
+  // A sandboxed frame gives no load error event offline; time out the spinner instead of spinning forever.
+  useEffect(() => {
+    if (!isHtml || state !== "loading") return;
+    const t = setTimeout(() => setState(s => s === "loading" ? (navigator.onLine ? "ready" : "error") : s), 15000);
+    return () => clearTimeout(t);
+  }, [isHtml, state, url]);
 
   const [bmp, setBmp] = useState<{ c: HTMLCanvasElement; i: number } | null>(null);
   useLayoutEffect(() => {
@@ -45,7 +53,7 @@ export default function BrochureViewer({ url, mime, page, onPage, onPages, dark 
       setBmp(b => ({ c: src, i: (b?.i || 0) + 1 })); setState("ready");
       // pre-render neighbours in the background
       if (zoom === 1) { if (n < doc.numPages) pageBitmap(url, doc, n + 1, W, H).catch(() => {}); if (n > 1) pageBitmap(url, doc, n - 1, W, H).catch(() => {}); }
-    }).catch((e: any) => { if (!dead && e?.name !== "RenderingCancelledException") setState("error"); });
+    }).catch((e: any) => { if (!dead && e?.name !== "RenderingCancelledException") { console.warn("brochure: page render failed", e); setState("error"); } });
     return () => { dead = true; };
   }, [doc, url, page, size.w, size.h, zoom]);
 
@@ -66,6 +74,16 @@ export default function BrochureViewer({ url, mime, page, onPage, onPages, dark 
   }
 
   const btn = `absolute top-1/2 -translate-y-1/2 z-10 h-14 w-14 rounded-full grid place-items-center text-2xl font-bold transition disabled:opacity-0 ${dark ? "bg-white/10 text-white hover:bg-white/20" : "bg-black/5 text-[var(--navy)] hover:bg-black/10"}`;
+  if (isHtml) return (
+    <div className="relative h-full w-full" dir="ltr" style={{ overflow: "clip" }}>
+      {/* Interactive HTML brochure: scripts run in an opaque-origin sandbox, cut off from the CRM. */}
+      <iframe key={url} src={url} title="بروشور تفاعلي" sandbox="allow-scripts allow-pointer-lock" allow="fullscreen; autoplay"
+        referrerPolicy="no-referrer" onLoad={() => setState("ready")}
+        className={`absolute inset-0 h-full w-full border-0 ${dark ? "bg-white" : "bg-white rounded-lg"} transition-opacity duration-300 ${state === "ready" ? "opacity-100" : "opacity-0"}`} />
+      {state === "loading" && <div className="absolute inset-0 grid place-items-center pointer-events-none"><div className={`h-10 w-10 rounded-full border-4 ${dark ? "border-white/20 border-t-white" : "border-black/10 border-t-[var(--navy)]"} animate-spin`} /></div>}
+      {state === "error" && <div className={`absolute inset-0 grid place-items-center text-sm ${dark ? "text-white/80" : "text-red-700"}`}>تعذر فتح العرض — تأكد من الاتصال أو جهّز المنتجات للعمل بدون إنترنت</div>}
+    </div>
+  );
   return (
     <div className="relative h-full w-full select-none" dir="ltr">
       <div ref={stage} onPointerDown={onPointerDown} onPointerUp={onPointerUp}
@@ -135,6 +153,11 @@ export function BrochureCover({ url, mime, className = "" }: { url: string; mime
     }, { rootMargin: "300px" });
     io.observe(el); return () => { dead = true; io.disconnect(); task?.cancel?.(); };
   }, [url, mime]);
+  if (mime === "text/html") return (
+    <div ref={box} className={`relative overflow-hidden grid place-items-center bg-gradient-to-br from-[#0f3d43] to-[#1b6f78] text-white ${className}`}>
+      <div className="text-center px-2"><div className="text-3xl leading-none">🌐</div><div className="text-[11px] font-extrabold mt-1.5 tracking-wide">عرض تفاعلي</div></div>
+    </div>
+  );
   return (
     <div ref={box} className={`relative overflow-hidden ${className}`}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
