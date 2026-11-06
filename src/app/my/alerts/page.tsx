@@ -1,18 +1,22 @@
-import Link from "next/link";
-import { getCurrentUser } from "@/lib/session";
 import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/session";
 import { AppShell } from "@/components/AppShell";
-export default async function MyAlertsPage(){
+import { staleDoctors } from "@/lib/my-alerts";
+import { query } from "@/lib/db";
+import AlertsList from "./AlertsList";
+
+export default async function MyAlertsPage() {
   const user = await getCurrentUser();
-  if(!user) redirect("/login");
-  if(user.role==="admin") redirect("/admin/alerts");
+  if (!user) redirect("/login");
+  if (user.role === "admin") redirect("/admin/alerts");
+  const stale = await staleDoctors(user.id);
+  const freq = (await query<{ classification: string; visits_per_month: number }>("SELECT classification, visits_per_month FROM plan_frequencies WHERE visits_per_month > 0 ORDER BY classification")).rows;
+  const rule = freq.map(f => `${f.classification} كل ${Math.ceil(30 / Number(f.visits_per_month))} يوم`).join(" · ");
   return (
     <AppShell role={user.role} email={user.email} name={user.name} jobTitle={user.job_title} productName={user.product_name} active="/">
-      <h1 className="text-2xl font-extrabold text-[var(--navy)]">تنبيهاتي</h1>
-      <p className="text-sm text-[var(--muted)]">أطباء لم تتم زيارتهم منذ 10 أيام</p>
-      <div className="mt-4 rounded-2xl bg-white border border-[var(--border)] p-6 text-center text-sm text-[var(--muted)]">
-        التنبيهات تظهر في لوحة التحكم الرئيسية — <Link href="/" className="text-[var(--gold)] font-bold">العودة للوحة</Link>
-      </div>
+      <h1 className="text-2xl font-extrabold text-[var(--navy)]">أطباء متأخرين</h1>
+      <p className="text-sm text-[var(--muted)] mt-1">أطباء عدّى ميعاد زيارتهم حسب فئتهم{rule ? ` (${rule})` : ""}. الأطباء اللي وقفتهم الشهر ده مش ظاهرين هنا.</p>
+      <AlertsList initial={JSON.parse(JSON.stringify(stale))} />
     </AppShell>
   );
 }
