@@ -130,7 +130,8 @@ const BASE_LABEL: Record<string, string> = { reps: "أداء المناديب", 
 
 export const REPORTS: ReportDef[] = [
   ...BASE.map(b => {
-    const cols = typed(reportDefinition(b.id).columns);
+    // sampleDoctors.reps holds rep NAMES (text), unlike the numeric "reps" count elsewhere.
+    const cols = typed(reportDefinition(b.id).columns).map(c => b.id === "sampleDoctors" && c.key === "reps" ? { ...c, type: "text" as ColType } : c);
     if (b.id === "compliance") cols.push({ key: "pct", label: "نسبة الالتزام", type: "pct" });
     if (b.id === "coverage") cols.splice(7, 0, { key: "pct", label: "النسبة", type: "pct" });
     if (b.id === "sales") cols.push({ key: "pct", label: "نسبة التحقيق", type: "pct" });
@@ -191,7 +192,7 @@ async function extraRows(id: string, f: ReportFilters): Promise<Row[]> {
     const extra: string[] = [];
     if (f.repId) extra.push(`x.rep_id=${p(f.repId)}`);
     if (f.city) extra.push(`x.city=${p(f.city)}`);
-    const rows = (await query(`SELECT * FROM (
+    const rows = (await query(`SELECT x.*, to_char(x.due, 'YYYY-MM-DD') due_day FROM (
         SELECT 'زيارة' source, v.follow_up_at due, v.follow_up_note note, d.id doctor_id, d.name doctor_name, d.clinic_name, d.city, u.id rep_id, u.name rep_name,
           EXISTS(SELECT 1 FROM visits v2 WHERE v2.doctor_id=v.doctor_id AND v2.sales_rep_id=v.sales_rep_id AND v2.visited_at>v.visited_at AND v2.status='completed') done
         FROM visits v JOIN doctors d ON d.id=v.doctor_id JOIN users u ON u.id=v.sales_rep_id WHERE v.follow_up_at IS NOT NULL
@@ -202,8 +203,9 @@ async function extraRows(id: string, f: ReportFilters): Promise<Row[]> {
       ) x WHERE ((x.due BETWEEN ${from}::date AND ${to}::date) OR (NOT x.done AND x.due < (now() AT TIME ZONE 'Asia/Riyadh')::date))
       ${extra.length ? "AND " + extra.join(" AND ") : ""} ORDER BY x.done, x.due`, vals)).rows as Row[];
     const today = riyadhToday();
-    return rows.map(r => {
-      const due = String(r.due).slice(0, 10);
+    return rows.map(({ due_day, ...r }) => {
+      // due is a SQL date: pg hands back a JS Date, so use the text form computed in SQL.
+      const due = String(due_day);
       return { ...r, due, state: r.done ? "تمت" : due < today ? "متأخرة" : due === today ? "اليوم" : "قادمة" };
     });
   }
