@@ -115,9 +115,12 @@ async function replaceAll(table: string, cols: string[], rows: unknown[][], wher
   const c = await pool.connect();
   try {
     await c.query("BEGIN");
+    // Serialize concurrent syncs on the same table and drop repeated ids (Daftra can repeat rows across pages).
+    await c.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`daftra:${table}`]);
     await c.query(`DELETE FROM ${table} ${where}`);
     const ph = cols.map((_, i) => `$${i + 1}`).join(",");
-    for (const r of rows) await c.query(`INSERT INTO ${table}(${cols.join(",")}) VALUES(${ph})`, r);
+    const unique = [...new Map(rows.map(r => [String(r[0]), r])).values()];
+    for (const r of unique) await c.query(`INSERT INTO ${table}(${cols.join(",")}) VALUES(${ph}) ON CONFLICT DO NOTHING`, r);
     await c.query("COMMIT");
   } catch (e) { await c.query("ROLLBACK").catch(() => {}); throw e; } finally { c.release(); }
 }
