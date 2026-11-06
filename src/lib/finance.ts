@@ -119,6 +119,8 @@ export function computeFinance(inp: Input, from: string, to: string) {
     return { ...e, account: acc?.name || "بدون حساب", code: acc?.code || "", treatment: t as string };
   });
   cogs += cogsExtra;
+  const isMkt = (name: string) => /تسويق|دعاي|إعلان|اعلان|فعالي|معارض|marketing/i.test(name);
+  const marketing = [...accAgg.values()].filter(a => a.treatment === "opex" && isMkt(a.name)).reduce((s, a) => s + a.amount, 0);
 
   // ── cash collected (customer payments)
   let collected = 0;
@@ -144,11 +146,13 @@ export function computeFinance(inp: Input, from: string, to: string) {
   // ── month series
   const monthly = [...M.values()].map(m => ({ ...m, gross: m.sales - m.cogs, net: m.sales - m.cogs - m.opex + m.other }));
 
-  // ── advisor baseline: last 6 complete months (stable regardless of the page filter)
+  // ── advisor baseline: last 12 complete months (sales are lumpy B2B — 6 months swings too much),
+  //    trimmed to the first month the business has sales (stable regardless of the page filter)
   const curM = month(inp.today);
-  const base = monthsBetween(shiftMonth(curM, -6), shiftMonth(curM, -1));
+  const firstM = inp.sales.reduce((m, d) => d.date && month(d.date) < m ? month(d.date) : m, curM);
+  const base = monthsBetween(shiftMonth(curM, -12), shiftMonth(curM, -1)).filter(m => m >= firstM);
   const baseFrom = `${base[0]}-01`, baseTo = addDays(`${curM}-01`, -1);
-  const B = base.length && baseFrom <= baseTo ? computeCore(inp, baseFrom, baseTo) : null;
+  const B = base.length >= 3 && baseFrom <= baseTo ? computeCore(inp, baseFrom, baseTo) : null;
 
   // ── products & pricing
   const lastSale = new Map<string, string>();
@@ -185,19 +189,20 @@ export function computeFinance(inp: Input, from: string, to: string) {
     return { id: x.id, no: x.no, date: x.date, party: x.party, key: x.key, item: x.item, qty: r2(x.qty), price: r2(x.price), cost: r2(x.cost!), breakeven: r2(be),
       below_cost: x.price < x.cost!, gap: r2(be - x.price), lost: r2((be - x.price) * x.qty) };
   }).sort((a, b) => b.date.localeCompare(a.date) || b.lost - a.lost);
-  const price_guard = { lines: guard, below_cost: guard.filter(g => g.below_cost).length, below_breakeven: guard.filter(g => !g.below_cost).length, lost: r2(guard.reduce((s, g) => s + g.lost, 0)), floor_margin: r2(floorM * 100) };
+  const real_loss = r2(guard.filter(g => g.below_cost).reduce((s, g) => s + (g.cost - g.price) * g.qty, 0));
+  const price_guard = { lines: guard, below_cost: guard.filter(g => g.below_cost).length, below_breakeven: guard.filter(g => !g.below_cost).length, lost: r2(guard.reduce((s, g) => s + g.lost, 0)), real_loss, floor_margin: r2(floorM * 100) };
   const stock_alerts = pricing.filter(p => ["negative", "out", "low"].includes(p.stock_status)).sort((a, b) => STOCK_RANK[a.stock_status] - STOCK_RANK[b.stock_status] || (a.months_cover ?? 0) - (b.months_cover ?? 0));
 
   // ── planning & advice
   const fixedMonthly = inp.fixed.filter(f => `${curM}-01` >= f.start_month.slice(0, 10) && (!f.end_month || `${curM}-01` <= f.end_month.slice(0, 10))).reduce((s, f) => s + f.monthly_amount, 0);
   const plan = planning(B, fixedMonthly, inp.settings);
-  const advice = adviseAll({ B, plan, ar, ap, pricing, price_guard, stock_alerts, clients: [...clients.values()], salesNet, inp, opexRatio, coverage: lineNet ? knownNet / lineNet : 1, entries });
+  const advice = adviseAll({ B, plan, ar, ap, pricing, price_guard, stock_alerts, clients: [...clients.values()], salesNet, inp, opexRatio, coverage: lineNet ? knownNet / lineNet : 1, entries, monthly });
 
   const gross = salesNet - cogs, net = gross - opex + other;
   return {
     period: { from, to, months },
     kpi: { sales: r2(salesNet), sales_tax: r2(salesTax), sales_total: r2(salesTotal), refunds: r2(refunds), invoices: sales.length, clients: clients.size,
-      cogs: r2(cogs), gross: r2(gross), gross_margin: salesNet ? r2(gross / salesNet * 100) : null, opex: r2(opex), other_income: r2(other), net: r2(net), net_margin: salesNet ? r2(net / salesNet * 100) : null,
+      cogs: r2(cogs), gross: r2(gross), gross_margin: salesNet ? r2(gross / salesNet * 100) : null, opex: r2(opex), marketing: r2(marketing), net_before_marketing: r2(net + marketing), other_income: r2(other), net: r2(net), net_margin: salesNet ? r2(net / salesNet * 100) : null,
       purchases: r2(purNet), purchases_tax: r2(purTax), purchases_total: r2(purTotal), purchase_invoices: purchases.length, collected: r2(collected),
       ar: ar.total, ar_overdue: ar.overdue, ap: ap.total, ap_overdue: ap.overdue,
       vat_out: r2(salesTax), vat_in: r2(purTax + expTax), vat_payable: r2(salesTax - purTax - expTax), cost_coverage: lineNet ? r2(knownNet / lineNet * 100) : 100 },
@@ -256,8 +261,10 @@ export function stockCover(stock: number, sold90: number, active = true) {
   return { sold_90: Math.round(sold90 * 100) / 100, monthly_pace: Math.round(monthly * 10) / 10, months_cover, stock_status, reorder_qty: monthly > 0 ? Math.max(0, Math.ceil(monthly * 2 - Math.max(0, stock))) : 0 };
 }
 const fmt = (n: number) => `${Math.round(n).toLocaleString("en-US")} ر.س`;
-function adviseAll(a: { price_guard: { lines: Array<{ item: string; below_cost: boolean }>; below_cost: number; below_breakeven: number; lost: number }; stock_alerts: Array<{ name: string; stock_status: string; months_cover: number | null; reorder_qty: number }>; B: ReturnType<typeof computeCore> | null; plan: ReturnType<typeof planning>; ar: { total: number; overdue: number; buckets: Record<string, number>; parties: Array<{ name: string; unpaid: number; oldestDue: number }> }; ap: { total: number; overdue: number }; pricing: Array<{ name: string; status: string; realized_price: number | null; avg_cost: number | null; suggested_price: number | null; qty_sold: number; stock_value: number | null; breakeven_price: number | null }>; clients: Array<{ name: string; net: number }>; salesNet: number; inp: Input; opexRatio: number; coverage: number; entries: Array<{ treatment: string; account: string; amount: number }> }): Advice[] {
+function adviseAll(a: { monthly: Array<{ m: string; sales: number; opex: number }>; price_guard: { lines: Array<{ item: string; below_cost: boolean }>; below_cost: number; below_breakeven: number; lost: number; real_loss: number }; stock_alerts: Array<{ name: string; stock_status: string; months_cover: number | null; reorder_qty: number }>; B: ReturnType<typeof computeCore> | null; plan: ReturnType<typeof planning>; ar: { total: number; overdue: number; buckets: Record<string, number>; parties: Array<{ name: string; unpaid: number; oldestDue: number }> }; ap: { total: number; overdue: number }; pricing: Array<{ name: string; status: string; realized_price: number | null; avg_cost: number | null; suggested_price: number | null; qty_sold: number; stock_value: number | null; breakeven_price: number | null }>; clients: Array<{ name: string; net: number }>; salesNet: number; inp: Input; opexRatio: number; coverage: number; entries: Array<{ treatment: string; account: string; amount: number }> }): Advice[] {
   const out: Advice[] = []; const { B, plan } = a;
+  const gaps = a.monthly.filter(m => m.sales > 0 && m.opex <= 0).map(m => m.m);
+  if (gaps.length) out.push({ level: "warn", title: `${gaps.length} شهر فيهم مبيعات ومفيش مصروفات متسجلة`, text: `${gaps.join("، ")} — غالباً الرواتب والإيجار ما اتسجلوش في دفترة الشهور دي، فالربح فيها ظاهر أعلى من الحقيقة. سجّل المصروفات كل شهر في نفس الشهر.`, tab: "audit" });
   if (plan.fixed_planned > 0 && plan.fixed_source === "actual") out.push({ level: "info", title: `المصاريف الثابتة اللي سجلتها (${fmt(plan.fixed_planned)}) أقل بكتير من مصروفك الفعلي`, text: `متوسط مصروفك الشهري الفعلي في دفترة ${fmt(plan.monthly_fixed)}، فحسبت الأهداف عليه عشان ما تتفاجئش. كمّل قائمة المصاريف الثابتة (رواتب، إيجار، تسويق…) وأنا هعتمدها.`, tab: "pnl" });
   if (B && B.sales > 0) {
     const nm = B.net / B.sales * 100, tgt = a.inp.settings.target_net_margin;
@@ -275,7 +282,8 @@ function adviseAll(a: { price_guard: { lines: Array<{ item: string; below_cost: 
   const loss = a.pricing.filter(p => p.status === "loss"), below = a.pricing.filter(p => p.status === "below_breakeven");
   if (loss.length) out.push({ level: "danger", title: `${loss.length} منتج اتباع بأقل من تكلفة شرائه`, text: loss.slice(0, 4).map(p => `${p.name}: بيع ${p.realized_price} وتكلفة ${p.avg_cost}`).join(" · "), tab: "pricing" });
   if (below.length) out.push({ level: "warn", title: `${below.length} منتج سعره ما يغطيش نصيبه من المصاريف`, text: `يعني بيكسب على الورق لكن بعد المصاريف بيخسر. أمثلة: ${below.slice(0, 4).map(p => `${p.name} (سعر التعادل ${p.breakeven_price})`).join(" · ")}`, tab: "pricing" });
- if (a.price_guard.lines.length) out.push({ level: a.price_guard.below_cost ? "danger" : "warn", title: `${a.price_guard.lines.length} بيعة في دفترة تحت أقل سعر مسموح`, text: `${a.price_guard.below_cost ? `${a.price_guard.below_cost} منهم أقل من تكلفة الشراء نفسها (خسارة مباشرة). ` : ""}أقل سعر مسموح = التكلفة ÷ (1 − هامش مجمل الربح المستهدف ${a.inp.settings.target_gross_margin}%). الفرق عن أقل سعر حوالي ${fmt(a.price_guard.lost)}. راجع حماية السعر في تبويب التسعير.`, tab: "pricing" });
+  if (a.price_guard.below_cost) out.push({ level: "danger", title: `${a.price_guard.below_cost} بيعة بأقل من تكلفة الشراء — خسارة فعلية ${fmt(a.price_guard.real_loss)}`, text: "دي بيعات خسرت فيها فلوس فعلاً (سعر البيع أقل من اللي اشتريت بيه). راجعها في حماية السعر واعرف مين باع وليه.", tab: "pricing" });
+  if (a.price_guard.below_breakeven) out.push({ level: "info", title: `${a.price_guard.below_breakeven} بيعة كسبانة بس بهامش أقل من هدفك ${a.inp.settings.target_gross_margin}%`, text: `مش خسارة — لكن لو اتباعت بالسعر المستهدف كان الربح هيزيد حوالي ${fmt(a.price_guard.lost)}. حدد للمناديب أقصى خصم مسموح من تبويب التسعير.`, tab: "pricing" });
   const st = a.stock_alerts; if (st.length) { const neg = st.filter(s => s.stock_status === "negative"); out.push({ level: "warn", title: `${st.length} صنف مخزونه قرب يخلص أو خلص`, text: `${st.slice(0, 4).map(s => `${s.name} (${s.stock_status === "negative" ? "رصيد بالسالب" : s.stock_status === "out" ? "خلص" : `يكفي ${s.months_cover} شهر`})`).join(" · ")}${neg.length ? ` — الرصيد بالسالب معناه فواتير بيع اتعملت من غير ما المخزون يتسجل في دفترة، راجع الجرد.` : ""}`, tab: "pricing" }); }
   const dead = a.pricing.filter(p => p.status === "dead_stock" && (p.stock_value || 0) > 0); const deadV = dead.reduce((s, p) => s + (p.stock_value || 0), 0);
   if (deadV > 0) out.push({ level: "info", title: `بضاعة راكدة بقيمة ${fmt(deadV)}`, text: `${dead.length} منتج عليه رصيد وما اتباعش من أكتر من 90 يوم (${dead.slice(0, 3).map(p => p.name).join("، ")}). فكّر في عرض أو باقة لتحريكه.`, tab: "pricing" });

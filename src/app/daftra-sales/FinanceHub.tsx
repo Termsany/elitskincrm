@@ -6,10 +6,14 @@ import type { computeFinance } from "@/lib/finance";
 import { ExcelBtn } from "./kit";
 import { Overview, Sales, Purchases, Book, Pricing, Pnl, Advisor } from "./tabs";
 import { Planner } from "./plan";
+import { AuditTab } from "./audit";
+import { GoalsTab } from "./goals";
+import { CashTab } from "./cash";
 
-export type FinData = ReturnType<typeof computeFinance> & { sync: { started_at: string | null; finished_at: string | null; ok: boolean | null; message: string; running: boolean }; today: string };
-export type Tab = "overview" | "sales" | "purchases" | "ar" | "ap" | "pricing" | "pnl" | "advisor" | "plan";
-const TABS: Array<[Tab, string, string]> = [["overview", "الملخص", "dashboard"], ["sales", "المبيعات", "sales"], ["purchases", "المشتريات", "products"], ["ar", "ليا (العملاء)", "time"], ["ap", "عليا (الموردين)", "send"], ["pricing", "المنتجات والتسعير", "coverage"], ["pnl", "الأرباح والمصروفات", "reports"], ["advisor", "المستشار المالي", "sparkle"], ["plan", "خطة الشهر", "plans"]];
+export type FinData = ReturnType<typeof computeFinance> & { audit?: { score: number; open: number; open_high: number } | null; sync: { started_at: string | null; finished_at: string | null; ok: boolean | null; message: string; running: boolean }; today: string };
+export type Tab = "overview" | "sales" | "purchases" | "ar" | "ap" | "pricing" | "pnl" | "advisor" | "plan" | "audit" | "goals" | "cash";
+const TABS: Array<[Tab, string, string]> = [["overview", "الملخص", "dashboard"], ["sales", "المبيعات", "sales"], ["purchases", "المشتريات", "products"], ["ar", "ليا (العملاء)", "time"], ["ap", "عليا (الموردين)", "send"], ["pricing", "المنتجات والتسعير", "coverage"], ["pnl", "الأرباح والمصروفات", "reports"], ["advisor", "المستشار المالي", "sparkle"], ["audit", "مراجعة الحسابات", "check"], ["goals", "الأهداف السنوية", "trophy"], ["cash", "السيولة", "wallet"], ["plan", "خطة الشهر", "plans"]];
+const NO_RANGE: Partial<Record<Tab, string>> = { plan: "خطة شهرية صنف بصنف — مبنية على أسعار الشراء من دفترة وبيعك آخر 6 شهور", goals: "أهداف السنة ومتابعتها شهر بشهر — الفعلي من دفترة", cash: "توقع السيولة للـ 13 أسبوع الجايين — من الفواتير المفتوحة والمصاريف" };
 const tz = "Asia/Riyadh";
 const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date());
 const back = (months: number) => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - months); return `${new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(d).slice(0, 7)}-01`; };
@@ -51,7 +55,7 @@ export default function FinanceHub({ subdomain }: { subdomain: string }) {
   return <div className="mt-5 space-y-4">
     <div className="sticky top-0 z-30 -mx-4 space-y-2 bg-[var(--bg)]/95 px-4 pb-2 pt-1 backdrop-blur sm:-mx-5 sm:px-5 lg:-mx-8 lg:px-8">
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--border)] bg-white p-2.5">
-        {tab === "plan" ? <span className="text-xs font-bold text-[var(--muted)]">خطة شهرية صنف بصنف — مبنية على أسعار الشراء من دفترة وبيعك آخر 6 شهور</span> : <>
+        {NO_RANGE[tab] ? <span className="text-xs font-bold text-[var(--muted)]">{NO_RANGE[tab]}</span> : <>
         <div className="flex flex-wrap gap-1 rounded-xl bg-[var(--bg)] p-1">{PRESETS.map(([l, f], i) => <button key={l} type="button" onClick={() => { setPreset(i); setRange(f()); }} className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition ${preset === i ? "bg-white text-[var(--navy)] shadow-sm" : "text-[var(--muted)] hover:text-[var(--navy)]"}`}>{l}</button>)}</div>
         <div className="flex items-center gap-1 text-xs"><input type="date" value={range[0]} max={range[1]} onChange={e => { setPreset(-1); setRange([e.target.value, range[1]]); }} className="rounded-lg border border-[var(--border)] px-2 py-1.5" /><span className="text-[var(--muted)]">←</span><input type="date" value={range[1]} min={range[0]} onChange={e => { setPreset(-1); setRange([range[0], e.target.value]); }} className="rounded-lg border border-[var(--border)] px-2 py-1.5" /></div>
         </>}
@@ -61,7 +65,7 @@ export default function FinanceHub({ subdomain }: { subdomain: string }) {
           <ExcelBtn href={x("all")} label="تقرير Excel كامل" />
         </div>
       </div>
-      <div className="flex gap-1 overflow-x-auto rounded-2xl border border-[var(--border)] bg-white p-1.5">{TABS.map(([k, l, i]) => <button key={k} type="button" onClick={() => go(k)} className={`flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-[13px] font-bold transition ${tab === k ? "bg-[var(--navy)] text-white shadow" : "text-[var(--muted)] hover:bg-[var(--bg)] hover:text-[var(--navy)]"}`}><Icon name={i} size={16} />{l}{k === "advisor" && d && d.advice.some(a => a.level === "danger") && <span className="h-2 w-2 rounded-full bg-red-500" />}</button>)}</div>
+      <div className="flex gap-1 overflow-x-auto rounded-2xl border border-[var(--border)] bg-white p-1.5">{TABS.map(([k, l, i]) => <button key={k} type="button" onClick={() => go(k)} className={`flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-[13px] font-bold transition ${tab === k ? "bg-[var(--navy)] text-white shadow" : "text-[var(--muted)] hover:bg-[var(--bg)] hover:text-[var(--navy)]"}`}><Icon name={i} size={16} />{l}{k === "advisor" && d && d.advice.some(a => a.level === "danger") && <span className="h-2 w-2 rounded-full bg-red-500" />}{k === "audit" && d?.audit?.open ? <span className={`rounded-full px-1.5 text-[10px] ${tab === k ? "bg-white/20" : d.audit.open_high ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-800"}`}>{d.audit.open}</span> : null}</button>)}</div>
     </div>
     {d?.sync?.ok === false && <div className="rounded-xl bg-red-50 p-3 text-xs text-red-800 ring-1 ring-red-200">آخر تحديث من دفترة فشل: {d.sync.message}</div>}
     {!d ? <div className="grid gap-3 sm:grid-cols-4">{[0, 1, 2, 3, 4, 5, 6, 7].map(i => <div key={i} className="h-28 animate-pulse rounded-2xl bg-white" />)}</div>
@@ -75,6 +79,9 @@ export default function FinanceHub({ subdomain }: { subdomain: string }) {
         {tab === "pnl" && <Pnl d={d} pickMonth={pickMonth} x={x} reload={load} />}
         {tab === "advisor" && <Advisor d={d} go={go} x={x} reload={load} />}
         {tab === "plan" && <Planner />}
+        {tab === "audit" && <AuditTab range={range} subdomain={subdomain} go={go} />}
+        {tab === "goals" && <GoalsTab />}
+        {tab === "cash" && <CashTab go={go} />}
       </div>}
     <p className="flex items-center justify-center gap-1.5 pb-2 text-center text-[11px] text-[var(--muted)]"><Icon name="check" size={13} />القراءة فقط من دفترة — أي تعديل أو تصنيف هنا يتحفظ في الـ CRM بس وما يغيّرش أي حاجة في دفترة.</p>
   </div>;

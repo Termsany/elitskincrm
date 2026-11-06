@@ -5,6 +5,7 @@ import { useToast } from "@/components/Toast";
 import type { FinData, Tab } from "./FinanceHub";
 import { sar, num, pct, short, mLabel, C, Hint, Kpi, Card, ExcelBtn, Bars, MonthChart, Table, Pill, STATUS_PAY, AGE } from "./kit";
 import { GuardAndStock, ClientLinks } from "./guard";
+import { PriceCalc, maxDiscount } from "./pricecalc";
 
 type X = (s: string) => string;
 const LEVEL: Record<string, [string, string, string]> = { danger: ["عاجل", "border-red-200 bg-red-50", "text-red-700"], warn: ["مهم", "border-amber-200 bg-amber-50", "text-amber-800"], good: ["ممتاز", "border-emerald-200 bg-emerald-50", "text-emerald-700"], info: ["للعلم", "border-sky-200 bg-sky-50", "text-sky-800"] };
@@ -170,7 +171,8 @@ export function Pricing({ d, x, reload, subdomain }: { d: FinData; x: X; reload:
   const [gm, setGm] = useState(d.settings.target_gross_margin); const [nm, setNm] = useState(d.settings.target_net_margin);
   const [f, setF] = useState<string | null>(null);
   const opexRatio = d.baseline && d.baseline.sales > 0 ? Math.min(0.6, d.baseline.opex / d.baseline.sales) : 0;
-  const needed = Math.max(gm / 100, opexRatio + nm / 100);
+  // full-cost pricing breaks down when overheads are a huge share of sales — cap it and say why
+  const rawNeeded = opexRatio + nm / 100, needed = Math.max(gm / 100, Math.min(rawNeeded, 0.7));
   const rows = useMemo(() => d.pricing.map(p => ({ ...p, live: p.avg_cost === null ? null : Math.round(p.avg_cost / Math.max(0.1, 1 - needed) * 100) / 100 })), [d.pricing, needed]);
   const counts = rows.reduce<Record<string, number>>((m, p) => { m[p.status] = (m[p.status] || 0) + 1; return m; }, {});
   const shown = f ? rows.filter(p => p.status === f) : rows;
@@ -180,11 +182,13 @@ export function Pricing({ d, x, reload, subdomain }: { d: FinData; x: X; reload:
     <Card title="معادلة التسعير" hint="سعر التعادل = التكلفة ÷ (1 − نسبة المصاريف). السعر المقترح = التكلفة ÷ (1 − الهامش المطلوب). الأسعار كلها قبل الضريبة.">
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <label className="block"><div className="flex justify-between text-xs font-bold"><span>هامش مجمل الربح المستهدف</span><b className="text-[var(--navy)]">{gm}%</b></div><input type="range" min={10} max={80} value={gm} onChange={e => setGm(Number(e.target.value))} className="mt-2 w-full accent-[var(--sky)]" /><div className="text-[11px] text-[var(--muted)]">في التوزيع الطبي والتجميلي، 40–60% طبيعي.</div></label>
-        <label className="block"><div className="flex justify-between text-xs font-bold"><span>صافي الربح المستهدف</span><b className="text-[var(--navy)]">{nm}%</b></div><input type="range" min={0} max={40} value={nm} onChange={e => setNm(Number(e.target.value))} className="mt-2 w-full accent-[var(--sky)]" /><div className="text-[11px] text-[var(--muted)]">مصاريفك التشغيلية = {pct(opexRatio * 100)} من المبيعات (آخر 6 شهور).</div></label>
+        <label className="block"><div className="flex justify-between text-xs font-bold"><span>صافي الربح المستهدف</span><b className="text-[var(--navy)]">{nm}%</b></div><input type="range" min={0} max={40} value={nm} onChange={e => setNm(Number(e.target.value))} className="mt-2 w-full accent-[var(--sky)]" /><div className="text-[11px] text-[var(--muted)]">مصاريفك التشغيلية = {pct(opexRatio * 100)} من المبيعات (متوسط آخر 12 شهر).</div></label>
         <div className="rounded-2xl bg-[var(--sky-light)] p-3 text-[12.5px] leading-6"><div>عشان تحقق الهدفين، كل منتج لازم يتباع بـ <b>تكلفته × {(1 / Math.max(0.1, 1 - needed)).toFixed(2)}</b> على الأقل (هامش {Math.round(needed * 100)}%).</div>
+          {rawNeeded > 0.7 && <div className="mt-1 text-[11.5px] text-amber-900">مصاريفك = {pct(opexRatio * 100)} من المبيعات، فلو حمّلتها كلها على السعر هتطلع أسعار مش منافسة. الحل الأساسي: زوّد حجم المبيعات أو قلّل المصاريف (شوف تبويب الأهداف) — وارفع الأسعار بس للمنتجات اللي هامشها تحت {gm}%.</div>}
           {(gm !== d.settings.target_gross_margin || nm !== d.settings.target_net_margin) && <button type="button" onClick={() => void save()} className="mt-2 rounded-xl bg-[var(--navy)] px-3 py-1.5 text-xs font-bold text-white">احفظ كأهداف ثابتة</button>}</div>
       </div>
     </Card>
+    <PriceCalc d={d} needed={needed} opexRatio={opexRatio} />
     <GuardAndStock d={d} subdomain={subdomain} />
     <div className="flex flex-wrap items-center gap-1.5">
       <button type="button" onClick={() => setF(null)} className={`rounded-full px-3 py-1.5 text-xs font-bold ${!f ? "bg-[var(--navy)] text-white" : "bg-white ring-1 ring-[var(--border)]"}`}>الكل ({rows.length})</button>
@@ -200,6 +204,7 @@ export function Pricing({ d, x, reload, subdomain }: { d: FinData; x: X; reload:
         { key: "breakeven_price", label: "سعر التعادل", hint: "أقل سعر يغطي تكلفة المنتج ونصيبه من مصاريف الشركة — تحت كده بتخسر.", render: r => sar(r.breakeven_price, 2) },
         { key: "live", label: "السعر المقترح", hint: "السعر اللي يحقق هوامش الربح اللي حددتها فوق.", render: r => r.live === null ? "—" : <b className="text-[var(--sky-deep)]">{sar(r.live, 0)}</b> },
         { key: "list_price", label: "سعر القائمة", render: r => r.list_price ? sar(r.list_price) : "—" },
+        { key: "maxdisc", label: "أقصى خصم", hint: "أكبر خصم المندوب يقدر يديه من سعر القائمة وانت لسه بتحقق الهامش المستهدف. الرقم الصغير تحته = أقصى خصم قبل ما تبيع بأقل من التكلفة.", value: r => maxDiscount(r.list_price, r.live), render: r => { const t = maxDiscount(r.list_price, r.live), l = maxDiscount(r.list_price, r.avg_cost); return t === null ? "—" : <span><b className={t <= 0 ? "text-red-700" : t < 10 ? "text-amber-700" : "text-emerald-700"}>{pct(t)}</b>{l !== null && <span className="block text-[10px] text-[var(--muted)]">خسارة بعد {pct(l)}</span>}</span>; } },
         { key: "qty_sold", label: "مباع", render: r => num(r.qty_sold) }, { key: "gross", label: "الربح", render: r => <span className={r.gross < 0 ? "text-red-700" : ""}>{sar(r.gross)}</span> },
         { key: "stock", label: "المخزون", render: r => r.stock ? <span title={r.stock_value ? sar(r.stock_value) : ""}>{num(r.stock)}</span> : "—" },
         { key: "status", label: "الحالة", render: r => <Pill text={PSTAT[r.status][0]} cls={PSTAT[r.status][1]} /> },
@@ -226,6 +231,11 @@ export function Pnl({ d, pickMonth, x, reload }: { d: FinData; pickMonth: (m: st
   const tot = d.monthly.reduce<Tot>((s, m) => ({ sales: s.sales + Number(m.sales), cogs: s.cogs + Number(m.cogs), gross: s.gross + Number(m.gross), opex: s.opex + Number(m.opex), other: s.other + Number(m.other), net: s.net + Number(m.net) }), { sales: 0, cogs: 0, gross: 0, opex: 0, other: 0, net: 0 });
   const avgOpex = d.baseline?.opex || 0;
   return <div className="space-y-4">
+    {d.kpi.marketing > 0 && <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <Kpi label="صافي الربح (الحقيقي)" value={sar(d.kpi.net)} sub={d.kpi.net_margin === null ? "" : `${pct(d.kpi.net_margin)} من المبيعات — بعد كل المصروفات`} icon="wallet" tone={d.kpi.net < 0 ? "bad" : "good"} hint="المبيعات − تكلفة البضاعة − كل المصروفات التشغيلية بما فيها التسويق والفعاليات." />
+      <Kpi label="منها تسويق وفعاليات" value={sar(d.kpi.marketing)} sub={d.kpi.sales ? `${pct(d.kpi.marketing / d.kpi.sales * 100)} من المبيعات` : ""} icon="events" color={C.violet} hint="مصروفات حسابات التسويق والدعاية والفعاليات في دفترة. بتتحسب مصروف تشغيلي — ده المعيار المحاسبي الصحيح." />
+      <Kpi label="الربح قبل التسويق" value={sar(d.kpi.net_before_marketing)} sub="عشان تعرف التسويق بياخد قد إيه من ربحك" icon="coverage" color={C.teal} tone={d.kpi.net_before_marketing < 0 ? "bad" : undefined} />
+    </div>}
     <Card title="قائمة الدخل شهر بشهر" hint="المبيعات − تكلفة البضاعة = مجمل الربح. مجمل الربح − المصروفات + إيرادات أخرى = صافي الربح." right={<ExcelBtn href={x("pnl")} label="الأرباح والمصروفات Excel" />}>
       <MonthChart data={d.monthly} series={[{ key: "gross", label: "مجمل ربح", color: C.teal }, { key: "opex", label: "مصروفات", color: C.orange }, { key: "net", label: "صافي ربح", color: C.green }]} onPick={pickMonth} height={170} />
       <div className="-mx-4 mt-4 overflow-x-auto px-4"><table className="w-full min-w-[720px] text-sm"><thead className="bg-[var(--bg)] text-xs text-[var(--muted)]"><tr><th className="p-2.5 text-right">الشهر</th><th className="p-2.5">المبيعات</th><th className="p-2.5">تكلفة البضاعة</th><th className="p-2.5">مجمل الربح</th><th className="p-2.5">المصروفات</th><th className="p-2.5">إيرادات أخرى</th><th className="p-2.5">صافي الربح</th><th className="p-2.5">الهامش</th></tr></thead>
@@ -312,8 +322,8 @@ export function Advisor({ d, go, x, reload }: { d: FinData; go: (t: Tab) => void
       <span className="min-w-0 flex-1"><b className="block text-[15px]">خطّط الشهر الجاي صنف بصنف</b><span className="text-xs text-white/80">اكتب الرواتب والمصاريف وسعر بيع كل صنف — وأنا أقولك تبيع كام حبة من كل صنف، وكام هتكسب، وتقارن بالفعلي.</span></span>
       <span className="rounded-xl bg-white px-3 py-2 text-xs font-extrabold text-[var(--navy)]">افتح خطة الشهر ‹</span>
     </button>
-    <Card title="هدف المبيعات والمصاريف المسموحة" hint="الأرقام مبنية على متوسط آخر 6 شهور كاملة. حرّك المؤشرات وشوف النتيجة فوراً." right={<ExcelBtn href={x("advisor")} label="تقرير التخطيط Excel" />}>
-      {!B ? <div className="text-sm text-[var(--muted)]">محتاج بيانات 6 شهور على الأقل.</div> : <>
+    <Card title="هدف المبيعات والمصاريف المسموحة" hint="الأرقام مبنية على متوسط آخر 12 شهر كاملين (مبيعاتك بتتفاوت من شهر لشهر، فالسنة أدق من 6 شهور). حرّك المؤشرات وشوف النتيجة فوراً." right={<ExcelBtn href={x("advisor")} label="تقرير التخطيط Excel" />}>
+      {!B ? <div className="text-sm text-[var(--muted)]">محتاج بيانات 3 شهور على الأقل.</div> : <>
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <label className="block"><div className="flex justify-between text-xs font-bold"><span>صافي الربح اللي عايزه</span><b className="text-[var(--navy)]">{nm}%</b></div><input type="range" min={0} max={35} value={nm} onChange={e => setNm(Number(e.target.value))} className="mt-2 w-full accent-[var(--sky)]" /></label>
           <label className="block"><div className="flex justify-between text-xs font-bold"><span>المصاريف الثابتة شهرياً<Hint text={d.plan.fixed_source === "planned" ? "من المصروفات الثابتة اللي ضفتها في تبويب الأرباح." : "متوسط مصروفاتك الفعلية من دفترة — ضيف مصروفاتك الثابتة في تبويب الأرباح لدقة أكبر."} /></span><b className="text-[var(--navy)]">{sar(fixed)}</b></div><input type="range" min={0} max={Math.max(50000, d.plan.monthly_fixed * 2)} step={500} value={fixed} onChange={e => setFixed(Number(e.target.value))} className="mt-2 w-full accent-[var(--sky)]" /></label>
