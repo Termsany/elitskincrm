@@ -12,7 +12,12 @@ export type Entry = { id: number; kind: "expense" | "income"; date: string; amou
 export type Account = { id: number; code: string; name: string };
 export type Treatment = "opex" | "cogs" | "exclude";
 export type Fixed = { id: string; name: string; category: string; monthly_amount: number; start_month: string; end_month: string | null; notes: string };
-export type Settings = { target_gross_margin: number; target_net_margin: number };
+export type Settings = { target_gross_margin: number; target_net_margin: number; books_start?: string | null };
+/** P&L, advice and audits only count from the books start date; receivables/payables keep every open document. */
+export function clampRange(inp: Pick<Input, "settings">, from: string, to: string): [string, string] {
+  const st = inp.settings.books_start || "";
+  return [st && from < st ? st : from, to];
+}
 export type Input = { sales: Doc[]; purchases: Doc[]; products: Product[]; payments: Payment[]; entries: Entry[]; accounts: Account[]; overrides: Record<number, Treatment>; fixed: Fixed[]; settings: Settings; today: string };
 
 /* ───────────────────────── helpers ───────────────────────── */
@@ -59,7 +64,8 @@ export function costBasis(purchases: Doc[], products: Product[], upTo: string) {
 }
 
 /* ───────────────────────── Main engine ───────────────────────── */
-export function computeFinance(inp: Input, from: string, to: string) {
+export function computeFinance(inp: Input, from0: string, to: string) {
+  const [from] = clampRange(inp, from0, to), booksStart = inp.settings.books_start || null;
   const inR = (d: string) => d >= from && d <= to;
   const months = monthsBetween(from, to);
   const accById = new Map(inp.accounts.map(a => [a.id, a]));
@@ -149,10 +155,17 @@ export function computeFinance(inp: Input, from: string, to: string) {
   // ── advisor baseline: last 12 complete months (sales are lumpy B2B — 6 months swings too much),
   //    trimmed to the first month the business has sales (stable regardless of the page filter)
   const curM = month(inp.today);
-  const firstM = inp.sales.reduce((m, d) => d.date && month(d.date) < m ? month(d.date) : m, curM);
-  const base = monthsBetween(shiftMonth(curM, -12), shiftMonth(curM, -1)).filter(m => m >= firstM);
+  const firstSale = inp.sales.reduce((m, d) => d.date && month(d.date) < m ? month(d.date) : m, curM);
+  const firstM = booksStart && month(booksStart) > firstSale ? month(booksStart) : firstSale;
+  let base = monthsBetween(shiftMonth(curM, -12), shiftMonth(curM, -1)).filter(m => m >= firstM);
   const baseFrom = `${base[0]}-01`, baseTo = addDays(`${curM}-01`, -1);
-  const B = base.length >= 3 && baseFrom <= baseTo ? computeCore(inp, baseFrom, baseTo) : null;
+  // with a books start date one closed month is enough; before that, a provisional month-to-date average (≥ 7 days)
+  let B = base.length >= (booksStart ? 1 : 3) && baseFrom <= baseTo ? computeCore(inp, baseFrom < (booksStart || "") ? booksStart! : baseFrom, baseTo) : null;
+  let provisional = false;
+  if (!B && booksStart && booksStart <= inp.today) {
+    const days = daysBetween(booksStart, inp.today) + 1;
+    if (days >= 7) { B = computeCore(inp, booksStart, inp.today, days / 30.44); base = [curM]; provisional = true; }
+  }
 
   // ── products & pricing
   const lastSale = new Map<string, string>();
@@ -216,15 +229,15 @@ export function computeFinance(inp: Input, from: string, to: string) {
     entries: entries.sort((a, b) => b.date.localeCompare(a.date)),
     sales: sales.map(d => ({ id: d.id, no: d.no, date: d.date, party: d.party, city: d.city, branch: d.branch, status: d.payment_status, net: r2(d.net * keep(d)), tax: d.tax, total: d.total, paid: d.paid, unpaid: d.unpaid, refund: d.refund })).sort((a, b) => b.date.localeCompare(a.date)),
     purchases: purchases.map(d => ({ id: d.id, no: d.no, date: d.date, party: d.party, status: d.payment_status, net: r2(d.net * keep(d)), tax: d.tax, total: d.total, paid: d.paid, unpaid: d.unpaid })).sort((a, b) => b.date.localeCompare(a.date)),
-    pricing, price_guard, stock_alerts, fixed: inp.fixed, fixed_monthly: r2(fixedMonthly), settings: inp.settings, baseline: B && { ...B, months: base }, plan, advice,
+    pricing, price_guard, stock_alerts, fixed: inp.fixed, fixed_monthly: r2(fixedMonthly), settings: inp.settings, baseline: B && { ...B, months: base, provisional }, books_start: booksStart, plan, advice,
   };
 }
 
 function shiftMonth(m: string, n: number) { let [y, mo] = m.split("-").map(Number); mo += n; while (mo < 1) { mo += 12; y--; } while (mo > 12) { mo -= 12; y++; } return `${y}-${String(mo).padStart(2, "0")}`; }
 
 /** Monthly averages over a window (used for the advisor baseline). */
-function computeCore(inp: Input, from: string, to: string) {
-  const inR = (d: string) => d >= from && d <= to; const n = monthsBetween(from, to).length || 1;
+function computeCore(inp: Input, from: string, to: string, monthsOverride?: number) {
+  const inR = (d: string) => d >= from && d <= to; const n = monthsOverride || monthsBetween(from, to).length || 1;
   const cb = costBasis(inp.purchases, inp.products, to); const accById = new Map(inp.accounts.map(a => [a.id, a]));
   let sales = 0, salesGross = 0, cogs = 0, opex = 0, other = 0;
   for (const d of inp.sales) if (inR(d.date)) { const f = keep(d); sales += d.net * f; salesGross += d.total * f; for (const l of d.lines) { const u = cb.cost(l); if (u !== null) cogs += l.quantity * f * u; } }
@@ -263,7 +276,7 @@ export function stockCover(stock: number, sold90: number, active = true) {
 const fmt = (n: number) => `${Math.round(n).toLocaleString("en-US")} ر.س`;
 function adviseAll(a: { monthly: Array<{ m: string; sales: number; opex: number }>; price_guard: { lines: Array<{ item: string; below_cost: boolean }>; below_cost: number; below_breakeven: number; lost: number; real_loss: number }; stock_alerts: Array<{ name: string; stock_status: string; months_cover: number | null; reorder_qty: number }>; B: ReturnType<typeof computeCore> | null; plan: ReturnType<typeof planning>; ar: { total: number; overdue: number; buckets: Record<string, number>; parties: Array<{ name: string; unpaid: number; oldestDue: number }> }; ap: { total: number; overdue: number }; pricing: Array<{ name: string; status: string; realized_price: number | null; avg_cost: number | null; suggested_price: number | null; qty_sold: number; stock_value: number | null; breakeven_price: number | null }>; clients: Array<{ name: string; net: number }>; salesNet: number; inp: Input; opexRatio: number; coverage: number; entries: Array<{ treatment: string; account: string; amount: number }> }): Advice[] {
   const out: Advice[] = []; const { B, plan } = a;
-  const gaps = a.monthly.filter(m => m.sales > 0 && m.opex <= 0).map(m => m.m);
+  const gaps = a.monthly.filter(m => m.m < a.inp.today.slice(0, 7) && m.sales > 0 && m.opex <= 0).map(m => m.m); // closed months only
   if (gaps.length) out.push({ level: "warn", title: `${gaps.length} شهر فيهم مبيعات ومفيش مصروفات متسجلة`, text: `${gaps.join("، ")} — غالباً الرواتب والإيجار ما اتسجلوش في دفترة الشهور دي، فالربح فيها ظاهر أعلى من الحقيقة. سجّل المصروفات كل شهر في نفس الشهر.`, tab: "audit" });
   if (plan.fixed_planned > 0 && plan.fixed_source === "actual") out.push({ level: "info", title: `المصاريف الثابتة اللي سجلتها (${fmt(plan.fixed_planned)}) أقل بكتير من مصروفك الفعلي`, text: `متوسط مصروفك الشهري الفعلي في دفترة ${fmt(plan.monthly_fixed)}، فحسبت الأهداف عليه عشان ما تتفاجئش. كمّل قائمة المصاريف الثابتة (رواتب، إيجار، تسويق…) وأنا هعتمدها.`, tab: "pnl" });
   if (B && B.sales > 0) {
@@ -313,7 +326,7 @@ export async function loadInput(today: string): Promise<Input> {
     query("SELECT id, code, name FROM daftra_accounts"),
     query("SELECT account_id, treatment FROM fin_account_overrides"),
     query("SELECT id, name, category, monthly_amount::float8, start_month::text, end_month::text, notes FROM fin_fixed_expenses ORDER BY monthly_amount DESC"),
-    query("SELECT target_gross_margin::float8, target_net_margin::float8 FROM fin_settings WHERE id=1"),
+    query("SELECT target_gross_margin::float8, target_net_margin::float8, books_start::text FROM fin_settings WHERE id=1"),
   ]);
   return { sales, purchases,
     products: (products.rows as Product[]).map(p => ({ ...p, id: Number(p.id) })),

@@ -53,8 +53,8 @@ export function GoalsTab() {
     {!d.goals && <div className="flex flex-wrap items-start gap-3 rounded-2xl border border-sky-200 bg-sky-50 p-4 text-[12.5px] leading-6 text-sky-950">
       <span className="text-sky-700"><Icon name="sparkle" size={20} /></span>
       <div className="min-w-0 flex-1"><b className="block text-sm">اقتراحي لأهداف {year} (لسه ما اتحفظتش)</b>
-        آخر {b.months} شهر: مبيعاتك بمعدل <b>{sar(b.annual_sales)}</b> في السنة، هامش مجمل ربح <b>{pct(b.gross_margin)}</b>، ومصاريف تشغيل <b>{sar(b.opex_month)}</b> في الشهر{b.fixed_month ? <> (الثابتة اللي مسجلها {sar(b.fixed_month)})</> : null}. يعني <b>نقطة التعادل السنوية {sar(b.break_even_annual)}</b> — تحتها الشركة بتخسر.
-        اقترحت نمو 20% (ولحد 40% لو ده يقرّبك من التعادل) — أكتر من كده مش واقعي من المبيعات لوحدها، والباقي لازم ييجي من المصاريف أو الأسعار. عدّل اللي انت شايفه واحفظ.</div>
+        {b.annual_sales <= 0 ? <>لسه مفيش أرقام كفاية من بداية الحسابات ({b.books_start || "—"}) عشان أبني عليها — المتوسط بيتحسب بعد أسبوع. حطيت لك هدف مبدئي = <b>نقطة التعادل {sar(b.break_even_annual)}</b> على مصاريف {sar(Math.max(b.fixed_month, b.opex_month))} في الشهر وهامش {pct(b.gross_margin)}. ارجع للتبويب ده بعد ما أول شهر يقفل وهتلاقي اقتراح مبني على أرقامك.</> : <>{b.provisional ? <>من أول {b.books_start} (أرقام تقديرية لحد ما الشهر يقفل): مبيعاتك بمعدل</> : <>{b.books_start ? `من ${b.books_start} (${b.months} شهر)` : `آخر ${b.months} شهر`}: مبيعاتك بمعدل</>} <b>{sar(b.annual_sales)}</b> في السنة، هامش مجمل ربح <b>{pct(b.gross_margin)}</b>، ومصاريف تشغيل <b>{sar(b.opex_month)}</b> في الشهر{b.fixed_month ? <> (الثابتة اللي مسجلها {sar(b.fixed_month)})</> : null}. يعني <b>نقطة التعادل السنوية {sar(b.break_even_annual)}</b> — تحتها الشركة بتخسر.
+        اقترحت نمو 20% (ولحد 40% لو ده يقرّبك من التعادل) — أكتر من كده مش واقعي من المبيعات لوحدها، والباقي لازم ييجي من المصاريف أو الأسعار. عدّل اللي انت شايفه واحفظ.</>}</div>
     </div>}
 
     <Card title={`أهداف ${year}`} hint="كل الأرقام قبل الضريبة إلا التحصيل (بيتحسب على الفاتورة شاملة الضريبة). الأهداف بتتوزع على الشهور، وبعدين بقارنها بالفعلي من دفترة كل شهر."
@@ -96,13 +96,13 @@ export function GoalsTab() {
       <Card title="المستهدف والفعلي شهر بشهر">
         <MonthChart data={sc.rows.map(r => ({ m: `${year}-${String(r.month).padStart(2, "0")}`, target: r.target.sales, actual: r.actual.sales }))} series={[{ key: "target", label: "المستهدف", color: "#c9d6d8" }, { key: "actual", label: "الفعلي", color: C.teal }]} />
         <div className="mt-4"><Table rows={sc.rows.map(r => ({ ...r, key: String(r.month) }))} rowKey={r => r.key} max={12} cols={[
-          { key: "month", label: "الشهر", className: "text-right font-bold", render: r => <>{MONTHS[r.month - 1]}{r.state === "current" && <span className="mr-1 rounded-full bg-sky-100 px-1.5 text-[10px] text-sky-800">الحالي</span>}</> },
+          { key: "month", label: "الشهر", className: "text-right font-bold", render: r => <>{MONTHS[r.month - 1]}{r.state === "current" && <span className="mr-1 rounded-full bg-sky-100 px-1.5 text-[10px] text-sky-800">الحالي</span>}{r.state === "excluded" && <span className="mr-1 text-[10px] font-normal text-[var(--muted)]">(قبل بداية الحسابات)</span>}</> },
           { key: "ts", label: "مبيعات مستهدفة", value: r => r.target.sales, render: r => sar(r.target.sales) },
-          { key: "as", label: "مبيعات فعلية", value: r => r.actual.sales, render: r => r.state === "future" ? "—" : sar(r.actual.sales) },
-          { key: "pct", label: "نسبة التحقيق", render: r => r.state === "future" || r.pct === null ? "—" : <b className={r.pct >= 100 ? "text-emerald-700" : r.pct >= 80 ? "text-amber-700" : "text-red-700"}>{pct(r.pct)}</b> },
+          { key: "as", label: "مبيعات فعلية", value: r => r.actual.sales, render: r => (r.state === "future" || r.state === "excluded") ? "—" : sar(r.actual.sales) },
+          { key: "pct", label: "نسبة التحقيق", render: r => (r.state === "future" || r.state === "excluded") || r.pct === null ? "—" : <b className={r.pct >= 100 ? "text-emerald-700" : r.pct >= 80 ? "text-amber-700" : "text-red-700"}>{pct(r.pct)}</b> },
           { key: "tn", label: "ربح مستهدف", value: r => r.target.net, render: r => sar(r.target.net) },
-          { key: "an", label: "ربح فعلي", value: r => r.actual.net, render: r => r.state === "future" ? "—" : <span className={r.actual.net < 0 ? "text-red-700" : ""}>{sar(r.actual.net)}</span> },
-          { key: "ac", label: "تحصيل فعلي", value: r => r.actual.collected, render: r => r.state === "future" ? "—" : sar(r.actual.collected) },
+          { key: "an", label: "ربح فعلي", value: r => r.actual.net, render: r => (r.state === "future" || r.state === "excluded") ? "—" : <span className={r.actual.net < 0 ? "text-red-700" : ""}>{sar(r.actual.net)}</span> },
+          { key: "ac", label: "تحصيل فعلي", value: r => r.actual.collected, render: r => (r.state === "future" || r.state === "excluded") ? "—" : sar(r.actual.collected) },
         ]} /></div>
       </Card>
     </> : <Card><p className="text-center text-sm text-[var(--muted)]">احفظ الأهداف فوق، وهتابع معاك هنا المحقق مقابل المستهدف كل شهر، وتوقع آخر الشهر، والمطلوب يومياً.</p></Card>}

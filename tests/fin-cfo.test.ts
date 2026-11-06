@@ -104,3 +104,27 @@ describe("price calculator", () => {
     expect(maxDiscount(200, 150)).toBe(25); expect(maxDiscount(100, 120)).toBe(0); expect(maxDiscount(null, 10)).toBeNull();
   });
 });
+
+describe("books start date", () => {
+  const s = { target_gross_margin: 45, target_net_margin: 15, books_start: "2026-11-01" };
+  const inp = base({ today: "2026-11-10", settings: s, sales: [
+    doc({ id: 1, no: "1", date: "2026-08-01", net: 50_000, total: 57_500, tax: 7500, paid: 0, unpaid: 57_500, payment_status: 0, due_days: 30 }),
+    doc({ id: 2, no: "2", date: "2026-11-03", net: 10_000, total: 11_500, tax: 1500, paid: 11_500 }),
+  ] });
+  const fin = computeFinance(inp, "2025-11-01", "2026-11-10");
+  it("counts profit only from the start date but keeps older open invoices in receivables", () => {
+    expect(fin.period.from).toBe("2026-11-01"); expect(fin.kpi.sales).toBe(10_000); expect(fin.kpi.invoices).toBe(1);
+    expect(fin.ar.total).toBe(57_500); expect(fin.books_start).toBe("2026-11-01");
+  });
+  it("uses a provisional month-to-date baseline after a week", () => {
+    expect(fin.baseline?.provisional).toBe(true);
+    expect(fin.baseline?.sales).toBeCloseTo(10_000 / (10 / 30.44), 0);
+    expect(computeFinance({ ...inp, today: "2026-11-04" }, "2026-11-01", "2026-11-04").baseline).toBeNull();
+  });
+  it("leaves months before the start out of goal tracking", () => {
+    const g: Goals = { sales: 1_200_000, gross_margin: 50, opex_month: 40_000, collection_rate: 90, dso_days: 60, weights: Array(12).fill(1 / 12) };
+    const sc = scorecard(g, 2026, computeFinance(inp, "2026-01-01", "2026-12-31"), "2026-12-15");
+    expect(sc.rows[7].state).toBe("excluded"); expect(sc.rows[10].state).toBe("closed");
+    expect(sc.ytd.months).toBe(1); expect(sc.ytd.sales.target).toBe(100_000); expect(sc.ytd.sales.actual).toBe(10_000);
+  });
+});

@@ -32,17 +32,21 @@ export function validateGoals(g: Partial<Goals>): string | null {
 
 /** What the last 12 months say, and a realistic stretch target built on them. */
 export function suggestGoals(last12: Fin, fixedMonthly: number, targetGross: number) {
-  const months = last12.monthly.filter(m => Number(m.sales) > 0 || Number(m.opex) > 0).length || 1;
-  const annual = last12.kpi.sales / months * 12;
-  const gm = last12.kpi.sales > 0 ? last12.kpi.gross / last12.kpi.sales * 100 : 45;
-  const opex = Math.max(fixedMonthly, last12.kpi.opex / months);
+  // prefer the advisor baseline (respects the books start date, prorates a partial first month)
+  const Bs = last12.baseline;
+  const months = Bs ? Bs.months_count : last12.monthly.filter(m => Number(m.sales) > 0 || Number(m.opex) > 0).length || 1;
+  const annual = Bs ? Bs.sales * 12 : last12.kpi.sales / months * 12;
+  const gm = Bs ? (Bs.sales > 0 ? Bs.gross / Bs.sales * 100 : 45) : last12.kpi.sales > 0 ? last12.kpi.gross / last12.kpi.sales * 100 : 45;
+  const opexAvg = Bs ? Bs.opex : last12.kpi.opex / months;
+  const opex = Math.max(fixedMonthly, opexAvg);
   const gmTarget = Math.min(Math.max(r0(gm), 40), Math.max(r0(targetGross), r0(gm)));
   const breakEvenAnnual = gmTarget > 0 ? opex * 12 / (gmTarget / 100) : 0;
   // grow 20%; reach for break-even + 10% when it's within a 40% jump — beyond that a sales target alone
   // isn't credible, and the plan says so (the gap has to come from costs or prices too)
-  const sales = roundTo(Math.max(annual * 1.2, Math.min(breakEvenAnnual * 1.1, annual * 1.4)), 10000);
+  // no sales history yet (books just started): start from break-even until there's data
+  const sales = roundTo(annual > 0 ? Math.max(annual * 1.2, Math.min(breakEvenAnnual * 1.1, annual * 1.4)) : breakEvenAnnual, 10000) || 10000;
   const goals: Goals = { sales, gross_margin: gmTarget, opex_month: roundTo(opex, 1000), collection_rate: 85, dso_days: 60, weights: Array(12).fill(1 / 12) };
-  return { goals, basis: { months, annual_sales: r0(annual), gross_margin: r1(gm), opex_month: r0(last12.kpi.opex / months), fixed_month: r0(fixedMonthly), net: r0(last12.kpi.net), break_even_annual: r0(breakEvenAnnual) } };
+  return { goals, basis: { months: r1(months), provisional: !!Bs?.provisional, books_start: last12.books_start ?? null, annual_sales: r0(annual), gross_margin: r1(gm), opex_month: r0(opexAvg), fixed_month: r0(fixedMonthly), net: r0(last12.kpi.net), break_even_annual: r0(breakEvenAnnual) } };
 }
 
 /** Seasonal weights from a past year's monthly sales (falls back to equal when the year is thin). */
@@ -68,15 +72,17 @@ export function scorecard(g: Goals, year: number, fin: Fin, today: string) {
   const plan = planOf(g);
   const curY = Number(today.slice(0, 4)), curM = Number(today.slice(5, 7));
   const lastClosed = year < curY ? 12 : year > curY ? 0 : curM - 1;  // complete months in the year
+  // months before the books start date aren't tracked (P&L only counts from there)
+  const bs = fin.books_start, firstIn = !bs ? 1 : year > Number(bs.slice(0, 4)) ? 1 : year < Number(bs.slice(0, 4)) ? 13 : Number(bs.slice(5, 7));
   const byM = new Map(fin.monthly.map(m => [Number(String(m.m).slice(5, 7)), m]));
   const rows = plan.months.map((p, i) => {
     const a = byM.get(i + 1); const sales = Number(a?.sales || 0), gross = Number(a?.gross || 0), opex = Number(a?.opex || 0), net = Number(a?.net || 0), collected = Number(a?.collected || 0);
-    const state = i + 1 <= lastClosed ? "closed" : year === curY && i + 1 === curM ? "current" : "future";
+    const state = i + 1 < firstIn ? "excluded" : i + 1 <= lastClosed ? "closed" : year === curY && i + 1 === curM ? "current" : "future";
     return { month: i + 1, state, target: p, actual: { sales: r0(sales), gross: r0(gross), opex: r0(opex), net: r0(net), collected: r0(collected) }, pct: p.sales ? r1(sales / p.sales * 100) : null };
   });
-  const sum = (k: "sales" | "gross" | "opex" | "net" | "collected", which: "actual" | "target", upto: number) => rows.filter(r => r.month <= upto).reduce((s, r) => s + Number(which === "actual" ? r.actual[k] : (r.target as Record<string, number>)[k === "collected" ? "collect" : k]), 0);
+  const sum = (k: "sales" | "gross" | "opex" | "net" | "collected", which: "actual" | "target", upto: number) => rows.filter(r => r.month <= upto && r.month >= firstIn).reduce((s, r) => s + Number(which === "actual" ? r.actual[k] : (r.target as Record<string, number>)[k === "collected" ? "collect" : k]), 0);
   const ytdTo = Math.max(lastClosed, 0);
-  const ytd = { months: ytdTo,
+  const ytd = { months: Math.max(0, ytdTo - firstIn + 1),
     sales: { target: r0(sum("sales", "target", ytdTo)), actual: r0(sum("sales", "actual", ytdTo)) },
     gross: { target: r0(sum("gross", "target", ytdTo)), actual: r0(sum("gross", "actual", ytdTo)) },
     opex: { target: r0(sum("opex", "target", ytdTo)), actual: r0(sum("opex", "actual", ytdTo)) },
@@ -89,7 +95,7 @@ export function scorecard(g: Goals, year: number, fin: Fin, today: string) {
     current = { month: curM, day, days, sales: r.actual.sales, projected: r0(projected), target: r.target.sales, pct: r.target.sales ? r1(projected / r.target.sales * 100) : null, needed_per_day: r0(Math.max(0, r.target.sales - r.actual.sales) / Math.max(1, days - day + 1)) };
   }
   const yearActual = r0(sum("sales", "actual", 12));
-  const runRate = ytdTo > 0 ? r0(ytd.sales.actual / ytdTo * 12) : null;
+  const runRate = ytd.months > 0 ? r0(ytd.sales.actual / ytd.months * 12) : null;
   const gm = ytd.sales.actual > 0 ? r1(ytd.gross.actual / ytd.sales.actual * 100) : null;
   const dso = fin.baseline && fin.baseline.sales_gross > 0 ? r0(fin.kpi.ar / fin.baseline.sales_gross * 30) : null;
   return { plan, rows, ytd, current, year_actual: yearActual, run_rate: runRate, gross_margin_actual: gm, dso };

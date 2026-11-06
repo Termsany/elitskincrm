@@ -101,7 +101,7 @@ export function runAudit(inp: Input, fin: ReturnType<typeof computeFinance>, dis
   add({ id: "no_opex", severity: "medium", title: "شهور فيها مبيعات ومفيش مصروفات متسجلة",
     why: "الرواتب والإيجار بيتصرفوا كل شهر. لو ما اتسجلوش في شهرهم، الشهر ده يبان كسبان أكتر من الحقيقة وشهر تاني يبان خسران.",
     fix: "سجّل المصروفات في دفترة بتاريخ الشهر اللي تخصه، حتى لو اتدفعت بعدين." },
-    fin.monthly.filter(m => Number(m.sales) > 0 && Number(m.opex) <= 0).map(m => ({ key: `noopex:${m.m}`, title: String(m.m), detail: `مبيعات ${m.sales} ر.س ومصروفات صفر`, amount: null, date: `${m.m}-01`, link: { kind: "tab", tab: "pnl" } as Link })));
+    fin.monthly.filter(m => String(m.m) < inp.today.slice(0, 7) && Number(m.sales) > 0 && Number(m.opex) <= 0).map(m => ({ key: `noopex:${m.m}`, title: String(m.m), detail: `مبيعات ${m.sales} ر.س ومصروفات صفر`, amount: null, date: `${m.m}-01`, link: { kind: "tab", tab: "pnl" } as Link })));
 
   // 12. expenses without an account
   const entries = inp.entries.filter(e => e.kind === "expense" && inR(e.date));

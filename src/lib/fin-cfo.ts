@@ -1,5 +1,5 @@
 import { query } from "@/lib/db";
-import { computeFinance, type Input } from "@/lib/finance";
+import { clampRange, computeFinance, type Input } from "@/lib/finance";
 import { auditScore, runAudit, type Check, type DiscountLine } from "@/lib/fin-audit";
 import { normWeights, scorecard, type Goals } from "@/lib/fin-goals";
 
@@ -9,7 +9,8 @@ export async function loadDiscounts(): Promise<DiscountLine[]> {
   return r.rows.map(x => ({ invoice_id: Number(x.invoice_id), item: x.item, discount: x.discount, net: x.net }));
 }
 
-export async function auditWithReviews(inp: Input, fin: ReturnType<typeof computeFinance>, from: string, to: string) {
+export async function auditWithReviews(inp: Input, fin: ReturnType<typeof computeFinance>, from0: string, to0: string) {
+  const [from, to] = clampRange(inp, from0, to0);
   const [disc, rev] = await Promise.all([loadDiscounts(), query<{ key: string; status: string; note: string; reviewed_at: string }>("SELECT key, status, note, reviewed_at::text FROM fin_audit_reviews")]);
   const reviews = new Map(rev.rows.map(r => [r.key, r]));
   const checks: Check[] = runAudit(inp, fin, disc, from, to).map(c => ({ ...c, findings: c.findings.map(f => { const r = reviews.get(f.key); return { ...f, review: r ? { status: r.status, note: r.note, at: r.reviewed_at } : null }; }) }));
@@ -30,7 +31,7 @@ export async function cfoAdvice(inp: Input, fin: ReturnType<typeof computeFinanc
   else if (a.open) out.push({ level: "info", title: `مراجعة الحسابات: ${a.open} ملاحظة للمراجعة`, text: `درجة سلامة الحسابات ${a.score}/100.`, tab: "audit" });
   const year = Number(inp.today.slice(0, 4));
   const g = await loadGoals(year);
-  if (!g) out.push({ level: "info", title: `لسه ما حطيتش أهداف ${year}`, text: "من تبويب الأهداف السنوية هقترح عليك أهداف واقعية مبنية على آخر 12 شهر، وأتابعها معاك شهر بشهر.", tab: "goals" });
+  if (!g) out.push({ level: "info", title: `لسه ما حطيتش أهداف ${year}`, text: "من تبويب الأهداف السنوية هقترح عليك أهداف واقعية مبنية على أرقامك من بداية الحسابات، وأتابعها معاك شهر بشهر.", tab: "goals" });
   else {
     const yFin = computeFinance(inp, `${year}-01-01`, `${year}-12-31`);
     const sc = scorecard(g, year, yFin, inp.today);
