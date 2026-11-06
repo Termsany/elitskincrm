@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import RepVisitsModal from "../visits/RepVisitsModal";
+import { PURPOSE_LABELS } from "@/lib/visit-entry";
 
 type Opt = { id: string; name: string };
 type ColType = "text" | "int" | "money" | "pct" | "date" | "datetime" | "time" | "status" | "reaction" | "approval" | "purpose";
@@ -16,7 +17,7 @@ const GROUPS: Array<[string, string]> = [["activity", "النشاط والزيا
 const STATUS: Record<string, [string, string]> = { completed: ["مكتملة", "bg-emerald-50 text-emerald-800 border-emerald-200"], planned: ["مجدولة", "bg-amber-50 text-amber-800 border-amber-200"], cancelled: ["ملغاة", "bg-red-50 text-red-800 border-red-200"], follow_up: ["متابعة", "bg-sky-50 text-sky-800 border-sky-200"] };
 const APPROVAL: Record<string, [string, string]> = { pending: ["بانتظار الموافقة", "bg-amber-50 text-amber-800 border-amber-200"], approved: ["معتمد", "bg-emerald-50 text-emerald-800 border-emerald-200"], rejected: ["مرفوض", "bg-red-50 text-red-800 border-red-200"] };
 const STATE: Record<string, string> = { "متأخرة": "bg-red-50 text-red-800 border-red-200", "اليوم": "bg-amber-50 text-amber-800 border-amber-200", "قادمة": "bg-sky-50 text-sky-800 border-sky-200", "تمت": "bg-emerald-50 text-emerald-800 border-emerald-200" };
-const PURPOSE: Record<string, string> = { personal_use: "استخدام شخصي", video_shooting: "تصوير فيديو", workshop: "ورشة" };
+const PURPOSE: Record<string, string> = PURPOSE_LABELS;
 const KPIS: Array<[keyof Totals, string]> = [["visits", "الزيارات"], ["completed", "المكتملة"], ["doctors", "الأطباء"], ["reps", "المناديب النشطون"], ["samples", "العينات"], ["orders", "الأوردرات"]];
 
 // ── dates (Riyadh, Sunday-first weeks) ──

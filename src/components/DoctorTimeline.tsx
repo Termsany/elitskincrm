@@ -1,5 +1,6 @@
 import { Badge, EmptyState } from "@/components/ui";
 import { Icon } from "@/components/Icon";
+import { PURPOSE_LABELS } from "@/lib/visit-entry";
 import type { DoctorTimelineEvent } from "@/lib/doctor-timeline";
 
 const date = (value: Date | string) => new Intl.DateTimeFormat("ar-SA", {
@@ -8,7 +9,7 @@ const date = (value: Date | string) => new Intl.DateTimeFormat("ar-SA", {
 
 const statuses: Record<string, string> = { completed: "مكتملة", planned: "مجدولة", cancelled: "ملغاة", follow_up: "متابعة", pending: "قيد الانتظار", in_progress: "قيد التنفيذ", failed: "لم تنجز", open: "مفتوحة" };
 const priorities: Record<string, string> = { urgent: "عاجلة", high: "عالية", medium: "متوسطة", low: "منخفضة" };
-const purposes: Record<string, string> = { personal_use: "استخدام شخصي", video_shooting: "تصوير فيديو", workshop: "ورشة عمل" };
+const purposes: Record<string, string> = PURPOSE_LABELS;
 const reactions: Record<string, string> = { interested: "مهتم", neutral: "محايد", not_interested: "غير مهتم" };
 
 const typeMeta: Record<DoctorTimelineEvent["type"], { label: string; icon: string; dot: string; border: string }> = {

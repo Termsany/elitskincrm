@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { query } from "@/lib/db";
 import { REPORT_ORDER, findReport, getReportRows, getReportSummary, parseReportFilters, type Col, type ReportDef } from "@/lib/report-extra";
+import { PURPOSE_LABELS } from "@/lib/visit-entry";
 
 const STATUS: Record<string, string> = { completed: "مكتملة", planned: "مجدولة", cancelled: "ملغاة", follow_up: "متابعة" };
 const APPROVAL: Record<string, string> = { pending: "بانتظار الموافقة", approved: "معتمد", rejected: "مرفوض" };
-const PURPOSE: Record<string, string> = { personal_use: "استخدام شخصي", video_shooting: "تصوير فيديو", workshop: "ورشة" };
+const PURPOSE: Record<string, string> = PURPOSE_LABELS;
 const NAVY = "FF10484F", SOFT = "FFE6F4F2", BORDER = "FFDDE6E6";
 
 // Excel date serial in Riyadh local time (so Excel shows the same clock time people saw).

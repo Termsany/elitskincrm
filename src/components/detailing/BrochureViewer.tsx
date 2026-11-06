@@ -154,8 +154,8 @@ export function BrochureCover({ url, mime, className = "" }: { url: string; mime
     io.observe(el); return () => { dead = true; io.disconnect(); task?.cancel?.(); };
   }, [url, mime]);
   if (mime === "text/html") return (
-    <div ref={box} className={`relative overflow-hidden grid place-items-center bg-gradient-to-br from-[#0f3d43] to-[#1b6f78] text-white ${className}`}>
-      <div className="text-center px-2"><div className="text-3xl leading-none">🌐</div><div className="text-[11px] font-extrabold mt-1.5 tracking-wide">عرض تفاعلي</div></div>
+    <div ref={box} style={{ containerType: "size" }} className={`relative overflow-hidden grid place-items-center bg-gradient-to-br from-[#0f3d43] to-[#1b6f78] text-white ${className}`}>
+      <div className="text-center px-1 leading-none"><div className="text-[clamp(18px,40cqmin,30px)] leading-none">🌐</div><div className="text-[clamp(8px,16cqmin,11px)] font-extrabold mt-1 whitespace-nowrap">تفاعلي</div></div>
     </div>
   );
   return (

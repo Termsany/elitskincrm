@@ -3,10 +3,11 @@ import { getCurrentUser } from "@/lib/session";
 import { query } from "@/lib/db";
 import { findReport, getReportRows, parseReportFilters, type Col } from "@/lib/report-extra";
 import AutoPrint from "./AutoPrint";
+import { PURPOSE_LABELS } from "@/lib/visit-entry";
 
 const STATUS: Record<string, string> = { completed: "مكتملة", planned: "مجدولة", cancelled: "ملغاة", follow_up: "متابعة" };
 const APPROVAL: Record<string, string> = { pending: "بانتظار الموافقة", approved: "معتمد", rejected: "مرفوض" };
-const PURPOSE: Record<string, string> = { personal_use: "استخدام شخصي", video_shooting: "تصوير فيديو", workshop: "ورشة" };
+const PURPOSE: Record<string, string> = PURPOSE_LABELS;
 const LOC = "en-GB";
 function show(c: Col, v: unknown): string {
   if (v === null || v === undefined || v === "") return "—";
