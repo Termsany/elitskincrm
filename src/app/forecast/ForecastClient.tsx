@@ -93,7 +93,7 @@ export function buildReportRows(data:Pick<AdminData,"targets"|"approved_sales"|"
  for(const t of data.targets){const x=row(t.rep_id,t.clinic_id,t.product_id);x.target_qty+=t.qty;x.target_value+=t.qty*Number((t as Target&{unit_price?:string}).unit_price??0)}
  for(const f of data.approved_forecasts??[])row(f.rep_id,f.clinic_id,f.product_id).forecast_qty+=Number(f.quantity);
  for(const s of data.approved_sales??[]){const x=row(s.rep_id,s.clinic_id,s.product_id);const sign=s.kind==="return"||s.direction===-1?-1:1;x.sold_qty+=sign*Number(s.quantity);x.sold_value+=sign*Number(s.quantity)*Number(s.unit_price)}
- return [...rows.values()].sort((a,b)=>a.rep_id.localeCompare(b.rep_id)||a.clinic_id.localeCompare(b.clinic_id)||a.product_id.localeCompare(b.product_id));
+ const k=(v:string|null|undefined)=>v??"";return [...rows.values()].sort((a,b)=>k(a.rep_id).localeCompare(k(b.rep_id))||k(a.clinic_id).localeCompare(k(b.clinic_id))||k(a.product_id).localeCompare(k(b.product_id)));
 }
 export function canCloseMonth(month:string,data:AdminData,now=new Date()) {
  const parts=new Intl.DateTimeFormat("en-US",{timeZone:"Asia/Riyadh",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(now);
