@@ -138,7 +138,7 @@ export default function RepDailyWorkspace() {
             })}
             {!data.tasks.length && <p className="py-8 text-center text-sm text-[var(--muted)]">لا توجد مهام مستحقة عليك اليوم.</p>}
           </div>
-          {data.taskCount > data.tasks.length && <Link href="/tasks" className="mx-4 mb-4 inline-flex text-sm font-bold text-[var(--sky-deep)]">عرض كل المهام ({data.taskCount}) ←</Link>}
+          {data.taskCount > data.tasks.length && <Link href="/work" className="mx-4 mb-4 inline-flex text-sm font-bold text-[var(--sky-deep)]">عرض كل المهام ({data.taskCount}) ←</Link>}
         </Card>
       </div>
     </>}

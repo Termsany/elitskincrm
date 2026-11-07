@@ -1,9 +1,7 @@
 "use client";
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Card, Button, Input, Textarea, Label } from "@/components/ui";
 import { useToast } from "@/components/Toast";
-import { Icon } from "@/components/Icon";
 import DetailingPresenter from "@/components/detailing/DetailingPresenter";
 import type { DetailProduct, PresenterResult } from "@/components/detailing/types";
 import { BrochureCover } from "@/components/detailing/BrochureViewer";
@@ -11,7 +9,6 @@ import { brochureUrl } from "@/components/detailing/pdf";
 import ClinicHint from "./ClinicHint";
 import VoiceNote from "./VoiceNote";
 
-import { getVisitStatusMeta } from "@/lib/visit-workflow";
 import { PURPOSE_LABELS, REACTION_LABELS, collectSampleItems, type Reaction, type SamplePurpose, type SampleRow } from "@/lib/visit-entry";
 import { classifyOfflineResponse, ensureIdempotencyKey } from "@/lib/idempotency-queue";
 
@@ -148,7 +145,6 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
     return doctors.filter(d => `${d.name} ${d.clinic_name} ${d.city}`.toLowerCase().includes(s)).slice(0, 8);
   }, [q, doctors]);
 
-  const orderedProducts = useMemo(() => [...products].sort((a, b) => Number(b.id === assignedProductId) - Number(a.id === assignedProductId) || a.name.localeCompare(b.name)), [products, assignedProductId]);
 
   function captureGps(){
     if(!navigator.geolocation){ setGpsStatus("المتصفح لا يدعم GPS"); return; }

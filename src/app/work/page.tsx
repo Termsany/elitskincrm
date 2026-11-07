@@ -16,7 +16,7 @@ export default async function WorkPage({ searchParams }: { searchParams: Promise
       <h1 className="mt-1 text-2xl font-extrabold text-[var(--navy)] sm:text-3xl">مركز العمل والطلبات</h1>
       <p className="mt-1 text-sm text-[var(--muted)]">{isAdmin ? "طلبات الموظفين والمهام والتنبيهات في مكان واحد." : "اطلب إجازة أو خروج وعودة أو سلفة أو خطاب في ضغطتين، وتابع مهامك وطلباتك."}</p>
     </div>
-    <div className="mt-5">{isAdmin ? <HrAdminBoard focus={hr} /> : <HrRequestPanel focus={hr} />}</div>
+    <div className="mt-5">{isAdmin ? (!user.manager && <HrAdminBoard focus={hr} />) : <HrRequestPanel focus={hr} />}</div>
     <WorkHubClient isAdmin={isAdmin} />
   </AppShell>;
 }

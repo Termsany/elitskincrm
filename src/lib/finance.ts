@@ -1,6 +1,7 @@
 import { query } from "@/lib/db";
 
-export const riyadhToday = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date());
+import { riyadhToday } from "@/lib/riyadh-day";
+export { riyadhToday };
 
 /* ───────────────────────── Types ───────────────────────── */
 export type Line = { product_id: number | null; item: string; quantity: number; net: number; tax: number };

@@ -4,7 +4,8 @@ import { diffSummaryText } from "@/lib/plan-diff";
 
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const DAY_RE = /^20\d\d-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
-export const riyadhToday = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date());
+import { riyadhToday } from "@/lib/riyadh-day";
+export { riyadhToday };
 type Who = { id: string; role: string; name: string };
 
 /** Everything that happens in a rep's (or the team's) days: plan, done visits, events, follow-ups, tasks. */

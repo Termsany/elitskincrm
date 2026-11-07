@@ -20,7 +20,7 @@ export default async function AdminRequestsPage({ searchParams }: { searchParams
       </div>
       <a href="#doctor-requests" className="inline-flex min-h-11 items-center rounded-xl border border-[var(--border)] bg-white px-4 text-sm font-bold">طلبات الأطباء والعيادات ↓</a>
     </div>
-    <div className="mt-5"><HrAdminBoard focus={hr} /></div>
+    {!user.manager && <div className="mt-5"><HrAdminBoard focus={hr} /></div>}
     <h2 className="mt-8 text-lg font-extrabold text-[var(--navy)]">الطلبات العامة والمستندات</h2>
     <RequestsClient isAdmin={true} />
     <section id="doctor-requests" className="scroll-mt-24 pt-4">

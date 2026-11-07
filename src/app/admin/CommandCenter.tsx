@@ -73,7 +73,10 @@ export default function CommandCenter() {
   const [f, setF] = useState<DaftraPulse | null>(null); const [ser, setSer] = useState("sales"); const [fh, setFh] = useState<number | null>(null);
   const load = async () => { try { const r = await fetch("/api/admin/dashboard", { cache: "no-store" }); if (!r.ok) throw 0; const j = await r.json(); setD(j); setErr(false); } catch { setErr(true); } };
   const loadF = async () => { try { const r = await fetch("/api/admin/dashboard/daftra", { cache: "no-store" }); if (r.ok) setF(await r.json()); else setF({ configured: false }); } catch { /* keep last */ } };
-  useEffect(() => { void load(); void loadF(); const t = setInterval(() => { if (document.visibilityState === "visible") { void load(); void loadF(); } }, 120000); return () => clearInterval(t); }, []);
+  const isMgr = !!(d as { manager?: boolean } | null)?.manager, known = !!d;
+  const isMgrRef = useRef(false); isMgrRef.current = isMgr;
+  useEffect(() => { if (known && !isMgr) void loadF(); }, [known, isMgr]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void load(); const t = setInterval(() => { if (document.visibilityState === "visible") { void load(); if (!isMgrRef.current) void loadF(); } }, 120000); return () => clearInterval(t); }, []);
   useEffect(() => { if (d && (!grp || !d.inbox.some(g => g.key === grp))) setGrp(d.inbox[0]?.key || ""); }, [d]); // eslint-disable-line react-hooks/exhaustive-deps
   const openPalette = () => window.dispatchEvent(new Event("open-command-palette"));
   if (err && !d) return <div className={`${card} mt-4 p-8 text-center`}><div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-500"><Icon name="warn" size={28} /></div><div className="mt-2 font-bold">تعذر تحميل لوحة القيادة</div><button onClick={() => void load()} className="mt-3 rounded-xl bg-[var(--navy)] px-4 py-2 text-sm font-bold text-white">إعادة المحاولة</button></div>;

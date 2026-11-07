@@ -9,7 +9,8 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const DAY_RE = /^20\d\d-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 const STATUSES = new Set(["completed", "planned", "cancelled", "follow_up"]);
 
-export function riyadhToday() { return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date()); }
+import { riyadhToday } from "@/lib/riyadh-day";
+export { riyadhToday };
 
 export function parseReportFilters(sp: URLSearchParams): ReportFilters {
   const today = riyadhToday();
