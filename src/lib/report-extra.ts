@@ -81,7 +81,7 @@ export async function getReportSummary(f: ReportFilters) {
 // ───────────────────────── Report registry ─────────────────────────
 export type ColType = "text" | "int" | "money" | "pct" | "date" | "datetime" | "time" | "status" | "reaction" | "approval" | "purpose";
 export type Col = { key: string; label: string; type?: ColType };
-export type ReportDef = { id: string; label: string; group: "activity" | "doctors" | "products" | "targets"; hint: string; columns: Col[] };
+export type ReportDef = { id: string; label: string; group: "sales" | "visits" | "doctors" | "products" | "reps"; hint: string; columns: Col[] };
 
 const T: Record<string, ColType> = {
   visited_at: "datetime", last_visit: "datetime", last_activity: "datetime", last_sample: "datetime", created_at: "datetime", approved_at: "datetime",
@@ -92,17 +92,17 @@ const INT_KEYS = /^(visits|completed|completed_visits|unique_doctors|doctors|sam
 const typed = (cols: Array<{ key: string; label: string }>): Col[] => cols.map(c => ({ ...c, type: T[c.key] || (INT_KEYS.test(c.key) ? "int" : "text") }));
 
 const BASE: Array<{ id: ReportType; group: ReportDef["group"]; hint: string }> = [
-  { id: "reps", group: "activity", hint: "زيارات وأطباء وعينات وأوردرات كل مندوب في الفترة" },
-  { id: "visits", group: "activity", hint: "كل زيارة بتفاصيلها" },
-  { id: "compliance", group: "targets", hint: "زيارات الخطة المعتمدة اللي اتنفذت في ميعادها" },
+  { id: "reps", group: "reps", hint: "زيارات وأطباء وعينات وأوردرات كل مندوب في الفترة" },
+  { id: "visits", group: "visits", hint: "كل زيارة بتفاصيلها" },
+  { id: "compliance", group: "reps", hint: "زيارات الخطة المعتمدة اللي اتنفذت في ميعادها" },
   { id: "coverage", group: "doctors", hint: "المطلوب شهرياً حسب الفئة مقابل المنفذ" },
   { id: "products", group: "products", hint: "شرح المنتجات وردود الفعل والعينات" },
   { id: "samples", group: "products", hint: "كل عينة اتوزعت ولمين" },
   { id: "sampleDoctors", group: "doctors", hint: "الأطباء اللي أخدوا عينات" },
-  { id: "sales", group: "targets", hint: "الهدف السنوي مقابل المبيعات المعتمدة (سنة بداية الفترة)" },
+  { id: "sales", group: "sales", hint: "الهدف السنوي مقابل المبيعات الفعلية من دفترة (سنة بداية الفترة)" },
 ];
 const EXTRA: ReportDef[] = [
-  { id: "daily", label: "النشاط اليومي", group: "activity", hint: "كل مندوب في كل يوم: أول وآخر زيارة والعدد", columns: typed([
+  { id: "daily", label: "النشاط اليومي", group: "visits", hint: "كل مندوب في كل يوم: أول وآخر زيارة والعدد", columns: typed([
     { key: "day", label: "اليوم" }, { key: "rep_name", label: "المندوب" }, { key: "first_visit", label: "أول زيارة" }, { key: "last_visit_time", label: "آخر زيارة" },
     { key: "visits", label: "الزيارات" }, { key: "completed", label: "المكتملة" }, { key: "cancelled", label: "الملغاة" }, { key: "doctors", label: "الأطباء" },
     { key: "samples", label: "العينات" }, { key: "orders", label: "الأوردر" }]) },
@@ -117,7 +117,7 @@ const EXTRA: ReportDef[] = [
     { key: "visited_at", label: "التاريخ" }, { key: "rep_name", label: "المندوب" }, { key: "doctor_name", label: "الطبيب" }, { key: "clinic_name", label: "العيادة" },
     { key: "city", label: "المدينة" }, { key: "product_name", label: "المنتج" }, { key: "quantity", label: "الكمية" }, { key: "approval_status", label: "الموافقة" },
     { key: "approval_note", label: "ملاحظة الموافقة" }, { key: "approved_at", label: "وقت الموافقة" }]) },
-  { id: "quality", label: "جودة التسجيل", group: "activity", hint: "زيارات اتسجلت متأخر، أو من غير موقع، أو ملاحظتها قصيرة", columns: typed([
+  { id: "quality", label: "جودة التسجيل", group: "visits", hint: "زيارات اتسجلت متأخر، أو من غير موقع، أو ملاحظتها قصيرة", columns: typed([
     { key: "visited_at", label: "وقت الزيارة" }, { key: "created_at", label: "وقت التسجيل" }, { key: "delay_hours", label: "التأخير (ساعات)" },
     { key: "rep_name", label: "المندوب" }, { key: "doctor_name", label: "الطبيب" }, { key: "status", label: "الحالة" }, { key: "issues", label: "الملاحظات على التسجيل" }, { key: "notes", label: "نص الملاحظة" }]) },
   { id: "repProduct", label: "المندوب × المنتج", group: "products", hint: "مين بيشرح أنهي منتج وردود الفعل", columns: typed([

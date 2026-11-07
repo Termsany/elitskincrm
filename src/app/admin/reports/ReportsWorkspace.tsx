@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import RepVisitsModal from "../visits/RepVisitsModal";
+import PulseBoard from "./PulseBoard";
 import { PURPOSE_LABELS } from "@/lib/visit-entry";
 
 type Opt = { id: string; name: string };
@@ -13,7 +14,7 @@ type Totals = { visits: number; completed: number; doctors: number; reps: number
 type Summary = { current: Totals; previous: Totals; previousRange: { from: string; to: string }; daily: Array<{ day: string; visits: number; completed: number }>; reactions: Array<{ product_id: string; product_name: string; interested: number; neutral: number; not_interested: number }> };
 type Filters = { from: string; to: string; repId: string; productId: string; city: string; status: string };
 
-const GROUPS: Array<[string, string]> = [["activity", "النشاط والزيارات"], ["doctors", "الأطباء والتغطية"], ["products", "المنتجات والعينات"], ["targets", "الخطط والأهداف"]];
+const GROUPS: Array<[string, string]> = [["sales", "💰 المبيعات"], ["visits", "📍 الزيارات"], ["doctors", "🩺 الأطباء"], ["products", "📦 المنتجات"], ["reps", "👥 المناديب"]];
 const STATUS: Record<string, [string, string]> = { completed: ["مكتملة", "bg-emerald-50 text-emerald-800 border-emerald-200"], planned: ["مجدولة", "bg-amber-50 text-amber-800 border-amber-200"], cancelled: ["ملغاة", "bg-red-50 text-red-800 border-red-200"], follow_up: ["متابعة", "bg-sky-50 text-sky-800 border-sky-200"] };
 const APPROVAL: Record<string, [string, string]> = { pending: ["بانتظار الموافقة", "bg-amber-50 text-amber-800 border-amber-200"], approved: ["معتمد", "bg-emerald-50 text-emerald-800 border-emerald-200"], rejected: ["مرفوض", "bg-red-50 text-red-800 border-red-200"] };
 const STATE: Record<string, string> = { "متأخرة": "bg-red-50 text-red-800 border-red-200", "اليوم": "bg-amber-50 text-amber-800 border-amber-200", "قادمة": "bg-sky-50 text-sky-800 border-sky-200", "تمت": "bg-emerald-50 text-emerald-800 border-emerald-200" };
@@ -63,6 +64,7 @@ export default function ReportsWorkspace({ reps, products, cities }: { reps: Opt
   const [repModal, setRepModal] = useState<Opt | null>(null);
 
   const qs = useMemo(() => { const q = new URLSearchParams(); (Object.keys(f) as Array<keyof Filters>).forEach(k => { if (f[k]) q.set(k, f[k]); }); return q; }, [f]);
+  const [showF, setShowF] = useState(false);
   const set = (patch: Partial<Filters>) => setF(x => ({ ...x, ...patch }));
   const activePreset = PRESETS.find(([id]) => { const [a, b] = preset(id); return a === f.from && b === f.to; })?.[0] || "custom";
 
@@ -143,25 +145,30 @@ export default function ReportsWorkspace({ reps, products, cities }: { reps: Opt
   return (
     <div className="mt-4 space-y-4">
       {/* Period + filters */}
-      <div className="rounded-2xl border border-[var(--border)] bg-white p-3 sm:p-4 space-y-3 sticky top-0 z-20 shadow-sm">
+      <div className="rounded-2xl border border-[var(--border)] bg-white p-3 sm:p-4 space-y-3 lg:sticky lg:top-0 z-20 shadow-sm">
         <div className="flex flex-wrap items-center gap-1.5">
-          {PRESETS.map(([id, label]) => <button key={id} onClick={() => { const [a, b] = preset(id); set({ from: a, to: b }); }} className={`rounded-xl px-3 py-1.5 text-xs font-bold border transition ${activePreset === id ? "bg-[var(--navy)] text-white border-[var(--navy)]" : "bg-white border-[var(--border)] hover:border-[var(--navy-3)]"}`}>{label}</button>)}
-          <div className={`flex items-center gap-1 rounded-xl border px-2 py-1 text-xs ${activePreset === "custom" ? "border-[var(--navy)]" : "border-[var(--border)]"}`}>
-            <span className="text-[var(--muted)]">من</span><input type="date" value={f.from} max={f.to} onChange={e => e.target.value && set({ from: e.target.value })} className="bg-transparent outline-none" />
-            <span className="text-[var(--muted)]">إلى</span><input type="date" value={f.to} min={f.from} onChange={e => e.target.value && set({ to: e.target.value })} className="bg-transparent outline-none" />
+          <div className="-mx-3 flex w-[calc(100%+1.5rem)] gap-1.5 overflow-x-auto px-3 pb-1 sm:contents [&>*]:shrink-0">{PRESETS.map(([id, label]) => <button key={id} onClick={() => { const [a, b] = preset(id); set({ from: a, to: b }); }} className={`rounded-xl px-3 py-1.5 text-xs font-bold border transition ${activePreset === id ? "bg-[var(--navy)] text-white border-[var(--navy)]" : "bg-white border-[var(--border)] hover:border-[var(--navy-3)]"}`}>{label}</button>)}</div>
+          <div className={`flex w-full min-w-0 items-center gap-1 rounded-xl border px-2 py-1 text-xs sm:w-auto ${activePreset === "custom" ? "border-[var(--navy)]" : "border-[var(--border)]"}`}>
+            <span className="text-[var(--muted)]">من</span><input type="date" value={f.from} max={f.to} onChange={e => e.target.value && set({ from: e.target.value })} className="min-w-0 flex-1 bg-transparent outline-none" />
+            <span className="text-[var(--muted)]">إلى</span><input type="date" value={f.to} min={f.from} onChange={e => e.target.value && set({ to: e.target.value })} className="min-w-0 flex-1 bg-transparent outline-none" />
           </div>
-          <a href={xlsAll} className="mr-auto rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 text-sm font-bold shadow-sm">⬇ تحميل تقرير الفترة كامل (Excel)</a>
+          <button type="button" onClick={() => setShowF(v => !v)} className={`rounded-xl border px-3 py-1.5 text-xs font-bold sm:hidden ${hasFilter ? "border-[var(--navy)] bg-[var(--sky-light)] text-[var(--navy)]" : "border-[var(--border)]"}`}>فلاتر{hasFilter ? " •" : ""} {showF ? "▴" : "▾"}</button>
+          <a href={xlsAll} className="hidden sm:inline-block mr-auto rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 text-sm font-bold shadow-sm">⬇ تحميل تقرير الفترة كامل (Excel)</a>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+        <div className={`${showF ? "grid" : "hidden"} sm:grid grid-cols-2 md:grid-cols-5 gap-2`}>
           <select value={f.repId} onChange={e => set({ repId: e.target.value })} className="rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm"><option value="">كل المناديب</option>{reps.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}</select>
           <select value={f.productId} onChange={e => set({ productId: e.target.value })} className="rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm"><option value="">كل المنتجات</option>{products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
           <select value={f.city} onChange={e => set({ city: e.target.value })} className="rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm"><option value="">كل المدن</option>{cities.map(c => <option key={c}>{c}</option>)}</select>
           <select value={f.status} onChange={e => set({ status: e.target.value })} className="rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm"><option value="">كل الحالات</option><option value="completed">مكتملة</option><option value="planned">مجدولة</option><option value="cancelled">ملغاة</option></select>
+          <a href={xlsAll} className="sm:hidden rounded-xl bg-emerald-700 px-3 py-2 text-center text-sm font-bold text-white">⬇ Excel الفترة كامل</a>
           <button disabled={!hasFilter} onClick={() => set({ repId: "", productId: "", city: "", status: "" })} className="rounded-xl border border-[var(--border)] px-3 py-2 text-sm font-bold text-red-700 disabled:opacity-30">مسح الفلاتر</button>
         </div>
       </div>
 
+      <PulseBoard from={f.from} to={f.to} repId={f.repId} onOpen={t => { setType(t); setSearch(""); setTimeout(() => document.getElementById("report-table")?.scrollIntoView({ behavior: "smooth", block: "start" }), 60); }} onRep={id => set({ repId: id })} />
+
       {/* KPIs */}
+      <div className="flex items-center gap-2 pt-2"><h2 className="text-base font-extrabold text-[var(--navy)]">تفاصيل الزيارات في الفترة</h2><span className="text-[11px] text-[var(--muted)]">اضغط على أي يوم في الرسم عشان تفلتر عليه</span></div>
       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
         {KPIS.map(([k, label]) => {
           const a = summary?.current[k] ?? 0, b = summary?.previous[k] ?? 0, d = b ? Math.round(((a - b) / b) * 100) : null;
@@ -201,15 +208,15 @@ export default function ReportsWorkspace({ reps, products, cities }: { reps: Opt
       </div>
 
       {/* Report picker */}
-      <div className="rounded-2xl border border-[var(--border)] bg-white p-4 grid md:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="es-card-in rounded-2xl border border-[var(--border)] bg-white p-4"><h2 className="mb-3 text-base font-extrabold text-[var(--navy)]">كل التقارير</h2><div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         {GROUPS.map(([g, label]) => <div key={g}>
           <div className="text-xs font-bold text-[var(--muted)] mb-2">{label}</div>
           <div className="flex flex-wrap gap-1.5">{catalog.filter(r => r.group === g).map(r => <button key={r.id} onClick={() => { setType(r.id); setSearch(""); }} title={r.hint} className={`rounded-xl px-3 py-1.5 text-xs font-bold border transition ${type === r.id ? "bg-[var(--navy)] text-white border-[var(--navy)]" : "bg-[var(--bg)] border-transparent hover:border-[var(--navy-3)]"}`}>{r.label}</button>)}</div>
         </div>)}
-      </div>
+      </div></div>
 
       {/* Table */}
-      <div className="rounded-2xl border border-[var(--border)] bg-white overflow-hidden">
+      <div id="report-table" className="scroll-mt-40 rounded-2xl border border-[var(--border)] bg-white overflow-hidden">
         <div className="flex flex-wrap items-center gap-2 justify-between p-4 border-b border-[var(--border)]">
           <div>
             <div className="font-extrabold text-[var(--navy)]">{table?.report.label || "…"} {table && <span className="text-sm font-normal text-[var(--muted)]">({rows.length}{table.limited ? ` من ${table.total}` : ""})</span>}</div>

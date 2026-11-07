@@ -278,3 +278,16 @@ input[type="checkbox"] { transition: transform .15s var(--es-spring); } input[ty
 @media (min-width: 1024px) { .es-shell { padding-top: env(safe-area-inset-top); } }
 /* grid items may shrink below their content width — stops a long label from widening the page on phones */
 .grid > * { min-width: 0; }
+
+/* Reports pulse board: cards rise in one after another, skeleton shimmer, soft glow on hover */
+.es-card-in { animation: es-card-in .6s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes es-card-in { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
+.es-shimmer { position: relative; overflow: hidden; background: var(--bg); }
+.es-shimmer::after { content: ""; position: absolute; inset: 0; transform: translateX(100%); background: linear-gradient(90deg, transparent, rgba(255,255,255,.75), transparent); animation: es-shimmer 1.3s infinite; }
+@keyframes es-shimmer { to { transform: translateX(-100%); } }
+.es-pulse-glow { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .35s; }
+.group:hover .es-pulse-glow, .group:focus-visible .es-pulse-glow { opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .es-card-in, .es-shimmer::after { animation: none !important; }
+  .es-report-link, .es-pulse-glow { transition: none !important; }
+}

@@ -8,7 +8,7 @@ export default async function ReportsPage() {
   if (!user) redirect("/login");
   if (user.role !== "admin") redirect("/");
   const { query } = await import("@/lib/db");
-  const reps = await query("SELECT id, name FROM users WHERE role='sales_rep' ORDER BY name");
+  const reps = await query("SELECT id, name FROM users WHERE role='sales_rep' AND active ORDER BY name");
   const products = await query("SELECT id, name FROM products ORDER BY active DESC, name");
   const cities = await query("SELECT DISTINCT city FROM doctors WHERE city<>'' ORDER BY city");
   return (
