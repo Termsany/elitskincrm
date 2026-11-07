@@ -11,10 +11,9 @@ const money = (n: number) => `${Math.round(n).toLocaleString("en-US")} ر.س`;
 export default function ItemProductMap({ year, onChange }: { year: number; onChange?: () => void }) {
   const toast = useToast();
   const [d, setD] = useState<{ items: Item[]; products: P[]; unassigned: number } | null>(null);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const load = useCallback(() => fetch(`/api/admin/sales/items?year=${year}`, { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(j => j && setD(j)).catch(() => {}), [year]);
   useEffect(() => { void load(); }, [load]);
-  useEffect(() => { if (d && d.unassigned > 0) setOpen(true); }, [d]);
   async function set(it: Item, product_id: string) {
     const r = await fetch("/api/admin/sales/items", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ item: it.item, product_id: product_id || null }) });
     if (!r.ok) { toast("تعذر الحفظ", "error"); return; }

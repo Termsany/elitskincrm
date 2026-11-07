@@ -16,7 +16,7 @@ type PSale = { id: string; rep_name: string; clinic_id: string; product_id: stri
 type MonthView = { pending: Pending[]; pending_sales: PSale[]; team: Array<{ rep_id: string; rep_name: string; target: number; actual: number; target_value: number; actual_value: number; pending: number }>; targets: Array<{ rep_id: string; clinic_id: string; product_id: string; quantity: number; unit_price: string }>; approved_sales: Array<{ rep_id: string; clinic_id: string; product_id: string; quantity: number; unit_price: string; kind: string; direction: number }>; approved_forecasts: Array<{ rep_id: string; clinic_id: string; product_id: string; quantity: number }>; is_closed: boolean; prices: Array<{ clinic_id: string; product_id: string; price: number }> };
 type View = { year: number; month: string; plan: { reps: PlanRep[]; pending_year_allocations: Q[]; pending_breakdowns: Q[] }; monthView: MonthView; products: Product[]; clinics: Clinic[]; targetProducts: TP[]; specialPrices: Array<{ clinic_id: string; product_id: string; price: number; month: string }> };
 type Hub = { unassigned?: number; team: Array<{ rep_id: string; rep_name: string; annual: number; ytd: number; month_target: number; month_actual: number; month_forecast: number; pending: number }> };
-type Tab = "team" | "targets" | "approvals" | "catalog" | "close";
+type Tab = "team" | "targets" | "approvals" | "items" | "catalog" | "close";
 
 const money = (n: number) => `${Math.round(n).toLocaleString("en-US")} ر.س`;
 const short = (n: number) => Math.abs(n) >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : Math.abs(n) >= 1e3 ? `${Math.round(n / 1e3)}K` : String(Math.round(n));
@@ -62,11 +62,10 @@ export default function AdminSales() {
   const annualTotal = team.reduce((s, r) => s + r.annual, 0), ytd = team.reduce((s, r) => s + r.ytd, 0);
   const mT = team.reduce((s, r) => s + r.month_target, 0), mA = team.reduce((s, r) => s + r.month_actual, 0);
   const noPrice = v.products.filter(p => !p.unit_price).length;
-  const TABS: Array<[Tab, string, string, number, string]> = [["team", "الفريق", "reps", 0, ""], ["targets", "الأهداف", "trophy", 0, ""], ["approvals", "الموافقات", "check", approvals, "bg-amber-500"], ["catalog", "العيادات والأسعار", "products", noPrice, "bg-red-500"], ["close", "إقفال الشهر", "calendar", 0, ""]];
+  const TABS: Array<[Tab, string, string, number, string]> = [["team", "الفريق", "reps", 0, ""], ["targets", "الأهداف", "trophy", 0, ""], ["approvals", "الموافقات", "check", approvals, "bg-amber-500"], ["items", "الأصناف والمناديب", "receipt", hub?.unassigned ? 1 : 0, "bg-amber-500"], ["catalog", "العيادات والأسعار", "products", noPrice, "bg-red-500"], ["close", "إقفال الشهر", "calendar", 0, ""]];
 
   return <div className="mt-4 space-y-4 pb-24 lg:pb-6">
-    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--sky-border)] bg-[var(--sky-light)] px-4 py-3 text-[12.5px] text-[var(--navy)]"><Icon name="receipt" size={16} /><span className="min-w-0 flex-1">المحقق محسوب من <b>فواتير دفترة</b> بس (بعد المرتجعات) — أي بيعة لمنتج في أي عيادة بتتحسب <b>للمندوب المسؤول عن المنتج</b>.{hub?.unassigned ? <> فيه <b>{Math.round(hub.unassigned).toLocaleString("en-US")} ر.س</b> مبيعات السنة دي لأصناف مش مربوطة بمنتج عليه مندوب.</> : null}</span>{hub?.unassigned ? <a href="#item-map" className="rounded-xl bg-[var(--navy)] px-3 py-1.5 text-xs font-bold text-white">اربط الأصناف ‹</a> : null}</div>
-    <ItemProductMap year={year} onChange={() => void load()} />
+    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--sky-border)] bg-[var(--sky-light)] px-4 py-3 text-[12.5px] text-[var(--navy)]"><Icon name="receipt" size={16} /><span className="min-w-0 flex-1">المحقق محسوب من <b>فواتير دفترة</b> بس (بعد المرتجعات) — أي بيعة لمنتج في أي عيادة بتتحسب <b>للمندوب المسؤول عن المنتج</b>.{hub?.unassigned ? <> فيه <b>{Math.round(hub.unassigned).toLocaleString("en-US")} ر.س</b> مبيعات السنة دي لأصناف مش مربوطة بمنتج عليه مندوب.</> : null}</span>{hub?.unassigned ? <button type="button" onClick={() => go("items")} className="rounded-xl bg-[var(--navy)] px-3 py-1.5 text-xs font-bold text-white">اربط الأصناف ‹</button> : null}</div>
     {/* header strip: period + 4 numbers (shown once) */}
     <div className="dz-in grid grid-cols-2 gap-3 lg:grid-cols-5">
       <div className="col-span-2 flex items-center justify-between gap-2 rounded-[24px] border border-[var(--border)] bg-white p-3 lg:col-span-1">
@@ -75,7 +74,7 @@ export default function AdminSales() {
         <button type="button" aria-label="الشهر التالي" onClick={() => setMonth(m => shiftM(m, 1))} className="h-9 w-9 rounded-xl bg-[var(--bg)] font-bold">‹</button>
       </div>
       <Stat l={`هدف الفريق ${year}`} v={money(annualTotal)} s={`محقق ${money(ytd)} · ${pct(ytd, annualTotal)}%`} p={pct(ytd, annualTotal)} c="#1aa865" />
-      <Stat l={`هدف ${mName(month, false)}`} v={money(mT)} s={`محقق ${money(mA)} · ${pct(mA, mT)}%`} p={pct(mA, mT)} c="#33b3a6" />
+      <Stat l={`هدف ${mName(month, false)}`} v={mT ? money(mT) : "مفيش هدف"} s={mT ? `محقق ${money(mA)} · ${pct(mA, mT)}%` : `محقق ${money(mA)} — الهدف ما اتوزعش على الشهور`} p={mT ? pct(mA, mT) : 0} c="#33b3a6" />
       <button type="button" onClick={() => go("approvals")} className="dz-card rounded-[24px] border border-[var(--border)] bg-white p-3 text-right"><div className="text-[11px] font-bold text-[var(--muted)]">مستني موافقتك</div><div className={`mt-1 text-2xl font-extrabold ${approvals ? "text-amber-600" : "text-emerald-700"}`}>{approvals || "✓"}</div><div className="text-[10.5px] text-[var(--muted)]">{approvals ? `${mv.pending.length} توقع · ${mv.pending_sales.length} بيع · ${v.plan.pending_year_allocations.length + v.plan.pending_breakdowns.length} أهداف` : "مفيش حاجة معلقة"}</div></button>
       <button type="button" onClick={() => go("catalog")} className="dz-card rounded-[24px] border border-[var(--border)] bg-white p-3 text-right"><div className="text-[11px] font-bold text-[var(--muted)]">العيادات (من دفترة)</div><div className="mt-1 text-2xl font-extrabold text-[var(--navy)]">{v.clinics.length}</div><div className={`text-[10.5px] ${noPrice ? "font-bold text-red-600" : "text-[var(--muted)]"}`}>{noPrice ? `${noPrice} منتج من غير سعر` : `${v.products.length} منتج مسعّر`}</div></button>
     </div>
@@ -88,6 +87,7 @@ export default function AdminSales() {
       {tab === "team" && <TeamTab v={v} hub={hub} month={month} onTarget={id => { setFocusRep(id); go("targets"); }} />}
       {tab === "targets" && <TargetsAdmin v={v} month={month} busy={busy} rep={focusRep} setRep={setFocusRep} onSave={(b, ok) => sAct({ action: "set_target", ...b }, ok)} />}
       {tab === "approvals" && <Approvals v={v} month={month} busy={busy} fAct={fAct} tAct={tAct} />}
+      {tab === "items" && <ItemProductMap year={year} onChange={() => void load()} />}
       {tab === "catalog" && <Catalog v={v} month={month} busy={busy} onPrice={(product_id, unit_price) => sAct({ action: "set_product_price", product_id, unit_price }, "اتحفظ السعر ✓")} onSync={() => sAct({ action: "sync_clinics" }, "اتحدثت العيادات من دفترة ✓")} onSpecial={b => fAct("set_price", { month, ...b }, "اتحفظ السعر الخاص ✓")} />}
       {tab === "close" && <CloseTab v={v} month={month} busy={busy} fAct={fAct} />}
     </div>
