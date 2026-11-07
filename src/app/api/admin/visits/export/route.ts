@@ -23,7 +23,10 @@ export async function GET(req: Request) {
 
   const sp = new URL(req.url).searchParams;
   const repId = sp.get("repId") || "";
-  const from = sp.get("from") || "", to = sp.get("to") || "";
+  // the one visits export (Excel): optional range (defaults to everything), status and free-text filters
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date());
+  const from = sp.get("from") || "2024-01-01", to = sp.get("to") || today;
+  const status = sp.get("status") || "", q = (sp.get("q") || "").trim().slice(0, 80);
   if ((repId && !UUID_RE.test(repId)) || !DAY_RE.test(from) || !DAY_RE.test(to) || from > to)
     return NextResponse.json({ error: "Invalid range" }, { status: 400 });
 
@@ -31,7 +34,9 @@ export async function GET(req: Request) {
   if (repId && !rep) return NextResponse.json({ error: "Representative not found" }, { status: 404 });
 
   const vals: unknown[] = [from, to]; let repCond = "";
-  if (repId) { vals.push(repId); repCond = "AND v.sales_rep_id=$3"; }
+  if (repId) { vals.push(repId); repCond = `AND v.sales_rep_id=$${vals.length}`; }
+  if (status && STATUS[status]) { vals.push(status); repCond += ` AND v.status::text=$${vals.length}`; }
+  if (q) { vals.push(`%${q}%`); repCond += ` AND (d.name ILIKE $${vals.length} OR d.clinic_name ILIKE $${vals.length} OR d.city ILIKE $${vals.length} OR u.name ILIKE $${vals.length} OR COALESCE(v.notes,'') ILIKE $${vals.length})`; }
   const r = await query<Row>(`
     SELECT v.id,
            (v.visited_at AT TIME ZONE 'Asia/Riyadh')::date::text AS day,

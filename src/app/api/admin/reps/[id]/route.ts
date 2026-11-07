@@ -12,15 +12,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
  const rep = await query(`SELECT u.id,u.name,u.email,u.job_title,u.university,u.hire_date,u.iqama_expiry,u.salary,u.active,
   COALESCE(y.annual_amount,0)::numeric AS annual_sales_target,
   COALESCE((SELECT sum(CASE WHEN s.kind='return' OR s.direction=-1 THEN -s.quantity * s.unit_price ELSE s.quantity * s.unit_price END)
-    FROM forecast_sales s WHERE s.rep_id=u.id AND s.status='approved' AND s.month >= $3::date AND s.month < $4::date),0)::numeric AS annual_sales,
+    FROM daftra_sales_v s WHERE s.rep_id=u.id AND s.status='approved' AND s.month >= $3::date AND s.month < $4::date),0)::numeric AS annual_sales,
   COALESCE((SELECT json_agg(rp.product_id) FROM rep_products rp WHERE rp.rep_id=u.id),'[]') products
   FROM users u LEFT JOIN rep_target_years y ON y.rep_id=u.id AND y.year=$2
   WHERE u.id=$1 AND u.role='sales_rep'`, [id,year,start,end]);
  if (!rep.rows[0]) return NextResponse.json({ error: "المندوب غير موجود" }, { status: 404 });
  const sales = await query(`SELECT s.id,s.month::text AS sale_month,s.month::text AS month,s.clinic_id,s.product_id,
-  c.name AS clinic_name,p.name AS product_name,s.quantity,s.unit_price,s.kind,s.direction,s.source_sale_id,s.reason,s.status,s.reviewed_at,
+  COALESCE(c.name,s.client_name) AS clinic_name,COALESCE(p.name,s.item) AS product_name,s.invoice_no,s.quantity,s.unit_price,s.kind,s.direction,s.source_sale_id,s.reason,s.status,s.reviewed_at,
   CASE WHEN s.kind='return' OR s.direction=-1 THEN -s.quantity * s.unit_price ELSE s.quantity * s.unit_price END AS amount
-  FROM forecast_sales s LEFT JOIN clinics c ON c.id=s.clinic_id LEFT JOIN products p ON p.id=s.product_id
+  FROM daftra_sales_v s LEFT JOIN clinics c ON c.id=s.clinic_id LEFT JOIN products p ON p.id=s.product_id
   WHERE s.rep_id=$1 AND s.status='approved' ORDER BY s.month DESC,s.reviewed_at DESC`, [id]);
  return NextResponse.json({ rep: rep.rows[0], sales: sales.rows });
 }

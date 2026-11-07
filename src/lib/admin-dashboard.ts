@@ -19,7 +19,6 @@ async function inbox(): Promise<Group[]> {
     q(`SELECT r.id::text id, r.title, u.name owner, r.created_at at FROM service_requests r JOIN users u ON u.id=r.requester_id WHERE r.status IN ('pending','in_progress','needs_info','reopened') ORDER BY r.created_at`),
     q(`SELECT t.id::text id, t.title || ' · كانت ' || to_char(t.due_date,'DD/MM') title, NULL owner, t.created_at at FROM tasks t WHERE t.archived=false AND t.status::text IN ('pending','in_progress') AND t.due_date < $1::date ORDER BY t.due_date`, [riyadhToday()]),
     q(`SELECT 'f'||v.id::text id, 'توقع مبيعات' title, u.name owner, v.created_at at FROM forecast_versions v JOIN users u ON u.id=v.rep_id WHERE v.status IN ('pending','submitted')
-       UNION ALL SELECT 's'||s.id::text, 'مبيعات للاعتماد', u.name, s.submitted_at FROM forecast_sales s JOIN users u ON u.id=s.rep_id WHERE s.status='pending'
        UNION ALL SELECT 't'||t.id::text, 'توزيع هدف', u.name, t.created_at FROM rep_target_versions t JOIN users u ON u.id=t.rep_id WHERE t.status='pending' ORDER BY 4`).catch(() => []),
   ]);
   const expenses = await q(`SELECT e.id::text id, c.name || ' · ' || to_char(e.amount, 'FM999,999,990.00') || ' ر.س' title, u.name owner, e.created_at at FROM expenses e JOIN users u ON u.id=e.rep_id JOIN expense_categories c ON c.id=e.category_id WHERE e.status='pending' ORDER BY e.created_at`).catch(() => []);

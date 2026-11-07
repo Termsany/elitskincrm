@@ -1,4 +1,5 @@
 import { query } from "@/lib/db";
+import { gapSql } from "@/lib/my-alerts";
 import { pausedSql } from "@/lib/doctor-pauses";
 
 export type HubDoctor = {
@@ -38,7 +39,7 @@ export async function hubDoctors(u: { id: string; role: string }, days: number, 
     nextplan AS (SELECT pi.doctor_id, min(pi.planned_date)::text in_plan_next FROM plan_items pi JOIN plans p ON p.id=pi.plan_id
       WHERE p.status::text<>'rejected' AND pi.planned_date >= (now() AT TIME ZONE 'Asia/Riyadh')::date ${planRep} GROUP BY pi.doctor_id)
     SELECT d.id, d.name, d.clinic_name, d.clinic_id, d.city, d.specialty, d.classification, d.phone, d.email, d.status,
-      CASE WHEN pf.visits_per_month > 0 THEN ceil(30.0/pf.visits_per_month)::int END gap_days,
+      ${gapSql()} gap_days,
       COALESCE(a.visits,0) visits, COALESCE(a.completed,0) completed, COALESCE(a.total_visits,0) total_visits, a.last_visit, l.last_rep, l.last_note,
       CASE WHEN a.last_visit IS NULL THEN NULL ELSE ((now() AT TIME ZONE 'Asia/Riyadh')::date - (a.last_visit AT TIME ZONE 'Asia/Riyadh')::date) END days_since,
       fu.next_follow_up, COALESCE(i.samples,0) samples, COALESCE(i.orders,0) orders, COALESCE(pr.presented,0) presented, COALESCE(pr.interested,0) interested,

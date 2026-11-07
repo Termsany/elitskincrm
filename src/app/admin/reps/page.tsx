@@ -16,7 +16,7 @@ export default async function RepsPage(){
   (SELECT count(*)::int FROM visit_items vi JOIN visits v ON v.id=vi.visit_id WHERE v.sales_rep_id=u.id AND vi.kind='sample') samples_count,
   (SELECT count(*)::int FROM tasks t WHERE t.assigned_to=u.id AND t.status IN ('pending','in_progress') AND t.archived=false) open_tasks,
   (SELECT count(*)::int FROM service_requests sr WHERE sr.requester_id=u.id AND sr.status IN ('pending','in_progress')) open_requests,
-  COALESCE((SELECT sum((CASE WHEN fs.kind='return' THEN -1 ELSE fs.direction END) * fs.quantity * fs.unit_price) FROM forecast_sales fs WHERE fs.rep_id=u.id AND fs.status='approved' AND fs.month >= $2::date AND fs.month < $3::date),0)::numeric annual_sales,
+  COALESCE((SELECT sum((CASE WHEN fs.kind='return' THEN -1 ELSE fs.direction END) * fs.quantity * fs.unit_price) FROM daftra_sales_v fs WHERE fs.rep_id=u.id AND fs.status='approved' AND fs.month >= $2::date AND fs.month < $3::date),0)::numeric annual_sales,
   COALESCE(ty.annual_amount,0)::numeric annual_sales_target,
   (SELECT max(v.visited_at) FROM visits v WHERE v.sales_rep_id=u.id) last_visit
  FROM users u LEFT JOIN products p ON p.id=u.assigned_product_id LEFT JOIN rep_target_years ty ON ty.rep_id=u.id AND ty.year=$1 WHERE u.role='sales_rep' ORDER BY u.active DESC,u.name`,[year,`${year}-01-01`,`${year+1}-01-01`]);

@@ -11,7 +11,7 @@ type Sale = ForecastData["sales"][number];
 type HubMonth = { month: string; target: number; actual: number; actual_qty: number; forecast: number; allocated: boolean };
 type Hub = { year: number; nowMonth: string; annual: number; monthly: HubMonth[]; pending: { forecasts: number; sales: number; targets: number }; byProduct: Array<{ name: string; value: number; qty: number }>; byClinic: Array<{ name: string; city: string | null; value: number; qty: number }> };
 type Plan = ComponentProps<typeof TargetPlanningClient>["data"];
-type Tab = "month" | "forecast" | "targets" | "year" | "returns";
+type Tab = "month" | "forecast" | "targets" | "year";
 
 const L = "ar-EG-u-nu-latn";
 const money = (n: number) => `${Math.round(n).toLocaleString("en-US")} ر.س`;
@@ -67,7 +67,7 @@ export default function RepSales() {
     } catch (e) { setErr(e instanceof Error ? e.message : "تعذر التحميل"); }
   }, [month, year]);
   useEffect(() => { void load(); }, [load]);
-  useEffect(() => { try { const t = sessionStorage.getItem("rep-sales-tab") as Tab | null; if (t) setTab(t); } catch { /* */ } }, []);
+  useEffect(() => { try { const t = sessionStorage.getItem("rep-sales-tab") as Tab | null; if (t && ["month", "forecast", "targets", "year"].includes(t)) setTab(t); } catch { /* */ } }, []);
   const go = (t: Tab) => { setTab(t); try { sessionStorage.setItem("rep-sales-tab", t); } catch { /* */ } };
 
   async function act(name: string, extra: Record<string, unknown> = {}, ok = "اتحفظ ✓") {
@@ -122,7 +122,7 @@ export default function RepSales() {
   if (pendingSales) steps.push({ icon: "time", color: "#3b90e8", title: `${pendingSales} بيع مستني موافقة`, text: "مش هيدخل في المحقق غير بعد الاعتماد", tab: "month", level: "wait" });
   if ((s.late_clinics?.length ?? 0) > 0) steps.push({ icon: "doctors", color: "#e16201", title: `${s.late_clinics!.length} عيادة متأخرة عن هدفها`, text: s.late_clinics!.slice(0, 3).map(c => c.name).join("، "), tab: "month", level: "bad" });
 
-  const TABS: Array<[Tab, string, string, number]> = [["month", "الشهر ده", "sales", pendingSales + rejectedSales], ["forecast", "توقعي", "send", editable || status === "rejected" ? 1 : 0], ["targets", "أهدافي", "trophy", steps.filter(x => x.tab === "targets" && x.level !== "wait").length], ["year", "السنة كلها", "reports", 0], ["returns", "مرتجع / تصحيح", "repeat", 0]];
+  const TABS: Array<[Tab, string, string, number]> = [["month", "الشهر ده", "sales", pendingSales + rejectedSales], ["forecast", "توقعي", "send", editable || status === "rejected" ? 1 : 0], ["targets", "أهدافي", "trophy", steps.filter(x => x.tab === "targets" && x.level !== "wait").length], ["year", "السنة كلها", "reports", 0]];
 
   return <div className="mt-4 space-y-4 pb-24 lg:pb-6">
     {/* ── hero: year + month ── */}
@@ -174,13 +174,12 @@ export default function RepSales() {
     </div>
 
     <div key={tab} className="dz-in">
-      {tab === "month" && <MonthTab fd={fd} isNow={isNow} busy={busy} onSale={(b) => act("sale", b, "اتبعت البيع للمدير ✓")} />}
+      {tab === "month" && <MonthTab fd={fd} />}
       {tab === "forecast" && <ForecastTab fd={fd} lines={lines} setLines={setLines} editable={editable} canChange={canChange} busy={busy} month={month}
         onSave={() => act("save", { lines }, "اتحفظت المسودة ✓")} onSubmit={() => act("submit", { lines }, "اتبعت التوقع للمدير ✓")} onChange={(reason) => act("request_change", { reason }, "اتبعت طلب التعديل ✓")}
         onCopy={async () => { setBusy(true); try { setLines(await fetchPreviousMonthLines(month)); toast("اتنسخ توقع الشهر اللي فات — راجعه واحفظ", "success"); } catch (e) { toast(e instanceof Error ? e.message : "تعذر النسخ", "error"); } finally { setBusy(false); } }} />}
       {tab === "targets" && (plan ? <TargetsTab plan={plan as unknown as RepPlanT} fd={fd} month={month} busy={busy} onAction={(n, b) => void targetAct(n, b)} /> : <div className={`${card} text-center text-sm text-[var(--muted)]`}>مفيش بيانات أهداف</div>)}
       {tab === "year" && <YearTab hub={hub} onMonth={(m) => { setMonth(m); go("month"); }} />}
-      {tab === "returns" && <ReturnsTab fd={fd} month={month} isNow={isNow} busy={busy} onSend={(kind, b) => act(kind, b, "اتبعت للمراجعة ✓")} />}
     </div>
   </div>;
 }
@@ -193,33 +192,22 @@ const clinicName = (fd: ForecastData, id: string) => { const c = fd.clinics.find
 const priceOf = (fd: ForecastData, c: string, p: string) => Number(fd.prices.find(x => x.clinic_id === c && x.product_id === p)?.price ?? (fd.products.find(x => x.id === p) as { unit_price?: number | string | null } | undefined)?.unit_price ?? 0);
 
 /* ═════ الشهر ده: سجّل بيع + مبيعاتي ═════ */
-function MonthTab({ fd, isNow, busy, onSale }: { fd: ForecastData; isNow: boolean; busy: boolean; onSale: (b: Record<string, unknown>) => Promise<boolean> }) {
-  const [clinic, setClinic] = useState(""); const [product, setProduct] = useState(fd.products.length === 1 ? fd.products[0].id : ""); const [qty, setQty] = useState(1); const [q, setQ] = useState("");
-  const recent = useMemo(() => [...new Set(fd.sales.map(x => x.clinic_id))], [fd.sales]);
-  const clinics = useMemo(() => { const t = q.trim().toLowerCase(); const xs = t ? fd.clinics.filter(c => `${c.name} ${c.city || ""}`.toLowerCase().includes(t)) : fd.clinics; return [...xs].sort((a, b) => Number(recent.includes(b.id)) - Number(recent.includes(a.id))); }, [fd.clinics, q, recent]);
-  const price = clinic && product ? priceOf(fd, clinic, product) : 0;
-  const can = isNow && !fd.is_closed && clinic && product && qty > 0 && !busy;
+function MonthTab({ fd }: { fd: ForecastData }) {
   const sales = [...fd.sales].sort((a, b) => (a.status === "rejected" ? -1 : 0) - (b.status === "rejected" ? -1 : 0));
   return <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_1fr]">
     <section className={card}>
-      <h3 className="mb-3 flex items-center gap-2 font-extrabold text-[var(--navy)]"><Icon name="sales" size={18} />سجّل بيع</h3>
-      {!isNow || fd.is_closed ? <div className="rounded-2xl bg-[var(--bg)] p-4 text-sm text-[var(--muted)]">{fd.is_closed ? "الشهر ده اتقفل — مفيش تسجيل." : "التسجيل متاح في الشهر الحالي بس."}</div> : <div className="space-y-3">
-        <div><div className="mb-1 text-[11px] font-bold text-[var(--muted)]">١ · العيادة</div>
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="🔍 دوّر على العيادة…" className="mb-2 h-10 w-full rounded-xl border border-[var(--border)] px-3 text-sm" />
-          <div className="grid max-h-44 grid-cols-1 gap-1.5 overflow-y-auto sm:grid-cols-2">{clinics.slice(0, 40).map(c => <button key={c.id} type="button" onClick={() => setClinic(c.id)} className={`truncate rounded-xl px-3 py-2 text-right text-xs font-bold ring-1 transition ${clinic === c.id ? "bg-[var(--navy)] text-white ring-[var(--navy)]" : "bg-white ring-[var(--border)] hover:bg-[var(--sky-light)]"}`}>{recent.includes(c.id) && clinic !== c.id ? "★ " : ""}{c.name}{c.city ? <span className="font-normal opacity-70"> · {c.city}</span> : null}</button>)}</div></div>
-        <div><div className="mb-1 text-[11px] font-bold text-[var(--muted)]">٢ · المنتج</div><div className="flex flex-wrap gap-1.5">{fd.products.map(p => <button key={p.id} type="button" onClick={() => setProduct(p.id)} className={`rounded-full px-3.5 py-1.5 text-xs font-bold ring-1 transition ${product === p.id ? "bg-[var(--navy)] text-white ring-[var(--navy)]" : "bg-white ring-[var(--border)] hover:bg-[var(--sky-light)]"}`}>{p.name}</button>)}</div></div>
-        <div className="flex flex-wrap items-end gap-3"><div><div className="mb-1 text-[11px] font-bold text-[var(--muted)]">٣ · الكمية</div><Stepper v={qty} set={setQty} min={1} /></div>
-          <div className="min-w-0 flex-1 rounded-2xl bg-[var(--sky-light)] px-3 py-2 text-xs">{price ? <>القيمة <b className="text-base text-[var(--navy)]">{money(price * qty)}</b> <span className="text-[var(--muted)]">({money(price)} للوحدة)</span></> : clinic && product ? <span className="text-amber-800">مفيش سعر متسجل للعيادة دي — المدير هيحدده</span> : <span className="text-[var(--muted)]">اختار العيادة والمنتج</span>}</div></div>
-        <button type="button" disabled={!can} onClick={async () => { if (await onSale({ clinic_id: clinic, product_id: product, qty })) { setQty(1); } }} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[var(--navy)] py-3 text-sm font-extrabold text-white disabled:opacity-40"><Icon name="send" size={16} />ابعت البيع للمدير</button>
-        <p className="text-center text-[10.5px] text-[var(--muted)]">البيع بيدخل في المحقق بعد ما المدير يعتمده</p>
-      </div>}
+      <h3 className="mb-3 flex items-center gap-2 font-extrabold text-[var(--navy)]"><Icon name="receipt" size={18} />مبيعاتك من دفترة</h3>
+      <div className="space-y-2 text-[13px] leading-6 text-[var(--ink-soft)]">
+        <p>المحقق بيتحسب تلقائياً من <b>فواتير دفترة</b> لعملاءك — مفيش تسجيل يدوي ولا انتظار اعتماد.</p>
+        <p className="rounded-2xl bg-[var(--sky-light)] p-3 text-xs">لو فاتورة عميلك مش ظاهرة هنا، يبقى العميل لسه مش مربوط بيك في دفترة — كلّم المدير يربطه.</p>
+      </div>
     </section>
     <section className={card}>
-      <h3 className="mb-3 flex items-center justify-between gap-2 font-extrabold text-[var(--navy)]"><span className="flex items-center gap-2"><Icon name="receipt" size={18} />مبيعاتي في الشهر</span><span className="text-xs font-bold text-[var(--muted)]">{fd.sales.length} عملية</span></h3>
-      {!sales.length ? <div className="rounded-2xl border border-dashed border-[var(--border-strong)] p-8 text-center text-sm text-[var(--muted)]">لسه مفيش مبيعات الشهر ده</div>
+      <h3 className="mb-3 flex items-center justify-between gap-2 font-extrabold text-[var(--navy)]"><span className="flex items-center gap-2"><Icon name="receipt" size={18} />فواتير الشهر</span><span className="text-xs font-bold text-[var(--muted)]">{fd.sales.length} عملية</span></h3>
+      {!sales.length ? <div className="rounded-2xl border border-dashed border-[var(--border-strong)] p-8 text-center text-sm text-[var(--muted)]">لسه مفيش فواتير الشهر ده لعملاءك في دفترة</div>
         : <div className="max-h-[420px] space-y-1.5 overflow-y-auto">{sales.map(x => { const sx = x as Sale & { review_note?: string; quantity?: number }; const neg = x.kind === "return" || x.direction === -1; const val = x.qty * Number(x.unit_price ?? priceOf(fd, x.clinic_id, x.product_id)); return <div key={x.id} className={`rounded-xl border px-3 py-2 ${x.status === "rejected" ? "border-red-200 bg-red-50/50" : "border-[var(--border)]"}`}>
-          <div className="flex items-center justify-between gap-2"><span className="min-w-0 truncate text-sm font-bold">{clinicName(fd, x.clinic_id)}</span><Pill s={x.status} /></div>
-          <div className="mt-0.5 flex flex-wrap justify-between gap-2 text-[11px] text-[var(--muted)]"><span>{fd.products.find(p => p.id === x.product_id)?.name} · {neg ? "−" : ""}{x.qty} وحدة{x.kind === "return" ? " · مرتجع" : x.kind === "adjustment" ? " · تصحيح" : ""}</span><b className={neg ? "text-red-700" : "text-[var(--navy)]"}>{neg ? "−" : ""}{money(val)}</b></div>
+          <div className="flex items-center justify-between gap-2"><span className="min-w-0 truncate text-sm font-bold" dir="auto">{(x as { client_name?: string }).client_name || clinicName(fd, x.clinic_id)}</span>{(x as { invoice_no?: string }).invoice_no ? <span className="shrink-0 text-[11px] text-[var(--muted)]">فاتورة {(x as { invoice_no?: string }).invoice_no}</span> : <Pill s={x.status} />}</div>
+          <div className="mt-0.5 flex flex-wrap justify-between gap-2 text-[11px] text-[var(--muted)]"><span dir="auto">{fd.products.find(p => p.id === x.product_id)?.name || (x as { item?: string }).item} · {neg ? "−" : ""}{x.qty} وحدة{x.kind === "return" ? " · مرتجع" : x.kind === "adjustment" ? " · تصحيح" : ""}</span><b className={neg ? "text-red-700" : "text-[var(--navy)]"}>{neg ? "−" : ""}{money(val)}</b></div>
           {x.status === "rejected" && sx.review_note && <div className="mt-1 text-[11px] font-bold text-red-700">السبب: {sx.review_note}</div>}
         </div>; })}</div>}
     </section>
@@ -300,25 +288,6 @@ function Breakdown({ title, rows }: { title: string; rows: Array<{ k: string; v:
 }
 
 /* ═════ مرتجع / تصحيح ═════ */
-function ReturnsTab({ fd, month, isNow, busy, onSend }: { fd: ForecastData; month: string; isNow: boolean; busy: boolean; onSend: (kind: string, b: Record<string, unknown>) => Promise<boolean> }) {
-  const [kind, setKind] = useState<"return" | "adjustment">("return"); const [dir, setDir] = useState<"decrease" | "increase">("decrease");
-  const [src, setSrc] = useState(month); const [sources, setSources] = useState<Sale[]>([]); const [id, setId] = useState(""); const [qty, setQty] = useState(1); const [reason, setReason] = useState(""); const [e, setE] = useState("");
-  useEffect(() => { let off = false; if (src === month) { setSources(fd.sales.filter(s => s.kind === "sale" && s.status === "approved")); setE(""); return; } setSources([]); fetchSourceSales(src).then(x => { if (!off) setSources(x); }).catch(err => { if (!off) setE(err instanceof Error ? err.message : "تعذر التحميل"); }); return () => { off = true; }; }, [src, month, fd.sales]);
-  const s = sources.find(x => x.id === id);
-  return <section className={`${card} max-w-2xl`}>
-    <h3 className="flex items-center gap-2 font-extrabold text-[var(--navy)]"><Icon name="repeat" size={18} />مرتجع أو تصحيح بيع</h3>
-    <p className="mt-0.5 text-[11.5px] text-[var(--muted)]">مربوط ببيع معتمد قبل كده — بيتبعت للمدير ومش بيغيّر البيع الأصلي.</p>
-    {!isNow ? <div className="mt-3 rounded-2xl bg-[var(--bg)] p-4 text-sm text-[var(--muted)]">متاح في الشهر الحالي بس.</div> : <div className="mt-4 space-y-3">
-      <div className="flex gap-1 rounded-xl bg-[var(--bg)] p-1">{([["return", "مرتجع"], ["adjustment", "تصحيح كمية"]] as const).map(([k, l]) => <button key={k} type="button" onClick={() => setKind(k)} className={`flex-1 rounded-lg py-2 text-sm font-bold transition ${kind === k ? "bg-white text-[var(--navy)] shadow-sm" : "text-[var(--muted)]"}`}>{l}</button>)}</div>
-      {kind === "adjustment" && <div className="flex gap-1.5">{([["decrease", "الكمية كانت أقل"], ["increase", "الكمية كانت أكتر"]] as const).map(([k, l]) => <button key={k} type="button" onClick={() => setDir(k)} className={`rounded-full px-3 py-1.5 text-xs font-bold ring-1 ${dir === k ? "bg-[var(--navy)] text-white ring-[var(--navy)]" : "bg-white ring-[var(--border)]"}`}>{l}</button>)}</div>}
-      <label className="block text-[11px] font-bold text-[var(--muted)]">شهر البيع الأصلي<input type="month" max={month} value={src} onChange={ev => { setSrc(ev.target.value); setId(""); }} className="mt-1 h-10 w-full rounded-xl border border-[var(--border)] px-3 text-sm" /></label>
-      {e && <div className="text-xs font-bold text-red-700">{e}</div>}
-      <div className="space-y-1.5">{!sources.length ? <div className="rounded-xl bg-[var(--bg)] p-3 text-xs text-[var(--muted)]">مفيش مبيعات معتمدة في الشهر ده</div> : sources.map(x => <button key={x.id} type="button" onClick={() => setId(x.id)} className={`flex w-full justify-between rounded-xl px-3 py-2 text-right text-xs ring-1 transition ${id === x.id ? "bg-[var(--navy)] text-white ring-[var(--navy)]" : "bg-white ring-[var(--border)] hover:bg-[var(--sky-light)]"}`}><span className="truncate font-bold">{clinicName(fd, x.clinic_id)}</span><span>{fd.products.find(p => p.id === x.product_id)?.name} · {x.qty} وحدة</span></button>)}</div>
-      <div className="flex flex-wrap items-end gap-3"><div><div className="mb-1 text-[11px] font-bold text-[var(--muted)]">الكمية</div><Stepper v={qty} set={setQty} min={1} /></div><input value={reason} onChange={ev => setReason(ev.target.value)} placeholder="السبب (مطلوب)…" className="h-10 min-w-0 flex-1 rounded-xl border border-[var(--border)] px-3 text-sm" /></div>
-      <button type="button" disabled={busy || !s || qty <= 0 || !reason.trim()} onClick={async () => { if (s && await onSend(kind, { source_sale_id: s.id, clinic_id: s.clinic_id, product_id: s.product_id, qty, reason: reason.trim(), direction: dir })) { setId(""); setQty(1); setReason(""); } }} className="w-full rounded-2xl bg-[var(--navy)] py-3 text-sm font-extrabold text-white disabled:opacity-40">{kind === "return" ? "ابعت المرتجع" : "ابعت التصحيح"}</button>
-    </div>}
-  </section>;
-}
 
 /* ═════ أهدافي: توزيع السنة + تفصيل الشهر (بدل شبكة كل العيادات) ═════ */
 type TL = { clinic_id: string; product_id: string; quantity: number; unit_price?: number | string };

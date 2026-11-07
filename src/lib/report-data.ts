@@ -31,7 +31,7 @@ export async function getDetailedReportData(searchParams: URLSearchParams, opts:
       FROM users u LEFT JOIN rep_target_years y ON y.rep_id=u.id AND y.year=$1
       LEFT JOIN (SELECT fs.rep_id,
         SUM((CASE WHEN fs.kind='return' THEN -1 ELSE fs.direction END) * fs.quantity * fs.unit_price) AS achieved
-        FROM forecast_sales fs WHERE fs.status='approved' AND fs.month >= $2::date AND fs.month < $3::date
+        FROM daftra_sales_v fs WHERE fs.status='approved' AND fs.month >= $2::date AND fs.month < $3::date
         GROUP BY fs.rep_id) s ON s.rep_id=u.id
       WHERE ${conditions.join(' AND ')} ORDER BY remaining DESC,u.name`, values);
     return {totals:{visits:0,active_reps:0,doctors:0,samples:0,orders:0},
@@ -143,7 +143,7 @@ export async function getDetailedReportData(searchParams: URLSearchParams, opts:
     GREATEST(COALESCE(y.annual_amount,0)-COALESCE(s.achieved,0),0)::numeric remaining
     FROM users u LEFT JOIN rep_target_years y ON y.rep_id=u.id AND y.year=$${ty}
     LEFT JOIN (SELECT fs.rep_id,SUM(CASE WHEN fs.kind='return' OR fs.direction=-1 THEN -fs.quantity * fs.unit_price ELSE fs.quantity * fs.unit_price END) achieved
-      FROM forecast_sales fs WHERE fs.status='approved' AND fs.month >= $${sf}::date AND fs.month < ($${st}::date + interval '1 day') GROUP BY fs.rep_id) s ON s.rep_id=u.id
+      FROM daftra_sales_v fs WHERE fs.status='approved' AND fs.month >= $${sf}::date AND fs.month < ($${st}::date + interval '1 day') GROUP BY fs.rep_id) s ON s.rep_id=u.id
     WHERE ${salesWhere.join(' AND ')} ORDER BY remaining DESC`,salesVals);
   const complianceVals:unknown[]=[from||`${riyadhDateParts().date.slice(0,7)}-01`,to||riyadhDateParts().date];let compIndex=3;const complianceWhere:string[]=["u.role='sales_rep'","u.active=true"];const compliancePlanFilters:string[]=[];const complianceVisitFilters:string[]=[];
   if(repId){complianceWhere.push(`u.id=$${compIndex}`);complianceVals.push(repId);compIndex++}

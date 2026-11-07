@@ -3,7 +3,7 @@ import { query } from "@/lib/db";
 const SIGN = "(CASE WHEN fs.kind='return' THEN -1 ELSE fs.direction END)";
 export type RepRow = { rep_id: string; rep_name: string; annual: number; ytd: number; month_target: number; month_actual: number; month_forecast: number; pending: number };
 
-/** Read-only sales picture for one year: targets (approved distribution + overrides), approved sales, approved forecasts. */
+/** Read-only sales picture for one year: targets (approved distribution + overrides), actual sales from Daftra invoices (daftra_sales_v), approved forecasts. */
 export async function salesHub(u: { id: string; role: string }, year: number, repId: string | null) {
   const scope = u.role === "admin" ? repId : u.id;
   const reps = (await query<{ id: string; name: string }>(`SELECT id, name FROM users WHERE role='sales_rep' AND active ${scope ? "AND id=$1" : ""} ORDER BY name`, scope ? [scope] : [])).rows;
@@ -16,7 +16,7 @@ export async function salesHub(u: { id: string; role: string }, year: number, re
         AND v.version=(SELECT max(version) FROM rep_target_versions x WHERE x.rep_id=v.rep_id AND x.year=$1 AND x.level='annual' AND x.status='approved')`, [year, ids]),
     query<{ rep_id: string; month: string; amount: string }>("SELECT rep_id, to_char(month,'YYYY-MM') AS month, amount FROM rep_target_overrides WHERE year=$1 AND rep_id = ANY($2::uuid[])", [year, ids]),
     query<{ rep_id: string; month: string; value: string; qty: string }>(`SELECT fs.rep_id, to_char(fs.month,'YYYY-MM') AS month, sum(${SIGN}*fs.quantity*fs.unit_price) value, sum(${SIGN}*fs.quantity) qty
-      FROM forecast_sales fs WHERE fs.status='approved' AND fs.month >= $1::date AND fs.month < $2::date AND fs.rep_id = ANY($3::uuid[]) GROUP BY 1,2`, [y0, y1, ids]),
+      FROM daftra_sales_v fs WHERE fs.status='approved' AND fs.month >= $1::date AND fs.month < $2::date AND fs.rep_id = ANY($3::uuid[]) GROUP BY 1,2`, [y0, y1, ids]),
     query<{ rep_id: string; month: string; value: string; qty: string }>(`SELECT v.rep_id, to_char(v.month,'YYYY-MM') AS month,
         sum(l.quantity * COALESCE(l.unit_price, (SELECT p.price FROM forecast_prices p WHERE p.clinic_id=l.clinic_id AND p.product_id=l.product_id AND p.month<=v.month ORDER BY p.month DESC LIMIT 1), 0)) value, sum(l.quantity) qty
       FROM forecast_versions v JOIN forecast_lines l ON l.version_id=v.id
@@ -27,11 +27,12 @@ export async function salesHub(u: { id: string; role: string }, year: number, re
         (SELECT count(*) FROM forecast_sales s WHERE s.rep_id=r.id AND s.status='pending')::int sales,
         (SELECT count(*) FROM rep_target_versions t WHERE t.rep_id=r.id AND t.status='pending')::int targets
       FROM unnest($1::uuid[]) r(id)`, [ids]),
-    query<{ product: string; value: string; qty: string }>(`SELECT p.name product, sum(${SIGN}*fs.quantity*fs.unit_price) value, sum(${SIGN}*fs.quantity) qty FROM forecast_sales fs JOIN products p ON p.id=fs.product_id
+    query<{ product: string; value: string; qty: string }>(`SELECT COALESCE(p.name, fs.item) product, sum(${SIGN}*fs.quantity*fs.unit_price) value, sum(${SIGN}*fs.quantity) qty FROM daftra_sales_v fs LEFT JOIN products p ON p.id=fs.product_id
       WHERE fs.status='approved' AND fs.month >= $1::date AND fs.month < $2::date AND fs.rep_id = ANY($3::uuid[]) GROUP BY 1 ORDER BY 2 DESC`, [y0, y1, ids]),
-    query<{ clinic: string; city: string | null; value: string; qty: string }>(`SELECT c.name clinic, c.city, sum(${SIGN}*fs.quantity*fs.unit_price) value, sum(${SIGN}*fs.quantity) qty FROM forecast_sales fs JOIN clinics c ON c.id=fs.clinic_id
+    query<{ clinic: string; city: string | null; value: string; qty: string }>(`SELECT COALESCE(c.name, fs.client_name) clinic, c.city, sum(${SIGN}*fs.quantity*fs.unit_price) value, sum(${SIGN}*fs.quantity) qty FROM daftra_sales_v fs LEFT JOIN clinics c ON c.id=fs.clinic_id
       WHERE fs.status='approved' AND fs.month >= $1::date AND fs.month < $2::date AND fs.rep_id = ANY($3::uuid[]) GROUP BY 1,2 ORDER BY 3 DESC LIMIT 12`, [y0, y1, ids]),
   ]);
+  const unassigned = u.role === "admin" && !repId ? Number((await query<{ v: string }>("SELECT COALESCE(sum(value),0) v FROM daftra_sales_v WHERE rep_id IS NULL AND month >= $1::date AND month < $2::date", [y0, y1])).rows[0]?.v || 0) : 0;
   const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, "0")}`);
   const target: Record<string, Record<string, number>> = {};
   for (const r of dist.rows) (target[r.rep_id] ||= {})[r.month] = Number(r.amount);
@@ -56,7 +57,7 @@ export async function salesHub(u: { id: string; role: string }, year: number, re
   }));
   const pending = pend.rows.reduce((a, p) => ({ forecasts: a.forecasts + p.forecasts, sales: a.sales + p.sales, targets: a.targets + p.targets }), { forecasts: 0, sales: 0, targets: 0 });
   return {
-    year, nowMonth, annual: team.reduce((a, r) => a + r.annual, 0), monthly, team: u.role === "admin" ? team : [], pending,
+    year, nowMonth, annual: team.reduce((a, r) => a + r.annual, 0), monthly, unassigned, source: "daftra" as const, team: u.role === "admin" ? team : [], pending,
     byProduct: byProduct.rows.map(r => ({ name: r.product, value: Number(r.value), qty: Number(r.qty) })),
     byClinic: byClinic.rows.map(r => ({ name: r.clinic, city: r.city, value: Number(r.value), qty: Number(r.qty) })),
   };

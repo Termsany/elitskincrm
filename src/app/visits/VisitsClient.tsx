@@ -71,7 +71,7 @@ export default function VisitsClient({ isAdmin, reps, initialRepId="" }: { isAdm
     if (to) p.set("to", to);
     if (status) p.set("status", status);
     if (q) p.set("q", q);
-    window.location.href = `/api/exports/visits?${p.toString()}`;
+    window.location.href = `/api/admin/visits/export?${p.toString()}`;
   }
   const hasActiveFilter = !!(q || repId || status || from || to);
   function clearFilters() {
@@ -162,7 +162,7 @@ export default function VisitsClient({ isAdmin, reps, initialRepId="" }: { isAdm
           </Button>
           {isAdmin && (
             <Button variant="outline" onClick={exportCsv}>
-              تصدير CSV
+              تصدير Excel
             </Button>
           )}
         </div>

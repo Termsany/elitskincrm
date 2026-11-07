@@ -14,7 +14,7 @@ type Pending = { id: string; rep_id: string; rep_name: string; status: string; s
 type PSale = { id: string; rep_name: string; clinic_id: string; product_id: string; quantity: number; unit_price: string; kind: string; direction: number; reason?: string | null };
 type MonthView = { pending: Pending[]; pending_sales: PSale[]; team: Array<{ rep_id: string; rep_name: string; target: number; actual: number; target_value: number; actual_value: number; pending: number }>; targets: Array<{ rep_id: string; clinic_id: string; product_id: string; quantity: number; unit_price: string }>; approved_sales: Array<{ rep_id: string; clinic_id: string; product_id: string; quantity: number; unit_price: string; kind: string; direction: number }>; approved_forecasts: Array<{ rep_id: string; clinic_id: string; product_id: string; quantity: number }>; is_closed: boolean; prices: Array<{ clinic_id: string; product_id: string; price: number }> };
 type View = { year: number; month: string; plan: { reps: PlanRep[]; pending_year_allocations: Q[]; pending_breakdowns: Q[] }; monthView: MonthView; products: Product[]; clinics: Clinic[]; targetProducts: TP[]; specialPrices: Array<{ clinic_id: string; product_id: string; price: number; month: string }> };
-type Hub = { team: Array<{ rep_id: string; rep_name: string; annual: number; ytd: number; month_target: number; month_actual: number; month_forecast: number; pending: number }> };
+type Hub = { unassigned?: number; team: Array<{ rep_id: string; rep_name: string; annual: number; ytd: number; month_target: number; month_actual: number; month_forecast: number; pending: number }> };
 type Tab = "team" | "targets" | "approvals" | "catalog" | "close";
 
 const money = (n: number) => `${Math.round(n).toLocaleString("en-US")} ر.س`;
@@ -64,6 +64,7 @@ export default function AdminSales() {
   const TABS: Array<[Tab, string, string, number, string]> = [["team", "الفريق", "reps", 0, ""], ["targets", "الأهداف", "trophy", 0, ""], ["approvals", "الموافقات", "check", approvals, "bg-amber-500"], ["catalog", "العيادات والأسعار", "products", noPrice, "bg-red-500"], ["close", "إقفال الشهر", "calendar", 0, ""]];
 
   return <div className="mt-4 space-y-4 pb-24 lg:pb-6">
+    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--sky-border)] bg-[var(--sky-light)] px-4 py-3 text-[12.5px] text-[var(--navy)]"><Icon name="receipt" size={16} /><span className="min-w-0 flex-1">المحقق محسوب من <b>فواتير دفترة</b> بس (بعد المرتجعات) — كل فاتورة بتتحسب للمندوب المربوط بعميلها.{hub?.unassigned ? <> فيه <b>{Math.round(hub.unassigned).toLocaleString("en-US")} ر.س</b> مبيعات السنة دي لعملاء مش مربوطين بمندوب.</> : null}</span>{hub?.unassigned ? <a href="/daftra-sales?tab=ar" className="rounded-xl bg-[var(--navy)] px-3 py-1.5 text-xs font-bold text-white">اربط العملاء ‹</a> : null}</div>
     {/* header strip: period + 4 numbers (shown once) */}
     <div className="dz-in grid grid-cols-2 gap-3 lg:grid-cols-5">
       <div className="col-span-2 flex items-center justify-between gap-2 rounded-[24px] border border-[var(--border)] bg-white p-3 lg:col-span-1">

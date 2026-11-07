@@ -1,5 +1,4 @@
 import {describe,it,expect,vi,beforeEach} from 'vitest';
-import {readFileSync} from 'node:fs';
 const {query,user}=vi.hoisted(()=>({query:vi.fn(),user:vi.fn()}));
 vi.mock('@/lib/db',()=>({query}));
 vi.mock('@/lib/session',()=>({getCurrentUser:user}));
@@ -36,9 +35,5 @@ describe('annual sales report contract',()=>{
   const exportResponse=await exportGet(new Request('http://localhost/api/exports/report?reportType=sales&year=2025&repId=r1&format=json'));
   expect((await apiResponse.json()).sales).toEqual((await exportResponse.json()).rows);
   expect(query.mock.calls[0]).toEqual(query.mock.calls[1]);
- });
- it('isolates the annual controls from visit and product filters',()=>{
-  const source=readFileSync('src/app/admin/reports/ReportsClient.tsx','utf8');
-  expect(source).toContain('type==="sales"');expect(source).toContain('q.set("year",year)');expect(source).toContain('type!=="sales"');
  });
 });

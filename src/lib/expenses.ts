@@ -126,7 +126,7 @@ export async function pnl(year: number, repId?: string) {
     WITH m AS (SELECT generate_series(1,12) AS month),
     reps AS (SELECT u.id, u.name FROM users u WHERE u.role='sales_rep' ${repCond}),
     rev AS (SELECT fs.rep_id, extract(month FROM fs.month)::int AS month, sum((CASE WHEN fs.kind='return' THEN -1 ELSE fs.direction END) * fs.quantity * fs.unit_price)::float8 v
-            FROM forecast_sales fs WHERE fs.status='approved' AND fs.month >= $1::date AND fs.month < $2::date GROUP BY 1,2),
+            FROM daftra_sales_v fs WHERE fs.status='approved' AND fs.month >= $1::date AND fs.month < $2::date GROUP BY 1,2),
     exp AS (SELECT e.rep_id, extract(month FROM e.expense_date)::int AS month,
               sum(e.amount) FILTER (WHERE e.status IN ('approved','reimbursed'))::float8 v, sum(e.amount) FILTER (WHERE e.status='pending')::float8 p
             FROM expenses e WHERE e.expense_date >= $1::date AND e.expense_date < $2::date GROUP BY 1,2),

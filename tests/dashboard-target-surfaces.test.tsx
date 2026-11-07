@@ -20,9 +20,9 @@ beforeEach(() => {
  mock.query.mockResolvedValue({ rows: [] });
 });
 afterEach(() => { vi.useRealTimers(); vi.clearAllMocks(); });
-const salesSql = () => (mock.query.mock.calls as [string, unknown[]][]).filter(([sql]) => /forecast_sales|rep_monthly_sales|rep_target_years/.test(sql));
+const salesSql = () => (mock.query.mock.calls as [string, unknown[]][]).filter(([sql]) => /daftra_sales_v|forecast_sales|rep_monthly_sales|rep_target_years/.test(sql));
 const assertApprovedSigned = (sql: string) => {
- expect(sql).toContain('forecast_sales'); expect(sql).toMatch(/status\s*=\s*'approved'/);
+ expect(sql).toContain('daftra_sales_v'); expect(sql).toMatch(/status\s*=\s*'approved'/);
  expect(sql).toMatch(/quantity\s*\*\s*(?:s\.|fs\.)?unit_price/);
  expect(sql).toMatch(/kind\s*=\s*'return'/); expect(sql).toContain('direction');
  expect(sql).not.toContain('rep_monthly_sales');
@@ -32,7 +32,7 @@ describe('annual targets and approved forecast achievement across dashboards', (
   await DashboardPage();
   const calls = salesSql(); expect(calls.some(([sql]) => sql.includes('rep_monthly_sales'))).toBe(false);
   expect(calls.some(([sql, args]) => sql.includes('rep_target_years') && args?.includes(2026))).toBe(true);
-  const actual = calls.find(([sql]) => sql.includes('forecast_sales'))!;
+  const actual = calls.find(([sql]) => sql.includes('daftra_sales_v'))!;
   assertApprovedSigned(actual[0]); expect(actual[1]).toEqual(['rep-1', 2026, '2026-01-01', '2027-01-01']);
  });
  it('admin list computes the current Riyadh-year values per rep without legacy amounts', async () => {
@@ -45,7 +45,7 @@ describe('annual targets and approved forecast achievement across dashboards', (
   const calls = mock.query.mock.calls as [string, unknown[]][];
   expect(calls.some(([sql]) => sql.includes('rep_monthly_sales'))).toBe(false);
   expect(calls.some(([sql]) => sql.includes('rep_target_years'))).toBe(true);
-  expect(calls.some(([sql]) => sql.includes('forecast_sales') && /status\s*=\s*'approved'/.test(sql))).toBe(true);
+  expect(calls.some(([sql]) => sql.includes('daftra_sales_v') && /status\s*=\s*'approved'/.test(sql))).toBe(true);
   const html = renderToStaticMarkup(createElement(RepDetailClient, {
    initial: { id:'rep-1', name:'مندوب', email:'rep@example.com', active:true, university:'', hire_date:null, iqama_expiry:null, salary:0, annual_sales_target:1000, annual_sales:0, products:[], visits_count:0, plans_count:0, samples_count:0, open_tasks:0, open_requests:0, last_visit:null },
    products:[], sales:[], visits:[], plans:[], samples:[], tasks:[], requests:[]

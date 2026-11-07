@@ -6,7 +6,7 @@ import { planOf, type Goals, type scorecard as Scorecard, type levers as Levers,
 import { sar, pct, MONTHS, C, Hint, Kpi, Card, MonthChart, Table } from "./kit";
 
 type SC = ReturnType<typeof Scorecard>;
-type Data = { year: number; today: string; goals: Goals | null; updated_at: string | null; suggestion: Goals; basis: ReturnType<typeof suggestGoals>["basis"]; seasonal: number[]; scorecard: SC | null; preview: SC; levers: ReturnType<typeof Levers>; baseline: { sales: number; cogs: number; opex: number; other: number; net: number } | null; years: number[] };
+type Data = { year: number; today: string; goals: Goals | null; updated_at: string | null; suggestion: Goals; basis: ReturnType<typeof suggestGoals>["basis"]; seasonal: number[]; scorecard: SC | null; preview: SC; levers: ReturnType<typeof Levers>; rep_targets?: { reps: Array<{ id: string; name: string; annual: number; locked: boolean }>; total: number }; baseline: { sales: number; cogs: number; opex: number; other: number; net: number } | null; years: number[] };
 const isEqual = (w: number[]) => w.every(x => Math.abs(x - 1 / 12) < 1e-6);
 
 function Num({ label, hint, value, onChange, suffix, step = 1 }: { label: string; hint?: string; value: number; onChange: (v: number) => void; suffix: string; step?: number }) {
@@ -79,6 +79,8 @@ export function GoalsTab() {
       {plan.net < 0 && <p className="mt-3 rounded-xl bg-red-50 p-3 text-xs leading-6 text-red-800 ring-1 ring-red-200"><b>الخطة دي فيها خسارة {sar(-plan.net)}:</b> مجمل الربح ما بيغطيش المصاريف. عشان تقفل السنة من غير خسارة محتاج واحدة من دول أو مزيج منهم: مبيعات <b>{sar(plan.break_even_month === null ? null : plan.break_even_month * 12)}</b> في السنة، أو مصاريف <b>{sar(g.sales * g.gross_margin / 100 / 12)}</b> في الشهر، أو هامش مجمل ربح <b>{pct(g.sales ? g.opex_month * 12 / g.sales * 100 : null)}</b> (برفع الأسعار وتقليل الخصومات).</p>}
     </Card>
 
+    {d.goals && d.rep_targets && <RepTargets year={year} goal={d.goals.sales} rt={d.rep_targets} onDone={() => void load()} />}
+
     {sc ? <>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Kpi label={`المبيعات (${sc.ytd.months} شهر)`} value={sar(sc.ytd.sales.actual)} sub={`المستهدف ${sar(sc.ytd.sales.target)} · ${sc.ytd.sales.target ? pct(sc.ytd.sales.actual / sc.ytd.sales.target * 100) : "—"}`} icon="sales" color={C.teal} tone={sc.ytd.sales.actual >= sc.ytd.sales.target * 0.95 ? "good" : "bad"} />
@@ -122,4 +124,25 @@ export function GoalsTab() {
         {(lv.price || lv.volume || lv.cogs || lv.opex) ? <button type="button" onClick={() => setLv({ price: 0, volume: 0, cogs: 0, opex: 0 })} className="mt-1 text-xs font-bold text-[var(--navy)] hover:underline">رجّع الصفر</button> : null}</div>
     </Card>}
   </div>;
+}
+
+/** One target chain: company annual goal → reps' annual targets (each rep then splits by month in المبيعات والأهداف). */
+function RepTargets({ year, goal, rt, onDone }: { year: number; goal: number; rt: NonNullable<Data["rep_targets"]>; onDone: () => void }) {
+  const toast = useToast(); const [busy, setBusy] = useState(false);
+  const gap = goal - rt.total, ok = Math.abs(gap) < Math.max(1000, goal * 0.005);
+  async function distribute() {
+    if (!confirm(`هيتوزع هدف الشركة (${Math.round(goal).toLocaleString("en-US")} ر.س) على المناديب بنسبة تارجت كل واحد الحالي (ولو فيه مندوب مالوش تارجت، بالتساوي). المناديب اللي وزّعوا تارجتهم على الشهور بيفضلوا زي ما هم. تكمل؟`)) return;
+    setBusy(true);
+    const r = await fetch("/api/admin/finance/goals", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "distribute", year }) });
+    const j = await r.json().catch(() => null); setBusy(false);
+    if (!r.ok) { toast(j?.error || "تعذر التوزيع", "error"); return; }
+    toast(`اتحدث تارجت ${j.updated} مندوب${j.failed?.length ? ` · ما اتغيرش: ${j.failed.join("، ")}` : ""}`, j.failed?.length ? "info" : "success"); onDone();
+  }
+  return <Card title={`تارجت المناديب ${year}`} hint="هدف الشركة لازم يساوي مجموع تارجت المناديب — وإلا يا إما الشركة مش هتحقق هدفها حتى لو كل مندوب حقق تارجته، يا إما المناديب بيتحاسبوا على أكتر من المطلوب. المحقق لكل مندوب بيتحسب من فواتير دفترة لعملاءه."
+    right={!ok && <button type="button" disabled={busy} onClick={() => void distribute()} className="rounded-xl bg-[var(--navy)] px-4 py-2 text-xs font-bold text-white disabled:opacity-60">{busy ? "جارٍ التوزيع…" : "وزّع هدف الشركة على المناديب"}</button>}>
+    <div className={`mb-3 rounded-xl p-3 text-[12.5px] ring-1 ${ok ? "bg-emerald-50 text-emerald-900 ring-emerald-200" : "bg-amber-50 text-amber-900 ring-amber-200"}`}>
+      هدف الشركة <b>{sar(goal)}</b> · مجموع تارجت المناديب <b>{sar(rt.total)}</b>{ok ? " — متطابقين ✓" : <> — الفرق <b>{sar(Math.abs(gap))}</b> {gap > 0 ? "ناقص على المناديب" : "زيادة على هدف الشركة"}</>}
+    </div>
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">{rt.reps.map(r => <div key={r.id} className="flex items-center justify-between gap-2 rounded-xl border border-[var(--border)] px-3 py-2 text-sm"><span className="min-w-0 truncate font-bold">{r.name}</span><span className="shrink-0">{sar(r.annual)}{r.locked && <span className="mr-1 text-[10px] text-[var(--muted)]">(موزّع على الشهور)</span>}</span></div>)}</div>
+  </Card>;
 }

@@ -2,6 +2,7 @@ import { getCurrentUser } from "@/lib/session";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
 import PlansClient from "./PlansClient";
+import PlanningTabs from "@/components/PlanningTabs";
 export default async function PlansPage({searchParams}:{searchParams:Promise<{status?:string;period?:string;planId?:string;repId?:string}>}){
   const user=await getCurrentUser();
   if(!user) redirect("/login");
@@ -12,9 +13,10 @@ export default async function PlansPage({searchParams}:{searchParams:Promise<{st
   const sp=await searchParams;
   return (
     <AppShell role={user.role} email={user.email} name={user.name} jobTitle={user.job_title} productName={user.product_name} active="/plans">
+      <PlanningTabs active="plans" />
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-extrabold text-[var(--navy)]">الخطط والاعتماد</h1>
+          <h1 className="text-2xl font-extrabold text-[var(--navy)]">الخطة · الخطط والاعتماد</h1>
           <p className="text-sm text-[var(--muted)]">{user.role==="admin" ? "راجع واعتمد خطط المناديب وطلبات التعديل، وتابع التغطية والتنفيذ" : "رتّب خطتك وابعتها للاعتماد — وتقدر تعدّل بعد الاعتماد بموافقة المدير"}</p>
         </div>
       </div>

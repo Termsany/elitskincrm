@@ -107,3 +107,14 @@ export function levers(B: { sales: number; cogs: number; opex: number; other: nu
   const net = B.sales - B.cogs - B.opex + B.other;
   return { net: r0(net), price1: r0(B.sales * 0.01), volume1: r0((B.sales - B.cogs) * 0.01), cost1: r0(B.cogs * 0.01), opex1: r0(B.opex * 0.01) };
 }
+
+/** Split the company sales goal over reps: keep locked reps, share the rest by current targets (or equally). Pure. */
+export function splitGoal(goal: number, reps: Array<{ id: string; annual: number; locked: boolean }>) {
+  const fixed = reps.filter(r => r.locked).reduce((s, r) => s + r.annual, 0), open = reps.filter(r => !r.locked);
+  const rest = Math.max(0, goal - fixed), base = open.reduce((s, r) => s + r.annual, 0);
+  // proportional only when every open rep already has a target; otherwise a rep at 0 would get nothing → split equally
+  const byShare = base > 0 && open.every(r => r.annual > 0);
+  const out = open.map(r => ({ id: r.id, amount: Math.round((byShare ? rest * r.annual / base : rest / open.length) / 1000) * 1000 }));
+  if (out.length) out[out.length - 1].amount = Math.max(0, Math.round(rest - out.slice(0, -1).reduce((s, x) => s + x.amount, 0)));
+  return out;
+}

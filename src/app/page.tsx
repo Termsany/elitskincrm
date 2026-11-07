@@ -14,7 +14,7 @@ export default async function DashboardPage() {
   const [annual, actual] = await Promise.all([
     query("SELECT annual_amount FROM rep_target_years WHERE rep_id=$1 AND year=$2", [user.id, year]),
     query(`SELECT fs.month::text AS month_value, COALESCE(sum((CASE WHEN fs.kind='return' THEN -1 ELSE fs.direction END) * fs.quantity * unit_price),0)::numeric AS amount
-      FROM forecast_sales fs WHERE fs.rep_id=$1 AND fs.status='approved' AND EXTRACT(YEAR FROM fs.month)=$2::int AND fs.month >= $3::date AND fs.month < $4::date
+      FROM daftra_sales_v fs WHERE fs.rep_id=$1 AND fs.status='approved' AND EXTRACT(YEAR FROM fs.month)=$2::int AND fs.month >= $3::date AND fs.month < $4::date
       GROUP BY fs.month ORDER BY fs.month`, [user.id, year, `${year}-01-01`, `${year+1}-01-01`])
   ]);
   const salesSummary = { annual_sales_target: Number(annual.rows[0]?.annual_amount??0), annual_sales: actual.rows.reduce((total: number, row: Record<string,unknown>) => total + Number(row.amount), 0) };

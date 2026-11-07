@@ -1,4 +1,5 @@
 import { query } from "@/lib/db";
+import { gapSql } from "@/lib/my-alerts";
 import { getDetailedReportData } from "@/lib/report-data";
 import { reportDefinition, type ReportType } from "@/lib/reporting";
 
@@ -181,9 +182,9 @@ async function extraRows(id: string, f: ReportFilters): Promise<Row[]> {
           (array_agg(u.name ORDER BY v.visited_at DESC))[1] rep_name, (array_agg(u.id ORDER BY v.visited_at DESC))[1] rep_id
         FROM visits v JOIN users u ON u.id=v.sales_rep_id WHERE v.status='completed' ${repCond} GROUP BY v.doctor_id)
       SELECT d.id doctor_id, d.name doctor_name, d.classification, d.specialty, d.clinic_name, d.city,
-        ceil(30.0/pf.visits_per_month)::int gap_days, l.last_visit, l.rep_name, l.rep_id,
+        ${gapSql()} gap_days, l.last_visit, l.rep_name, l.rep_id,
         CASE WHEN l.last_visit IS NULL THEN NULL ELSE ((now() AT TIME ZONE 'Asia/Riyadh')::date - (l.last_visit AT TIME ZONE 'Asia/Riyadh')::date) END days_since
-      FROM doctors d JOIN plan_frequencies pf ON pf.classification=d.classification AND pf.visits_per_month>0 LEFT JOIN l ON l.doctor_id=d.id
+      FROM doctors d LEFT JOIN plan_frequencies pf ON pf.classification=d.classification LEFT JOIN l ON l.doctor_id=d.id
       WHERE ${conds.join(" AND ")}
       ORDER BY d.classification, days_since DESC NULLS FIRST, d.name`, vals)).rows;
   }
