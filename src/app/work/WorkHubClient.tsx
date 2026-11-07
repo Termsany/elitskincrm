@@ -84,7 +84,7 @@ export default function WorkHubClient({ isAdmin }: { isAdmin: boolean }) {
   return <div className="mt-5 space-y-5">
     {isAdmin && <AdminActionCenter />}
     <div className="flex flex-wrap gap-2">
-      {!isAdmin && <Link href="/requests?view=full" className="inline-flex min-h-11 items-center rounded-xl bg-[var(--navy)] px-4 text-sm font-extrabold text-white">＋ طلب جديد</Link>}
+      {!isAdmin && <Link href="/requests?view=full" className="inline-flex min-h-11 items-center rounded-xl bg-[var(--navy)] px-4 text-sm font-extrabold text-white">＋ طلب عام آخر</Link>}
       {isAdmin && <Link href="/tasks?view=full" className="inline-flex min-h-11 items-center rounded-xl bg-[var(--navy)] px-4 text-sm font-extrabold text-white">＋ مهمة جديدة / إدارة المهام</Link>}
     </div>
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

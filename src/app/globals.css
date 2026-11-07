@@ -291,3 +291,8 @@ input[type="checkbox"] { transition: transform .15s var(--es-spring); } input[ty
   .es-card-in, .es-shimmer::after { animation: none !important; }
   .es-report-link, .es-pulse-glow { transition: none !important; }
 }
+
+/* Employee requests: balance ring fills in */
+.es-hr-ring { animation: es-hr-ring 1.2s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes es-hr-ring { from { stroke-dashoffset: var(--hr-len); } }
+@media (prefers-reduced-motion: reduce) { .es-hr-ring { animation: none !important; } }

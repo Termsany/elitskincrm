@@ -16,15 +16,18 @@ async function inbox(): Promise<Group[]> {
     q(`SELECT s.id::text id, CASE s.want WHEN 'stamp' THEN 'ختم' WHEN 'both' THEN 'توقيع وختم' ELSE 'توقيع' END || ' · ' || s.file_name title, u.name owner, s.created_at at FROM sign_requests s JOIN users u ON u.id=s.requested_by WHERE s.status='pending' ORDER BY s.created_at`),
     q(`SELECT vi.visit_id::text id, CASE vi.kind::text WHEN 'order' THEN 'طلب' ELSE 'عينة' END || ' ' || p.name || ' × ' || vi.quantity || ' · ' || d.name title, u.name owner, vi.created_at at FROM visit_items vi JOIN visits v ON v.id=vi.visit_id JOIN products p ON p.id=vi.product_id JOIN doctors d ON d.id=v.doctor_id JOIN users u ON u.id=v.sales_rep_id WHERE vi.approval_status='pending' ORDER BY vi.created_at`),
     q(`SELECT d.id::text id, CASE WHEN d.kind='create' THEN 'إضافة طبيب: ' ELSE 'تعديل طبيب: ' END || COALESCE(NULLIF(d.payload->>'name',''),'طلب') title, u.name owner, d.created_at at FROM doctor_requests d JOIN users u ON u.id=d.requester_id WHERE d.status='pending' ORDER BY d.created_at`),
-    q(`SELECT r.id::text id, r.title, u.name owner, r.created_at at FROM service_requests r JOIN users u ON u.id=r.requester_id WHERE r.status IN ('pending','in_progress','needs_info','reopened') ORDER BY r.created_at`),
+    q(`SELECT r.id::text id, r.title, u.name owner, r.created_at at FROM service_requests r JOIN users u ON u.id=r.requester_id WHERE r.status IN ('pending','in_progress','needs_info','reopened') AND r.kind NOT IN ('leave','exit_reentry','advance','salary_letter') ORDER BY r.created_at`),
     q(`SELECT t.id::text id, t.title || ' · كانت ' || to_char(t.due_date,'DD/MM') title, NULL owner, t.created_at at FROM tasks t WHERE t.archived=false AND t.status::text IN ('pending','in_progress') AND t.due_date < $1::date ORDER BY t.due_date`, [riyadhToday()]),
     q(`SELECT 'f'||v.id::text id, 'توقع مبيعات' title, u.name owner, v.created_at at FROM forecast_versions v JOIN users u ON u.id=v.rep_id WHERE v.status IN ('pending','submitted')
        UNION ALL SELECT 't'||t.id::text, 'توزيع هدف', u.name, t.created_at FROM rep_target_versions t JOIN users u ON u.id=t.rep_id WHERE t.status='pending' ORDER BY 4`).catch(() => []),
   ]);
+  const hr = await q(`SELECT r.id::text id, r.title, u.name owner, r.created_at at FROM service_requests r JOIN users u ON u.id=r.requester_id
+    WHERE r.kind IN ('leave','exit_reentry','advance','salary_letter') AND (r.status IN ('pending','reopened','in_progress','deferred') OR (r.status='approved' AND r.kind IN ('exit_reentry','salary_letter'))) ORDER BY r.created_at`).catch(() => []);
   const expenses = await q(`SELECT e.id::text id, c.name || ' · ' || to_char(e.amount, 'FM999,999,990.00') || ' ر.س' title, u.name owner, e.created_at at FROM expenses e JOIN users u ON u.id=e.rep_id JOIN expense_categories c ON c.id=e.category_id WHERE e.status='pending' ORDER BY e.created_at`).catch(() => []);
   const g = (key: string, label: string, icon: string, href: string, rows: Array<Record<string, any>>, link: (r: Record<string, any>) => string): Group =>
     ({ key, label, icon, href, count: rows.length, items: rows.slice(0, 5).map(r => ({ id: r.id, title: r.title, owner: r.owner, at: r.at, href: link(r) })) });
   return [
+    g("hr", "طلبات الموظفين", "🌴", "/admin/requests#hr", hr, r => `/admin/requests?hr=${r.id}#hr`),
     g("plans", "خطط للاعتماد", "🗓️", "/plans?status=pending", plans, r => `/plans?planId=${r.id}`),
     g("changes", "تعديلات على خطط", "✎", "/plans?status=pending", changes, r => `/plans?planId=${r.id}`),
     g("signs", "طلبات توقيع", "🖋️", "/library?view=signreq", signs, () => "/library?view=signreq"),
@@ -42,7 +45,7 @@ export async function adminDashboard(userName: string, opts: { manager?: boolean
   const from14 = addDays(today, -13), weekStart = addDays(today, -6), prevStart = addDays(today, -13), prevEnd = addDays(today, -7);
   const year = Number(today.slice(0, 4)), month = today.slice(0, 7);
   const [box, board, visits14, sales, coverage, activity, adhWeek, overdue, aGap] = await Promise.all([
-    inbox().then(gs => opts.manager ? gs.filter(g => g.key !== "expenses" && g.key !== "signs") : gs),
+    inbox().then(gs => opts.manager ? gs.filter(g => g.key !== "expenses" && g.key !== "signs" && g.key !== "hr") : gs),
     todayBoard(),
     enrichedVisits({ from: from14, to: today }),
     salesHub({ id: "", role: "admin" }, year, null).catch(() => null),

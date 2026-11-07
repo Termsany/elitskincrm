@@ -155,7 +155,7 @@ const GLYPH: Record<string, [string, string]> = {
   "📄": ["file", "#10484f"], "🖋": ["signature", "#9676e3"], "📨": ["send", "#3b90e8"], "⚡": ["sparkle", "#e99608"],
   "📋": ["visits", "#33b3a6"], "📊": ["reports", "#e16201"], "📈": ["sales", "#1aa865"], "⬆": ["upload", "#10484f"],
   "🧭": ["calendar", "#3b90e8"], "📑": ["reports", "#e16201"], "👥": ["reps", "#33b3a6"], "🧪": ["samples", "#9676e3"],
-  "⏰": ["time", "#ef4b4e"], "✎": ["pen", "#e99608"], "🔎": ["search", "#10484f"], "⚠": ["warn", "#e99608"], "💵": ["wallet", "#e16201"],
+  "⏰": ["time", "#ef4b4e"], "✎": ["pen", "#e99608"], "🔎": ["search", "#10484f"], "⚠": ["warn", "#e99608"], "💵": ["wallet", "#e16201"], "🌴": ["travel", "#33b3a6"],
 };
 export function glyphIcon(g: string): [string, string] | null {
   return GLYPH[g] ?? GLYPH[g.replace(/️/g, "")] ?? null;

@@ -9,7 +9,7 @@ const DENY_ALL = [
   "/admin/audit", "/api/admin/audit",                                                        // change log
   "/admin/document-signing", "/api/admin/document-assets", "/library", "/api/library", "/requests", "/api/requests", // company documents & signatures
   "/admin/products", "/api/admin/products",                                                  // products & prices master data
-  "/api/admin/reps",                                                                         // deactivate / lifecycle of users
+  "/api/admin/reps", "/api/hr-requests",                                                    // users lifecycle, leave & salary deductions                                                                         // deactivate / lifecycle of users
 ];
 /** Read is fine (the reps list), changes are not (create users, roles, passwords). */
 const DENY_WRITE = ["/api/admin/users"];

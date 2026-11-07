@@ -23,7 +23,7 @@ async function referenceIsAccessible(type: string, id: string, userId: string) {
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const where = user.role === "admin" ? "" : "WHERE r.requester_id=$1";
+  const where = user.role === "admin" ? "WHERE r.kind NOT IN ('leave','exit_reentry','advance','salary_letter')" : "WHERE r.requester_id=$1";
   const values = user.role === "admin" ? [] : [user.id];
   const eventScope = user.role === "admin" ? "" : "AND e.visibility='shared'";
   const result = await query(
