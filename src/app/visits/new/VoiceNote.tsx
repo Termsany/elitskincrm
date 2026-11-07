@@ -5,7 +5,7 @@ type Rec = { lang: string; continuous: boolean; interimResults: boolean; start: 
 type RecCtor = new () => Rec;
 
 /** Dictate the visit notes in Arabic (browser speech recognition; hidden where unsupported). */
-export default function VoiceNote({ onText }: { onText: (t: string) => void }) {
+export default function VoiceNote({ onText, compact = false }: { onText: (t: string) => void; compact?: boolean }) {
   const [ok, setOk] = useState(false); const [on, setOn] = useState(false); const [err, setErr] = useState("");
   const rec = useRef<Rec | null>(null);
   useEffect(() => { const w = window as unknown as { SpeechRecognition?: RecCtor; webkitSpeechRecognition?: RecCtor }; setOk(!!(w.SpeechRecognition || w.webkitSpeechRecognition)); return () => rec.current?.stop(); }, []);
@@ -20,6 +20,12 @@ export default function VoiceNote({ onText }: { onText: (t: string) => void }) {
     r.onerror = e => { setOn(false); setErr(e.error === "not-allowed" ? "اسمح للمايك من إعدادات المتصفح" : "ما قدرتش أسمع — جرب تاني"); setTimeout(() => setErr(""), 3500); };
     rec.current = r; setErr(""); r.start(); setOn(true);
   }
+  if (compact) return <span className="relative inline-flex">
+    <button type="button" onClick={toggle} aria-pressed={on} aria-label={on ? "إيقاف التسجيل" : "اتكلم وأنا أكتب"} title={on ? "إيقاف التسجيل" : "اتكلم وأنا أكتب"}
+      className={`grid h-11 w-11 place-items-center rounded-xl text-lg transition ${on ? "animate-pulse bg-red-600 text-white shadow-lg" : "bg-teal-50 text-[var(--navy)] hover:bg-teal-100"}`}>🎤</button>
+    {on && <span className="absolute -top-7 left-0 whitespace-nowrap rounded-lg bg-red-600 px-2 py-0.5 text-[10.5px] font-bold text-white">بسمعك…</span>}
+    {err && <span className="absolute -top-7 left-0 whitespace-nowrap rounded-lg bg-white px-2 py-0.5 text-[10.5px] font-bold text-red-700 shadow">{err}</span>}
+  </span>;
   return <span className="inline-flex items-center gap-2">
     <button type="button" onClick={toggle} aria-pressed={on} title={on ? "إيقاف التسجيل" : "اتكلم وأنا أكتب"}
       className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold transition ${on ? "bg-red-600 text-white shadow-lg" : "border border-[var(--border)] bg-white text-[var(--navy)] hover:border-[var(--navy)]"}`}>
