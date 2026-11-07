@@ -1,39 +1,20 @@
-/* Elite Skin brand lockup — ES monogram medallion + wordmark.
-   tone="onDark" for teal surfaces (sidebar), tone="onLight" for white cards. */
+/* eliteSkin brand lockup — official mark + wordmark (images in /public/brand).
+   tone="onDark" for teal surfaces (sidebar, headers), tone="onLight" for white cards. */
 
 type Tone = "onDark" | "onLight";
-type Variant = "stacked" | "lockup" | "mark";
+type Variant = "stacked" | "lockup" | "mark" | "full";
 
-function Monogram({ size = 44, tone = "onDark" }: { size?: number; tone?: Tone }) {
-  const uid = tone === "onDark" ? "d" : "l";
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none" role="img" aria-label="Elite Skin">
-      <defs>
-        <linearGradient id={`teal-${uid}`} x1="4" y1="2" x2="44" y2="46" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#4fc9bd" />
-          <stop offset="0.5" stopColor="#1f8d8a" />
-          <stop offset="1" stopColor="#116069" />
-        </linearGradient>
-        <linearGradient id={`deep-${uid}`} x1="6" y1="4" x2="42" y2="44" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#15545e" />
-          <stop offset="1" stopColor="#0d3c43" />
-        </linearGradient>
-      </defs>
-      <rect
-        x="1.25" y="1.25" width="45.5" height="45.5" rx="13.5"
-        fill={tone === "onDark" ? `url(#teal-${uid})` : `url(#deep-${uid})`}
-        stroke={tone === "onDark" ? "#bfeae4" : `url(#teal-${uid})`}
-        strokeWidth="1.3"
-      />
-      <text
-        x="24" y="25.5" textAnchor="middle" dominantBaseline="central"
-        fontFamily="'Alexandria', 'IBM Plex Sans Arabic', system-ui, sans-serif"
-        fontSize="19" fontWeight="700" letterSpacing="0.5"
-        fill={tone === "onDark" ? "#ffffff" : `url(#teal-${uid})`}
-      >ES</text>
-      <circle cx="37" cy="11.5" r="1.7" fill={tone === "onDark" ? "#eafaf7" : "#4fc9bd"} opacity="0.95" />
-    </svg>
-  );
+const WORD_RATIO = 1280 / 283; // wordmark width / height
+const MARK_RATIO = 713 / 747;
+
+export function BrandMark({ size = 44, className = "" }: { size?: number; className?: string }) {
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src="/brand/mark.png" alt="eliteSkin" width={Math.round(size * MARK_RATIO)} height={size} className={`shrink-0 select-none ${className}`} draggable={false} />;
+}
+
+export function Wordmark({ height = 22, tone = "onDark", className = "" }: { height?: number; tone?: Tone; className?: string }) {
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={tone === "onDark" ? "/brand/wordmark-white.png" : "/brand/wordmark.png"} alt="eliteSkin" width={Math.round(height * WORD_RATIO)} height={height} className={`select-none ${className}`} draggable={false} />;
 }
 
 export function Logo({
@@ -49,25 +30,22 @@ export function Logo({
   className?: string;
   tagline?: string;
 }) {
-  const ink = tone === "onDark" ? "text-white" : "text-[var(--ink)]";
   const sub = tone === "onDark" ? "text-white/60" : "text-[var(--muted)]";
-  const skin = tone === "onDark" ? "text-[var(--sky)]" : "text-[var(--gold)]";
 
-  if (variant === "mark") return <span className={className}><Monogram size={markSize} tone={tone} /></span>;
+  if (variant === "mark") return <span className={className}><BrandMark size={markSize} /></span>;
 
-  const wordmark = (
-    <span className="leading-none">
-      <span className={`font-display font-bold tracking-[0.14em] ${ink}`}>ELITE </span>
-      <span className={`font-display font-bold tracking-[0.14em] ${skin}`}>SKIN</span>
-    </span>
-  );
+  // full official logo (mark + wordmark + "ADVANCED AESTHETIC SOLUTIONS") — light backgrounds
+  if (variant === "full") {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src="/brand/logo-full.png" alt="eliteSkin — Advanced Aesthetic Solutions" width={Math.round(markSize * 1771 / 1315)} height={markSize} className={`mx-auto select-none ${className}`} draggable={false} />;
+  }
 
   if (variant === "lockup") {
     return (
-      <span className={`inline-flex items-center gap-2.5 ${className}`}>
-        <Monogram size={markSize} tone={tone} />
-        <span className="flex flex-col gap-0.5">
-          <span className="text-base">{wordmark}</span>
+      <span dir="ltr" className={`inline-flex items-center gap-2.5 ${className}`}>
+        <BrandMark size={markSize} />
+        <span className="flex flex-col items-start gap-1">
+          <Wordmark height={Math.round(markSize * 0.5)} tone={tone} />
           {tagline && <span className={`text-[10px] ${sub}`}>{tagline}</span>}
         </span>
       </span>
@@ -76,11 +54,9 @@ export function Logo({
 
   return (
     <span className={`inline-flex flex-col items-center gap-2 ${className}`}>
-      <Monogram size={markSize} tone={tone} />
-      <span className="text-center">
-        <span className="text-xl">{wordmark}</span>
-        {tagline && <span className={`mt-1 block text-[11px] ${sub}`}>{tagline}</span>}
-      </span>
+      <BrandMark size={markSize} />
+      <Wordmark height={Math.round(markSize * 0.45)} tone={tone} />
+      {tagline && <span className={`block text-[11px] ${sub}`}>{tagline}</span>}
     </span>
   );
 }

@@ -1,4 +1,5 @@
 "use client";
+import { Logo } from "@/components/Logo";
 import { useEffect, useRef, useState } from "react";
 
 type R = { found: boolean; ref?: string; signer?: string; signed_at?: string; name?: string; kinds?: string[]; sha256?: string; source?: string; intact?: boolean | null; error?: string };
@@ -26,7 +27,7 @@ export default function VerifyClient({ initialRef }: { initialRef: string }) {
   const when = res?.signed_at ? new Date(res.signed_at).toLocaleString("ar-EG-u-nu-latn", { timeZone: "Asia/Riyadh", day: "numeric", month: "long", year: "numeric", hour: "numeric", minute: "2-digit" }) : "";
   return <main dir="rtl" className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#0b2b30] via-[#10484f] to-[#0d3a40] p-4 font-sans">
     <div className="w-full max-w-lg">
-      <div className="mb-5 text-center text-white"><div className="text-2xl font-extrabold tracking-[0.3em]">ELITE <span className="text-[#33b3a6]">SKIN</span></div><div className="mt-1 text-sm text-white/60">التحقق من صحة مستند موقّع أو مختوم</div></div>
+      <div className="mb-5 text-center text-white"><div className="flex justify-center"><Logo variant="lockup" tone="onDark" markSize={48} /></div><div className="mt-1 text-sm text-white/60">التحقق من صحة مستند موقّع أو مختوم</div></div>
       <div className="space-y-4 rounded-3xl bg-white p-5 shadow-2xl sm:p-6">
         <div><label className="mb-1.5 block text-sm font-bold text-slate-700">الرقم المرجعي (Ref)</label>
           <div className="flex gap-2"><input value={ref} onChange={e => setRef(e.target.value.toUpperCase())} onKeyDown={e => e.key === "Enter" && void check()} placeholder="مثال: 9C040229" dir="ltr" maxLength={12} className="h-12 min-w-0 flex-1 rounded-xl border border-slate-200 px-4 text-center font-mono text-lg tracking-widest outline-none focus:border-[#33b3a6]" />

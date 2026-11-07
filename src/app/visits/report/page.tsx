@@ -44,7 +44,7 @@ export default async function VisitsReportPrint({ searchParams }: { searchParams
     <AutoPrint />
     <header style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", borderBottom: "3px solid #10484f", paddingBottom: 12 }}>
       <div><div style={{ fontSize: 22, fontWeight: 900, color: "#10484f" }}>تقرير الزيارات</div><div style={{ fontSize: 12.5, color: "#637274", marginTop: 4 }}>{from === to ? fmt(from, { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : `${fmt(from)} — ${fmt(to)}`} · {d.repName || "كل الفريق"}</div></div>
-      <div style={{ textAlign: "left" }}><div style={{ fontWeight: 900, letterSpacing: 4, color: "#10484f" }}>ELITE <span style={{ color: "#33b3a6" }}>SKIN</span></div><div style={{ fontSize: 10, color: "#889799" }}>اتعمل {new Date().toLocaleString("ar-EG-u-nu-latn", { timeZone: "Asia/Riyadh", dateStyle: "medium", timeStyle: "short" })}</div></div>
+      <div style={{ textAlign: "left" }}>{/* eslint-disable-next-line @next/next/no-img-element */}<img src="/brand/logo-full.png" alt="eliteSkin" style={{ height: 54, width: "auto", display: "block", marginInlineStart: "auto" }} /><div style={{ fontSize: 10, color: "#889799" }}>اتعمل {new Date().toLocaleString("ar-EG-u-nu-latn", { timeZone: "Asia/Riyadh", dateStyle: "medium", timeStyle: "short" })}</div></div>
     </header>
     <h2>الصورة العامة</h2>
     <div className="grid">

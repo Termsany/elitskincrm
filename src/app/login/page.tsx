@@ -25,8 +25,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center p-4" dir="rtl" style={{ background:"radial-gradient(900px 480px at 50% -8%, #e3f3f0 0%, #f4f8f8 55%, #ffffff 100%)" }}>
       <div className="w-full max-w-[420px]">
         <div className="text-center mb-6">
-          <Logo variant="stacked" tone="onLight" markSize={56} className="mb-1" />
-          <div className="text-sm text-[var(--gold)] mt-1">crm.eliteskinsa.com</div>
+          <Logo variant="full" tone="onLight" markSize={170} className="mb-2 h-auto w-[230px] sm:w-[260px]" />
           <h1 className="text-xl font-bold mt-4">تسجيل الدخول</h1>
           <p className="text-sm text-[var(--muted)] mt-1">نظام إدارة زيارات المناديب الطبية</p>
         </div>
