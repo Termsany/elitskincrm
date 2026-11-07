@@ -6,6 +6,7 @@ import type { DaftraPulse } from "@/lib/dash-daftra";
 import type { Gap } from "@/lib/data-gaps";
 import type { Morning } from "@/lib/morning-summary";
 import { GapsCard, InboxList, MorningCard } from "./HomeExtras";
+import AdminSmartBoard from "@/components/smart/AdminSmartBoard";
 
 type D = {
   greeting: string; name: string; today: string; summary: string; pendingTotal: number;
@@ -238,6 +239,7 @@ export default function CommandCenter() {
     {header}
     {d.morning && <MorningCard m={d.morning} mgr={mgr} />}
     {pulse}
+    <AdminSmartBoard />
     <div className={`grid gap-4 lg:gap-5 ${mgr ? "" : "xl:grid-cols-[1.25fr_1fr]"}`}>{visits}{!mgr && daftra}</div>
     <div className="grid gap-4 lg:gap-5 xl:grid-cols-[1.5fr_1fr]">{inbox}<div className="flex flex-col gap-4 lg:gap-5">{d.gaps && d.gaps.length > 0 && <GapsCard gaps={d.gaps} onDone={() => void load()} />}{insights}</div></div>
     <div className="grid gap-4 lg:gap-5 xl:grid-cols-[1.5fr_1fr]">{team}{modules}</div>

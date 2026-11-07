@@ -4,6 +4,7 @@ import DashboardClient from "./DashboardClient";
 import { riyadhNow } from "@/lib/forecast-contract";
 import { AppShell } from "@/components/AppShell";
 import HrHomeCard from "@/components/hr/HrHomeCard";
+import RepSmartCard from "@/components/smart/RepSmartCard";
 import OnboardingTour from "@/components/OnboardingTour";
 
 export default async function DashboardPage() {
@@ -23,6 +24,7 @@ export default async function DashboardPage() {
   const salesSummary = { annual_sales_target: Number(annual.rows[0]?.annual_amount??0), annual_sales: actual.rows.reduce((total: number, row: Record<string,unknown>) => total + Number(row.amount), 0) };
   return <AppShell role={user.role} email={user.email} name={user.name} jobTitle={user.job_title} productName={user.product_name} active="/">
     <OnboardingTour show={!onboarded} />
+    <RepSmartCard />
     <HrHomeCard />
     <DashboardClient cities={cities.rows.map((row: Record<string, unknown>) => String(row.city))} isAdmin={false} salesSummary={salesSummary} />
   </AppShell>;

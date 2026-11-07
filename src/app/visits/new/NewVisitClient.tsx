@@ -551,7 +551,7 @@ type TodayItem = { id: string; doctor_id: string; doctor_name: string; clinic_na
 type VisitContext = {
   doctor: { classification: string | null; specialty: string | null; phone: string | null; visits_per_month: number | null };
   history: Array<{ id: string; visited_at: string; status: string; notes: string; rep_name: string; mine: boolean; presented: Array<{ product_id: string; name: string; reaction: string }>; samples: number }>;
-  followups: Array<{ due: string; note: string }>; plan: { note: string; product_name: string | null; priority: string } | null; suggested: string[]; daysSince: number | null;
+  followups: Array<{ due: string; note: string }>; plan: { note: string; product_name: string | null; priority: string } | null; suggested: string[]; daysSince: number | null; brief?: string | null;
 };
 
 function Section({ n, title, done, hint, children }: { n: number; title: string; done: boolean; hint?: string; children: React.ReactNode }) {
@@ -578,6 +578,7 @@ function ContextCard({ ctx, loading, products, onPresent, doctorId, onSame, alre
   return (
     <div className="rounded-3xl border border-[var(--navy)]/15 bg-gradient-to-b from-[var(--sky-light)] to-white p-4 space-y-3">
       <div className="flex items-center gap-2"><span className="text-lg">✨</span><span className="font-extrabold text-[var(--navy)]">قبل ما تدخل</span></div>
+      {ctx.brief && <div className="es-pop rounded-2xl bg-[var(--navy)] px-3 py-2.5 text-[12.5px] font-bold leading-6 text-white">💡 {ctx.brief}</div>}
       <ClinicHint doctorId={doctorId} />
       <div className="grid grid-cols-2 gap-2 text-center">
         <div className="rounded-2xl bg-white border border-[var(--border)] p-2"><div className="text-[11px] text-[var(--muted)]">آخر زيارة</div><div className={`font-extrabold ${late ? "text-red-700" : "text-[var(--navy)]"}`}>{ctx.daysSince === null ? "أول زيارة" : ctx.daysSince === 0 ? "النهارده" : `من ${ctx.daysSince} يوم`}</div></div>

@@ -325,6 +325,11 @@ export default function PlansClient({ isAdmin, reps, doctors, products, initialS
   }
   useEffect(() => { if (!initialPlanId || deepLinkOpened) return; setDeepLinkOpened(true); void openDetailById(initialPlanId); }, [initialPlanId, deepLinkOpened]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  async function submitDraft() {
+    if (!detail || busy) return; setBusy(true);
+    try { const r = await fetch(`/api/plans/${detail.plan.id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ submit: true }) }); const j = await r.json().catch(() => null);
+      if (!r.ok) { toast(j?.error || "تعذر الإرسال", "error"); return; } toast("اتبعتت الخطة للاعتماد ✓", "success"); refreshAll(); await openDetailById(detail.plan.id); } finally { setBusy(false); }
+  }
   async function decidePlan(status: "approved" | "needs_revision" | "rejected") {
     if (!detail || busy) return;
     if (status !== "approved" && decisionNote.trim().length < 3) { toast("اكتب ملاحظة للمندوب توضح المطلوب", "error"); return; }
@@ -463,6 +468,7 @@ export default function PlansClient({ isAdmin, reps, doctors, products, initialS
     const tools = <section className="space-y-2">
       <div className="flex flex-wrap gap-2">
         {isAdmin && <button onClick={() => startEdit(false)} className={btnPrimary}><Icon name="edit" size={14} /> تعديل مباشر</button>}
+        {!isAdmin && status === "draft" && <button onClick={() => void submitDraft()} disabled={busy} className={`${btn} bg-emerald-600 text-white hover:bg-emerald-700`}><Icon name="send" size={14} /> ابعتها للاعتماد كما هي</button>}
         {repCanEdit && !cr && <button onClick={() => startEdit(false)} className={btnPrimary}><Icon name="edit" size={14} /> {status === "approved" ? "اطلب تعديل على الخطة" : "عدّل الخطة"}</button>}
         <a href={`/calendar?date=${d10(p.period_start)}`} className={btnGhost}>🗓️ في المخطط</a>
         <a href={`/api/exports/plans?id=${p.id}&format=xlsx`} className={btnGhost}>Excel</a>

@@ -99,6 +99,13 @@ export async function PATCH(req: Request, {params}:{params:Promise<{id:string}>}
 
   // Rep: request revision
   if(String(plan.user_id)!==user.id) return NextResponse.json({error:"Forbidden"},{status:403});
+  // Rep: send an (auto-)draft for approval as it is
+  if(String(plan.status)==="draft" && body.submit===true){
+    await query(`UPDATE plans SET status='pending', admin_note='', updated_at=now() WHERE id=$1 AND status='draft'`,[id]);
+    const admins=await query(`SELECT id FROM users WHERE role IN ('admin','sales_manager') AND active`);
+    for(const a of admins.rows as Record<string,unknown>[]) await query(`INSERT INTO task_notifications(user_id, task_id, plan_id, kind, message) VALUES($1,NULL,$2,'plan_pending',$3)`,[a.id, id, `${user.name} بعت خطة للاعتماد`]);
+    return NextResponse.json({ok:true});
+  }
   if(String(plan.status)==="approved"){
     const r=await submitPlanChange(user, id, body.items, body.note);
     const { status, ...out } = r; return NextResponse.json(out, { status });

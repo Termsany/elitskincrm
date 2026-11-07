@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { analyzeVisit } from "@/lib/visit-insights";
 import { query } from "@/lib/db";
 import { getCurrentUser } from "@/lib/session";
 import { visitSchema } from "@/lib/validation";
@@ -96,6 +97,7 @@ export async function POST(req: Request) {
     await client.query("COMMIT");
         // fire-and-forget notify (outside tx)
         notifyAdminNewVisit(visitId).catch(()=>{});
+        analyzeVisit(visitId).catch(e => console.error("visit insights", e));
     return NextResponse.json({ id: visitId }, { status: 201 });
   } catch (e) { await client.query("ROLLBACK"); throw e; } finally { client.release(); }
 }

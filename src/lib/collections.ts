@@ -72,7 +72,7 @@ export async function collectionsFor(repId: string | null, today: string) {
     g.unpaid += r.unpaid; if (r.days > 0) g.overdue += r.unpaid; g.oldest = Math.max(g.oldest, r.days);
     g.invoices.push({ id: Number(r.id), no: r.no, date: r.date, due: r.due, unpaid: r.unpaid, days: r.days }); by.set(k, g);
   }
-  const clients = [...by.values()].map(g => ({ ...g, unpaid: Math.round(g.unpaid * 100) / 100, overdue: Math.round(g.overdue * 100) / 100 })).sort((a, b) => b.oldest - a.oldest || b.overdue - a.overdue);
+  const clients = [...by.values()].map(g => ({ ...g, unpaid: Math.round(g.unpaid * 100) / 100, overdue: Math.round(g.overdue * 100) / 100, priority: Math.round(g.overdue * (1 + Math.max(0, g.oldest) / 30)) })).sort((a, b) => b.priority - a.priority || b.oldest - a.oldest);
   return { clients, total: Math.round(clients.reduce((s, c) => s + c.unpaid, 0) * 100) / 100, overdue: Math.round(clients.reduce((s, c) => s + c.overdue, 0) * 100) / 100,
     over60: Math.round(clients.reduce((s, c) => s + c.invoices.filter(i => i.days > 60).reduce((t, i) => t + i.unpaid, 0), 0) * 100) / 100 };
 }

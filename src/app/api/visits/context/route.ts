@@ -41,5 +41,18 @@ export async function GET(req: Request) {
 
   const last = history[0] as Record<string, unknown> | undefined;
   const daysSince = last ? Math.floor((Date.now() - new Date(String(last.visited_at)).getTime()) / 864e5) : null;
-  return NextResponse.json({ doctor, history, followups, plan, suggested, daysSince });
+  // one-line brief: what matters about this doctor before walking in
+  const ins = (await query<{ insights: { objections?: string[]; positives?: string[]; next?: string | null } | null }>("SELECT insights FROM visits WHERE doctor_id=$1 AND insights IS NOT NULL ORDER BY visited_at DESC LIMIT 1", [id])).rows[0]?.insights || null;
+  const OBJ: Record<string, string> = { price: "اعترض على السعر", competitor: "بيتعامل مع منافس", stock: "عنده مشكلة مخزون", not_tried: "لسه ما جربش", side_effects: "قلقان من النتيجة", no_interest: "مش مهتم", trust: "محتاج دليل" };
+  const likedNames = (await query<{ name: string }>(`SELECT DISTINCT p.name FROM visit_presented_products pp JOIN visits v ON v.id=pp.visit_id JOIN products p ON p.id=pp.product_id
+    WHERE v.doctor_id=$1 AND pp.reaction='interested' AND v.visited_at > now() - interval '120 days' LIMIT 3`, [id])).rows.map(r => r.name);
+  const lastSamples = Number((last as Record<string, unknown> | undefined)?.samples || 0);
+  const brief = [
+    likedNames.length ? `مهتم بـ ${likedNames.join(" و")}` : null,
+    lastSamples ? `أخد ${lastSamples} عينة آخر مرة — اسأل عن النتيجة` : null,
+    ...(ins?.objections || []).filter(o => OBJ[o]).slice(0, 2).map(o => OBJ[o]),
+    followups.length ? "عنده متابعة مستحقة" : null,
+    ins?.next ? `الخطوة: ${ins.next}` : null,
+  ].filter(Boolean).join(" · ") || null;
+  return NextResponse.json({ doctor, history, followups, plan, suggested, daysSince, brief });
 }

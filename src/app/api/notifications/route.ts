@@ -13,7 +13,8 @@ async function autoResolve(userId: string) {
       OR (n.entity_type='sign_request' AND n.kind='sign_request' AND EXISTS (SELECT 1 FROM sign_requests s WHERE s.id::text=n.entity_id AND s.status<>'pending'))
       OR (n.order_item_id IS NOT NULL AND EXISTS (SELECT 1 FROM visit_items vi WHERE vi.id=n.order_item_id AND vi.approval_status::text<>'pending'))
       OR (n.kind = ANY($2::text[]) AND n.created_at < now() - interval '14 days')
-      OR (n.kind='morning_summary' AND n.created_at < now() - interval '20 hours')
+      OR (n.kind IN ('morning_summary','smart_daily') AND n.created_at < now() - interval '20 hours')
+      OR (n.kind='plan_draft' AND n.plan_id IS NOT NULL AND EXISTS (SELECT 1 FROM plans p WHERE p.id=n.plan_id AND p.status::text<>'draft'))
     )`, [userId, INFO_KINDS]).catch(e => console.error("notifications auto-resolve", e));
 }
 
