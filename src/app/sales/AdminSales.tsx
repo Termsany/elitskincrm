@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/Icon";
+import ItemProductMap from "./ItemProductMap";
 import { useToast } from "@/components/Toast";
 import { actionRequest, buildReportRows, canCloseMonth, postForecastAction, riyadhMonth } from "../forecast/ForecastClient";
 import { targetRequest } from "../forecast/TargetPlanningClient";
@@ -64,7 +65,8 @@ export default function AdminSales() {
   const TABS: Array<[Tab, string, string, number, string]> = [["team", "الفريق", "reps", 0, ""], ["targets", "الأهداف", "trophy", 0, ""], ["approvals", "الموافقات", "check", approvals, "bg-amber-500"], ["catalog", "العيادات والأسعار", "products", noPrice, "bg-red-500"], ["close", "إقفال الشهر", "calendar", 0, ""]];
 
   return <div className="mt-4 space-y-4 pb-24 lg:pb-6">
-    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--sky-border)] bg-[var(--sky-light)] px-4 py-3 text-[12.5px] text-[var(--navy)]"><Icon name="receipt" size={16} /><span className="min-w-0 flex-1">المحقق محسوب من <b>فواتير دفترة</b> بس (بعد المرتجعات) — كل فاتورة بتتحسب للمندوب المربوط بعميلها.{hub?.unassigned ? <> فيه <b>{Math.round(hub.unassigned).toLocaleString("en-US")} ر.س</b> مبيعات السنة دي لعملاء مش مربوطين بمندوب.</> : null}</span>{hub?.unassigned ? <a href="/daftra-sales?tab=ar" className="rounded-xl bg-[var(--navy)] px-3 py-1.5 text-xs font-bold text-white">اربط العملاء ‹</a> : null}</div>
+    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--sky-border)] bg-[var(--sky-light)] px-4 py-3 text-[12.5px] text-[var(--navy)]"><Icon name="receipt" size={16} /><span className="min-w-0 flex-1">المحقق محسوب من <b>فواتير دفترة</b> بس (بعد المرتجعات) — أي بيعة لمنتج في أي عيادة بتتحسب <b>للمندوب المسؤول عن المنتج</b>.{hub?.unassigned ? <> فيه <b>{Math.round(hub.unassigned).toLocaleString("en-US")} ر.س</b> مبيعات السنة دي لأصناف مش مربوطة بمنتج عليه مندوب.</> : null}</span>{hub?.unassigned ? <a href="#item-map" className="rounded-xl bg-[var(--navy)] px-3 py-1.5 text-xs font-bold text-white">اربط الأصناف ‹</a> : null}</div>
+    <ItemProductMap year={year} onChange={() => void load()} />
     {/* header strip: period + 4 numbers (shown once) */}
     <div className="dz-in grid grid-cols-2 gap-3 lg:grid-cols-5">
       <div className="col-span-2 flex items-center justify-between gap-2 rounded-[24px] border border-[var(--border)] bg-white p-3 lg:col-span-1">

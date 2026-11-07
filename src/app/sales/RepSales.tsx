@@ -198,13 +198,13 @@ function MonthTab({ fd }: { fd: ForecastData }) {
     <section className={card}>
       <h3 className="mb-3 flex items-center gap-2 font-extrabold text-[var(--navy)]"><Icon name="receipt" size={18} />مبيعاتك من دفترة</h3>
       <div className="space-y-2 text-[13px] leading-6 text-[var(--ink-soft)]">
-        <p>المحقق بيتحسب تلقائياً من <b>فواتير دفترة</b> لعملاءك — مفيش تسجيل يدوي ولا انتظار اعتماد.</p>
-        <p className="rounded-2xl bg-[var(--sky-light)] p-3 text-xs">لو فاتورة عميلك مش ظاهرة هنا، يبقى العميل لسه مش مربوط بيك في دفترة — كلّم المدير يربطه.</p>
+        <p>المحقق بيتحسب تلقائياً من <b>فواتير دفترة</b>: أي بيعة لمنتجك في أي عيادة بتتحسب لك — مفيش تسجيل يدوي ولا انتظار اعتماد.</p>
+        <p className="rounded-2xl bg-[var(--sky-light)] p-3 text-xs">لو منتج عليه أكتر من مندوب، البيعة بتتقسم بالتساوي. لو فاتورة مش ظاهرة، يبقى الصنف في دفترة لسه مش مربوط بمنتجك — كلّم المدير.</p>
       </div>
     </section>
     <section className={card}>
       <h3 className="mb-3 flex items-center justify-between gap-2 font-extrabold text-[var(--navy)]"><span className="flex items-center gap-2"><Icon name="receipt" size={18} />فواتير الشهر</span><span className="text-xs font-bold text-[var(--muted)]">{fd.sales.length} عملية</span></h3>
-      {!sales.length ? <div className="rounded-2xl border border-dashed border-[var(--border-strong)] p-8 text-center text-sm text-[var(--muted)]">لسه مفيش فواتير الشهر ده لعملاءك في دفترة</div>
+      {!sales.length ? <div className="rounded-2xl border border-dashed border-[var(--border-strong)] p-8 text-center text-sm text-[var(--muted)]">لسه مفيش فواتير لمنتجك الشهر ده في دفترة</div>
         : <div className="max-h-[420px] space-y-1.5 overflow-y-auto">{sales.map(x => { const sx = x as Sale & { review_note?: string; quantity?: number }; const neg = x.kind === "return" || x.direction === -1; const val = x.qty * Number(x.unit_price ?? priceOf(fd, x.clinic_id, x.product_id)); return <div key={x.id} className={`rounded-xl border px-3 py-2 ${x.status === "rejected" ? "border-red-200 bg-red-50/50" : "border-[var(--border)]"}`}>
           <div className="flex items-center justify-between gap-2"><span className="min-w-0 truncate text-sm font-bold" dir="auto">{(x as { client_name?: string }).client_name || clinicName(fd, x.clinic_id)}</span>{(x as { invoice_no?: string }).invoice_no ? <span className="shrink-0 text-[11px] text-[var(--muted)]">فاتورة {(x as { invoice_no?: string }).invoice_no}</span> : <Pill s={x.status} />}</div>
           <div className="mt-0.5 flex flex-wrap justify-between gap-2 text-[11px] text-[var(--muted)]"><span dir="auto">{fd.products.find(p => p.id === x.product_id)?.name || (x as { item?: string }).item} · {neg ? "−" : ""}{x.qty} وحدة{x.kind === "return" ? " · مرتجع" : x.kind === "adjustment" ? " · تصحيح" : ""}</span><b className={neg ? "text-red-700" : "text-[var(--navy)]"}>{neg ? "−" : ""}{money(val)}</b></div>
