@@ -22,7 +22,9 @@ export async function GET(req: Request) {
   for (const r of reps) {
     const done = (await query("SELECT 1 FROM task_notifications WHERE user_id=$1 AND kind='smart_daily' AND notification_date=$2::date LIMIT 1", [r.id, today])).rowCount;
     if (done) continue;
-    const [due, prom] = await Promise.all([reorderDue(today, { repId: r.id, ahead: 5 }), brokenPromises(today, r.id)]);
+    const hidden = new Set((await query<{ kind: string; ref: string }>("SELECT kind, ref FROM smart_dismissals WHERE user_id=$1 AND until >= $2::date", [r.id, today])).rows.map(x => `${x.kind}:${x.ref}`));
+    const [due0, prom0] = await Promise.all([reorderDue(today, { repId: r.id, ahead: 5 }), brokenPromises(today, r.id)]);
+    const due = due0.filter(x => !hidden.has(`reorder:${x.clinic_id}`)), prom = prom0.filter(x => !hidden.has(`promise:${x.client_id}`));
     const p = pace.find(x => x.rep_id === r.id);
     const parts = [
       due.length ? `${due.length} عيادة قرّب ميعاد طلبها (${due.slice(0, 2).map(d => d.clinic_name).join("، ")})` : null,

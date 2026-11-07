@@ -32,7 +32,7 @@ export default function CollectionsCard() {
     toast("اتسجلت متابعة التحصيل ✓", "success"); setForm({ result: "", promise_date: "", amount: "", note: "" }); setOpen(null); void load();
   }
   return (
-    <section className="dz-in overflow-hidden rounded-[28px] border border-[var(--border)] bg-white">
+    <section id="collections" className="dz-in scroll-mt-24 overflow-hidden rounded-[28px] border border-[var(--border)] bg-white">
       <div className="flex flex-wrap items-center justify-between gap-3 p-5 pb-3">
         <div className="flex items-center gap-3"><span className="dz-ico dz-wiggle !h-11 !w-11" style={{ color: "#e16201", background: "linear-gradient(140deg,#e162012e,#e162010f)" }}><Icon name="wallet" size={21} /></span>
           <div><h2 className="text-lg font-extrabold text-[var(--navy)]">التحصيل من عملائك</h2><div className="text-[11px] text-[var(--muted)]">فواتير دفترة المفتوحة لعملائك — سجّل كل متابعة عشان المدير يشوفها</div></div></div>
