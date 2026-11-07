@@ -14,10 +14,10 @@ function Stat({ label, value, sub, tone }: { label: string; value: string; sub?:
 }
 
 /** Clinic account from Daftra on the doctor page: balance first (so the rep asks before selling), then the buying pattern. */
-export default function ClinicAccountCard({ clinic, account, isAdmin }: { clinic: { id: string; name: string } | null; account: (Account & { customers: string[] }) | null; isAdmin: boolean }) {
+export default function ClinicAccountCard({ clinic, account, isAdmin }: { clinic: { id: string; name: string } | null; account: (Account & { customers: string[]; branches?: string[] }) | null; isAdmin: boolean }) {
   if (!account) return isAdmin ? <section className="mx-auto mt-5 max-w-6xl rounded-2xl border border-dashed border-[var(--border-strong)] bg-white p-4 text-sm text-[var(--muted)]" dir="rtl">
     {clinic ? <>عيادة «{clinic.name}» مش مربوطة بعميل في دفترة، فمش ظاهر هنا مشترياتها ولا رصيدها. </> : <>الطبيب ده مش مربوط بعيادة. </>}
-    <Link href="/daftra-sales?tab=ar" className="font-bold text-[var(--sky-deep)] hover:underline">اربط العملاء من صفحة دفترة ‹</Link></section> : null;
+    <Link href="/daftra-sales?tab=ar#branches" className="font-bold text-[var(--sky-deep)] hover:underline">اربطها كفرع لعميلها من صفحة دفترة ‹</Link></section> : null;
   const a = account, b = a.balance, o = a.orders, s = a.sales, [sl, sc] = STATUS[a.status];
   return <section className="mx-auto mt-5 max-w-6xl space-y-3 rounded-2xl border border-[var(--border)] bg-white p-4 sm:p-5" dir="rtl" aria-labelledby="clinic-acc">
     <div className="flex flex-wrap items-center gap-2">
@@ -25,6 +25,7 @@ export default function ClinicAccountCard({ clinic, account, isAdmin }: { clinic
       <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold ring-1 ${sc}`}>{sl}</span>
       <span className="mr-auto text-[11px] text-[var(--muted)]">من دفترة · {a.customers.join("، ")}</span>
     </div>
+    {a.branches && a.branches.length > 0 && <div className="rounded-xl bg-[var(--sky-light)] px-3 py-2 text-[12px] text-[var(--navy)]">🏢 الحساب ده مشترك مع {a.branches.length} {a.branches.length === 1 ? "فرع تاني" : "فروع تانية"}: <b>{a.branches.join("، ")}</b> — المشتريات والرصيد للعميل كله مش للفرع ده بس.</div>}
 
     {b.overdue > 0 ? <div className="rounded-xl bg-red-50 p-3 text-[13px] leading-6 text-red-900 ring-1 ring-red-200"><b>قبل ما تعرض طلب جديد:</b> العيادة عليها <b>{sar(b.overdue)}</b> متأخرة{b.oldest && b.oldest > 0 ? ` من ${b.oldest} يوم` : ""} (إجمالي المستحق {sar(b.unpaid)}). اسأل عن ميعاد السداد وسجّله في متابعة التحصيل.</div>
       : b.unpaid > 0 ? <div className="rounded-xl bg-sky-50 p-3 text-[13px] text-sky-900 ring-1 ring-sky-200">عليها {sar(b.unpaid)} لسه ما جاش ميعادها — مفيش متأخرات.</div>

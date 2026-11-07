@@ -1,4 +1,5 @@
 import { query } from "@/lib/db";
+import { clinicsOfClientSql } from "@/lib/clinic-groups";
 
 /**
  * A clinic's account from Daftra (read-only mirror): what it buys, how often, whether it is slowing down,
@@ -69,10 +70,16 @@ export async function doctorClinic(doctorId: string) {
 
 /** Account for one clinic, or null when no Daftra customer is linked to it. */
 export async function clinicAccount(clinicId: string, today: string) {
-  const ids = (await query<{ client_id: string; name: string }>(`SELECT l.client_id, (SELECT max(client_name) FROM daftra_invoices i WHERE i.client_id = l.client_id) name FROM daftra_client_links l WHERE l.clinic_id = $1`, [clinicId])).rows;
+  // the clinic's Daftra customer(s): a branch mapping, a direct link, or the clinic created from Daftra
+  const ids = (await query<{ client_id: string; name: string }>(`SELECT k.client_id, (SELECT max(client_name) FROM daftra_invoices i WHERE i.client_id=k.client_id) name FROM (
+      SELECT b.client_id FROM daftra_client_branches b WHERE b.clinic_id=$1 UNION SELECT l.client_id FROM daftra_client_links l WHERE l.clinic_id=$1
+      UNION SELECT c.daftra_client_id FROM clinics c WHERE c.id=$1 AND c.daftra_client_id IS NOT NULL) k`, [clinicId])).rows;
   if (!ids.length) return null;
   const { inv, lines } = await load(ids.map(i => Number(i.client_id)));
-  return { customers: ids.map(i => i.name || `#${i.client_id}`), ...analyzeAccount(inv, lines, today) };
+  // other branches sharing the same Daftra account (sales and balance are per customer, not per branch)
+  const branches = (await query<{ name: string }>(`SELECT DISTINCT c.name FROM unnest($1::bigint[]) x(k) JOIN clinics c ON c.id IN ${clinicsOfClientSql("x.k")}
+    WHERE c.id <> $2 AND EXISTS (SELECT 1 FROM doctors d WHERE d.clinic_id=c.id) ORDER BY c.name`, [ids.map(i => Number(i.client_id)), clinicId])).rows.map(r => r.name);
+  return { customers: ids.map(i => i.name || `#${i.client_id}`), branches, ...analyzeAccount(inv, lines, today) };
 }
 
 export type Decline = { client_id: number; name: string; doctor_id: string | null; clinic_id: string | null; clinic_name: string | null; rep_id: string | null; rep_name: string | null; status: "stopped" | "declining";
@@ -81,7 +88,7 @@ export type Decline = { client_id: number; name: string; doctor_id: string | nul
 /** Linked customers that stopped ordering or are buying clearly less — for one rep, or everyone (repId null). */
 export async function decliningClients(repId: string | null, today: string): Promise<Decline[]> {
   const links = (await query<{ client_id: string; name: string | null; rep_id: string | null; rep_name: string | null; clinic_id: string | null; clinic_name: string | null; doctor_id: string | null }>(`SELECT l.client_id, (SELECT max(client_name) FROM daftra_invoices i WHERE i.client_id = l.client_id) name, l.rep_id, u.name rep_name, l.clinic_id, c.name clinic_name,
-      (SELECT d.id FROM doctors d LEFT JOIN visits v ON v.doctor_id = d.id AND v.sales_rep_id = l.rep_id WHERE d.clinic_id = l.clinic_id GROUP BY d.id ORDER BY count(v.id) DESC, d.id LIMIT 1) doctor_id
+      (SELECT d.id FROM doctors d LEFT JOIN visits v ON v.doctor_id = d.id AND v.sales_rep_id = l.rep_id WHERE d.clinic_id IN ${clinicsOfClientSql("l.client_id")} GROUP BY d.id ORDER BY count(v.id) DESC, d.id LIMIT 1) doctor_id
     FROM daftra_client_links l LEFT JOIN users u ON u.id = l.rep_id LEFT JOIN clinics c ON c.id = l.clinic_id ${repId ? "WHERE l.rep_id = $1" : ""}`, repId ? [repId] : [])).rows;
   if (!links.length) return [];
   const { inv, lines } = await load(links.map(l => Number(l.client_id)));

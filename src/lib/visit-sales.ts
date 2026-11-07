@@ -1,5 +1,6 @@
 import { query } from "@/lib/db";
 import { OBJECTIONS, POSITIVES } from "@/lib/visit-insights";
+import { clientOfClinicSql } from "@/lib/clinic-groups";
 
 /**
  * Visits ↔ Daftra sales for a period: per clinic (effort vs money), per product (presentations that turned into
@@ -9,29 +10,34 @@ export async function visitSales(from: string, to: string, repId?: string | null
   const rep = repId ? "AND v.sales_rep_id = $3" : "";
   const vals: unknown[] = repId ? [from, to, repId] : [from, to];
   const [clinics, products, samples] = await Promise.all([
-    query<{ clinic_id: string; clinic: string; city: string | null; visits: number; doctors: number; last_visit: string | null; sales: number; invoices: number; last_invoice: string | null; linked: boolean }>(`
-      WITH v AS (SELECT d.clinic_id, count(*)::int visits, count(DISTINCT v.doctor_id)::int doctors, max(v.visited_at)::date::text last_visit
-          FROM visits v JOIN doctors d ON d.id=v.doctor_id WHERE v.status::text='completed' AND d.clinic_id IS NOT NULL
+    // one row per account: a Daftra customer with all its branches, or a clinic that has no customer
+    query<{ clinic_id: string; clinic: string; city: string | null; branches: string | null; visits: number; doctors: number; last_visit: string | null; sales: number; invoices: number; last_invoice: string | null; linked: boolean }>(`
+      WITH m AS (SELECT c.id, c.name, c.city, ${clientOfClinicSql("c.id")} client_id FROM clinics c),
+        v AS (SELECT COALESCE('k' || m.client_id, 'c' || m.id) key, count(*)::int visits, count(DISTINCT v.doctor_id)::int doctors, max(v.visited_at)::date::text last_visit,
+            string_agg(DISTINCT m.name, '، ') branches, min(m.city) city, min(m.name) one
+          FROM visits v JOIN doctors d ON d.id=v.doctor_id JOIN m ON m.id=d.clinic_id WHERE v.status::text='completed'
             AND (v.visited_at AT TIME ZONE 'Asia/Riyadh')::date BETWEEN $1 AND $2 ${rep} GROUP BY 1),
-        s AS (SELECT clinic_id, sum(value)::float8 sales, count(DISTINCT invoice_id)::int invoices, max(invoice_date)::text last_invoice FROM daftra_sales_v
-          WHERE clinic_id IS NOT NULL AND invoice_date BETWEEN $1 AND $2 ${repId ? "AND rep_id = $3" : ""} GROUP BY 1)
-      SELECT c.id clinic_id, c.name clinic, c.city, COALESCE(v.visits,0) visits, COALESCE(v.doctors,0) doctors, v.last_visit, COALESCE(s.sales,0) sales, COALESCE(s.invoices,0) invoices, s.last_invoice,
-        EXISTS (SELECT 1 FROM daftra_client_links l WHERE l.clinic_id=c.id) linked
-      FROM clinics c LEFT JOIN v ON v.clinic_id=c.id LEFT JOIN s ON s.clinic_id=c.id WHERE v.clinic_id IS NOT NULL OR s.clinic_id IS NOT NULL
-      ORDER BY COALESCE(s.sales,0) DESC, COALESCE(v.visits,0) DESC`, vals),
+        s AS (SELECT 'k' || client_id key, sum(value)::float8 sales, count(DISTINCT invoice_id)::int invoices, max(invoice_date)::text last_invoice FROM daftra_sales_v
+          WHERE client_id IS NOT NULL AND invoice_date BETWEEN $1 AND $2 ${repId ? "AND rep_id = $3" : ""} GROUP BY 1)
+      SELECT COALESCE(v.key, s.key) clinic_id,
+        CASE WHEN COALESCE(v.key, s.key) LIKE 'k%' THEN COALESCE((SELECT max(client_name) FROM daftra_invoices i WHERE i.client_id = substr(COALESCE(v.key, s.key), 2)::bigint), v.one) ELSE v.one END clinic,
+        v.city, CASE WHEN COALESCE(v.key, s.key) LIKE 'k%' THEN v.branches END branches,
+        COALESCE(v.visits,0) visits, COALESCE(v.doctors,0) doctors, v.last_visit, COALESCE(s.sales,0) sales, COALESCE(s.invoices,0) invoices, s.last_invoice,
+        COALESCE(v.key, s.key) LIKE 'k%' linked
+      FROM v FULL JOIN s ON s.key=v.key ORDER BY COALESCE(s.sales,0) DESC, COALESCE(v.visits,0) DESC`, vals),
     query<{ product_id: string; product: string; presented: number; clinics: number; converted: number; sales_after: number }>(`
-      WITH p AS (SELECT pp.product_id, d.clinic_id, (v.visited_at AT TIME ZONE 'Asia/Riyadh')::date AS day FROM visit_presented_products pp JOIN visits v ON v.id=pp.visit_id JOIN doctors d ON d.id=v.doctor_id
+      WITH p AS (SELECT pp.product_id, ${clientOfClinicSql("d.clinic_id")} AS client_id, d.clinic_id, (v.visited_at AT TIME ZONE 'Asia/Riyadh')::date AS day FROM visit_presented_products pp JOIN visits v ON v.id=pp.visit_id JOIN doctors d ON d.id=v.doctor_id
           WHERE (v.visited_at AT TIME ZONE 'Asia/Riyadh')::date BETWEEN $1 AND $2 AND d.clinic_id IS NOT NULL ${rep}),
-        conv AS (SELECT p.product_id, p.clinic_id, p.day, (SELECT COALESCE(sum(s.value),0) FROM daftra_sales_v s WHERE s.clinic_id=p.clinic_id AND s.product_id=p.product_id
+        conv AS (SELECT p.product_id, p.clinic_id, p.day, (SELECT COALESCE(sum(s.value),0) FROM daftra_sales_v s WHERE s.client_id=p.client_id AND s.product_id=p.product_id
             AND s.invoice_date > p.day AND s.invoice_date <= p.day + 30) after FROM p)
       SELECT c.product_id, pr.name product, count(*)::int presented, count(DISTINCT c.clinic_id)::int clinics, count(*) FILTER (WHERE c.after > 0)::int converted,
         (SELECT COALESCE(sum(m),0) FROM (SELECT max(c2.after) m FROM conv c2 WHERE c2.product_id=c.product_id GROUP BY c2.clinic_id) z)::float8 sales_after
       FROM conv c JOIN products pr ON pr.id=c.product_id GROUP BY 1,2 ORDER BY presented DESC`, vals),
     query<{ product_id: string; product: string; given: number; units: number; clinics: number; bought: number }>(`
-      WITH g AS (SELECT vi.product_id, d.clinic_id, (v.visited_at AT TIME ZONE 'Asia/Riyadh')::date AS day, vi.quantity FROM visit_items vi JOIN visits v ON v.id=vi.visit_id JOIN doctors d ON d.id=v.doctor_id
+      WITH g AS (SELECT vi.product_id, ${clientOfClinicSql("d.clinic_id")} AS client_id, d.clinic_id, (v.visited_at AT TIME ZONE 'Asia/Riyadh')::date AS day, vi.quantity FROM visit_items vi JOIN visits v ON v.id=vi.visit_id JOIN doctors d ON d.id=v.doctor_id
           WHERE vi.kind::text='sample' AND (v.visited_at AT TIME ZONE 'Asia/Riyadh')::date BETWEEN $1 AND $2 AND d.clinic_id IS NOT NULL ${rep})
       SELECT g.product_id, pr.name product, count(*)::int given, COALESCE(sum(g.quantity),0)::int units, count(DISTINCT g.clinic_id)::int clinics,
-        count(*) FILTER (WHERE EXISTS (SELECT 1 FROM daftra_sales_v s WHERE s.clinic_id=g.clinic_id AND s.product_id=g.product_id AND s.invoice_date > g.day AND s.invoice_date <= g.day + 60))::int bought
+        count(*) FILTER (WHERE EXISTS (SELECT 1 FROM daftra_sales_v s WHERE s.client_id=g.client_id AND s.product_id=g.product_id AND s.invoice_date > g.day AND s.invoice_date <= g.day + 60))::int bought
       FROM g JOIN products pr ON pr.id=g.product_id GROUP BY 1,2 ORDER BY given DESC`, vals),
   ]);
   const rows = clinics.rows.map(c => ({ ...c, flag: c.visits >= 3 && !c.sales ? "effort" : c.sales > 0 && !c.visits ? "neglected" : c.sales > 0 && c.visits ? "ok" : !c.linked && c.visits ? "unlinked" : "none" }));

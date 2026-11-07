@@ -54,7 +54,7 @@ export default function AdminSmartBoard() {
         <li className="px-5 py-2 text-[10.5px] text-[var(--muted)]">اليوم {d.pace[0]?.day || 0} من {d.pace[0]?.days || 30} — المتوقع = المحقق ÷ الأيام اللي فاتت × أيام الشهر</li></ul>}
       {tab === "reorder" && <ul className="divide-y divide-[var(--border)]">{list(d.reorder).map(r => <li key={r.clinic_id} className="flex items-center gap-3 px-5 py-3">
         <span className={`shrink-0 rounded-lg px-2 py-1 text-[11px] font-extrabold ${r.days_to < 0 ? "bg-red-50 text-red-700" : "bg-sky-50 text-sky-800"}`}>{r.days_to < 0 ? `متأخر ${-r.days_to}` : r.days_to === 0 ? "النهارده" : `بعد ${r.days_to}`} يوم</span>
-        <div className="min-w-0 flex-1"><b className="block truncate text-sm">{r.clinic_name}</b><span className="block truncate text-[11px] text-[var(--muted)]">كل {r.usual_gap} يوم · متوسط {k(r.monthly_avg)} ر.س/شهر{r.top.length ? ` · ${r.top.join("، ")}` : ""}</span></div>
+        <div className="min-w-0 flex-1"><b className="block truncate text-sm">{r.clinic_name}</b><span className="block truncate text-[11px] text-[var(--muted)]">كل {r.usual_gap} يوم · متوسط {k(r.monthly_avg)} ر.س/شهر{r.branches?.length ? ` · ${r.branches.length} فروع` : ""}{r.top.length ? ` · ${r.top.join("، ")}` : ""}</span></div>
         {r.doctors[0] && <Link href={`/doctors/${r.doctors[0].id}`} className="shrink-0 text-xs font-bold text-[var(--sky-deep)]">الطبيب ‹</Link>}</li>)}
         {!d.reorder.length && <li className="p-6 text-center text-sm text-[var(--muted)]">مفيش عيادات قرّب ميعاد طلبها الأسبوع ده</li>}</ul>}
       {tab === "promises" && <ul className="divide-y divide-[var(--border)]">{list(d.promises).map(x => <li key={`${x.client_id}`} className="flex items-center gap-3 px-5 py-3">

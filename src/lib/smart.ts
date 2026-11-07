@@ -1,5 +1,6 @@
 import { query } from "@/lib/db";
 import { analyzeAccount, type AInv, type ALine } from "@/lib/clinic-account";
+import { clinicsOfClientSql } from "@/lib/clinic-groups";
 
 const DAY = 864e5;
 const t = (d: string) => Date.parse(`${d}T00:00:00Z`);
@@ -7,7 +8,7 @@ const addDays = (d: string, n: number) => new Date(t(d) + n * DAY).toISOString()
 const diff = (a: string, b: string) => Math.round((t(b) - t(a)) / DAY);
 
 export type ReorderDue = { clinic_id: string; clinic_name: string; customer: string; next_expected: string; days_to: number; usual_gap: number; last: string;
-  monthly_avg: number; top: string[]; status: string; doctors: Array<{ id: string; name: string; classification: string | null }> };
+  monthly_avg: number; top: string[]; status: string; doctors: Array<{ id: string; name: string; classification: string | null }>; branches?: string[] };
 
 /**
  * Clinics whose next Daftra order is due within a week (or a little late, not yet "stopped"), from their own ordering rhythm.
@@ -39,9 +40,14 @@ export async function reorderDue(today: string, opts: { repId?: string; ahead?: 
       last: a.orders.last!, monthly_avg: a.sales.monthly_avg, top: a.products.slice(0, 3).map(p => p.item), status: a.status, doctors: [] });
   }
   if (out.length) {
-    const docs = (await query<{ clinic_id: string; id: string; name: string; classification: string | null }>(`SELECT clinic_id, id, name, classification FROM doctors
-      WHERE clinic_id = ANY($1::uuid[]) AND COALESCE(status,'active')='active' ORDER BY classification NULLS LAST, name`, [out.map(o => o.clinic_id)])).rows;
-    for (const o of out) o.doctors = docs.filter(x => x.clinic_id === o.clinic_id).map(({ id, name, classification }) => ({ id, name, classification }));
+    const cl = (await query<{ clinic_id: string; client_id: string }>("SELECT clinic_id, client_id FROM daftra_client_links WHERE clinic_id = ANY($1::uuid[])", [out.map(o => o.clinic_id)])).rows;
+    const docs = (await query<{ client_id: string; id: string; name: string; classification: string | null; branch: string }>(`SELECT x.client_id, d.id, d.name, d.classification, c.name branch
+      FROM unnest($1::bigint[]) x(client_id) JOIN doctors d ON d.clinic_id IN ${clinicsOfClientSql("x.client_id")} JOIN clinics c ON c.id=d.clinic_id
+      WHERE COALESCE(d.status,'active')='active' ORDER BY d.classification NULLS LAST, d.name`, [[...new Set(cl.map(c => Number(c.client_id)))]])).rows;
+    for (const o of out) { const ks = new Set(cl.filter(c => c.clinic_id === o.clinic_id).map(c => String(c.client_id)));
+      const ds = docs.filter(x => ks.has(String(x.client_id)));
+      o.doctors = [...new Map(ds.map(x => [x.id, { id: x.id, name: x.name, classification: x.classification }])).values()];
+      const br = [...new Set(ds.map(x => x.branch))]; if (br.length > 1 || (br[0] && br[0] !== o.clinic_name)) o.branches = br; }
   }
   return out.sort((x, y) => x.days_to - y.days_to || y.monthly_avg - x.monthly_avg);
 }

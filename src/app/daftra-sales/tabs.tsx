@@ -5,6 +5,7 @@ import { useToast } from "@/components/Toast";
 import type { FinData, Tab } from "./FinanceHub";
 import { sar, num, pct, short, mLabel, C, Hint, Kpi, Card, ExcelBtn, Bars, MonthChart, Table, Pill, STATUS_PAY, AGE } from "./kit";
 import { GuardAndStock, ClientLinks } from "./guard";
+import { BranchLinks } from "./branches";
 import { PriceCalc, maxDiscount } from "./pricecalc";
 
 type X = (s: string) => string;
@@ -145,6 +146,7 @@ export function Book({ d, kind, x, subdomain }: { d: FinData; kind: "ar" | "ap";
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">{AGE.map(([k, l, c]) => <button type="button" key={k} onClick={() => setBk(bk === k ? null : k)} className={`rounded-xl border p-2.5 text-right transition ${bk === k ? "border-[var(--navy)] bg-[var(--sky-light)]" : "border-[var(--border)] hover:bg-[var(--bg)]"}`}><div className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--muted)]"><i className="h-2 w-2 rounded-full" style={{ background: c }} />{l}</div><div className="mt-1 font-extrabold">{sar(b.buckets[k])}</div></button>)}</div>
     </Card>
     {isAr && <ClientLinks />}
+    {isAr && <BranchLinks />}
     <Card title={`${isAr ? "العملاء" : "الموردين"}${bk ? ` — ${AGE.find(a => a[0] === bk)?.[1]}` : ""}`} right={bk && <button type="button" onClick={() => setBk(null)} className="text-xs font-bold text-[var(--sky-deep)]">إلغاء الفلتر</button>}>
       <Table rows={parties} rowKey={r => r.name} search={r => r.name} initialSort={["unpaid", -1]} empty="مفيش مستحقات 🎉" cols={[
         { key: "name", label: isAr ? "العميل" : "المورد", className: "max-w-72 truncate text-right font-bold" },

@@ -40,7 +40,7 @@ export default function RepSmartCard() {
       <div className="mb-1.5 text-xs font-bold text-[var(--muted)]">عيادات قرّب ميعاد طلبها</div>
       <ul className="space-y-1.5">{d.reorder.slice(0, 5).map(r => <li key={r.clinic_id} className="flex items-center gap-2 rounded-xl border border-[var(--border)] p-2.5">
         <span className={`shrink-0 rounded-lg px-2 py-1 text-[11px] font-extrabold ${r.days_to < 0 ? "bg-red-50 text-red-700" : r.days_to <= 2 ? "bg-amber-50 text-amber-800" : "bg-sky-50 text-sky-800"}`}>{when(r.days_to)}</span>
-        <div className="min-w-0 flex-1"><b className="block truncate text-sm">{r.clinic_name}</b><span className="block truncate text-[11px] text-[var(--muted)]">بتطلب كل {r.usual_gap} يوم · آخر طلب {dm(r.last)}{r.top.length ? ` · ${r.top.join("، ")}` : ""}</span></div>
+        <div className="min-w-0 flex-1"><b className="block truncate text-sm">{r.clinic_name}</b><span className="block truncate text-[11px] text-[var(--muted)]">بتطلب كل {r.usual_gap} يوم · آخر طلب {dm(r.last)}{r.branches?.length ? ` · فروع: ${r.branches.join("، ")}` : r.top.length ? ` · ${r.top.join("، ")}` : ""}</span></div>
         {r.doctors[0] && <Link href={`/visits/new?doctorId=${r.doctors[0].id}`} className="shrink-0 rounded-lg bg-[var(--navy)] px-2.5 py-1.5 text-[11px] font-bold text-white">زيارة ‹</Link>}
       </li>)}</ul>
     </div>}

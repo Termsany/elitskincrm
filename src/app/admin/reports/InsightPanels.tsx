@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useToast } from "@/components/Toast";
 
 type VS = {
-  clinics: Array<{ clinic_id: string; clinic: string; city: string | null; visits: number; doctors: number; last_visit: string | null; sales: number; invoices: number; last_invoice: string | null; flag: string }>;
+  clinics: Array<{ clinic_id: string; clinic: string; city: string | null; branches?: string | null; visits: number; doctors: number; last_visit: string | null; sales: number; invoices: number; last_invoice: string | null; flag: string }>;
   summary: { effort: number; neglected: number; neglectedSales: number; unlinked: number };
   products: Array<{ product_id: string; product: string; presented: number; clinics: number; converted: number; sales_after: number; rate: number | null }>;
   samples: Array<{ product_id: string; product: string; given: number; units: number; clinics: number; bought: number; rate: number | null }>;
@@ -35,7 +35,7 @@ export default function InsightPanels({ from, to, repId }: { from: string; to: s
         <button key={f} type="button" onClick={() => setFilter(filter === f ? "" : f)} className={`rounded-xl border p-3 text-right transition hover:-translate-y-0.5 ${filter === f ? "border-[var(--navy)] ring-2 ring-[var(--navy)]/15" : "border-[var(--border)]"}`}>
           <div className={`inline-block rounded-md px-1.5 py-0.5 text-[10.5px] font-bold ${FLAG[f][1]}`}>{l}</div><div className="mt-1 text-2xl font-extrabold text-[var(--navy)]">{n}</div><div className="text-[10.5px] text-[var(--muted)]">{sub}</div></button>)}</div>
       <div className="overflow-x-auto"><table className="w-full min-w-[640px] text-sm"><thead className="bg-[var(--bg)] text-xs text-[var(--muted)]"><tr><th className="p-2 text-right">العيادة</th><th className="p-2">زيارات</th><th className="p-2">أطباء</th><th className="p-2">آخر زيارة</th><th className="p-2">مبيعات الفترة</th><th className="p-2">آخر فاتورة</th><th className="p-2">الحكم</th></tr></thead>
-        <tbody className="divide-y divide-[var(--border)]">{rows.slice(0, 40).map(c => <tr key={c.clinic_id}><td className="p-2 font-bold">{c.clinic}<span className="block text-[10.5px] font-normal text-[var(--muted)]">{c.city || ""}</span></td>
+        <tbody className="divide-y divide-[var(--border)]">{rows.slice(0, 40).map(c => <tr key={c.clinic_id}><td className="max-w-[280px] p-2 font-bold"><span className="block truncate" dir="auto">{c.clinic}</span><span className="block truncate text-[10.5px] font-normal text-[var(--muted)]" title={c.branches || ""}>{c.branches ? `🏢 ${c.branches}` : c.city || ""}</span></td>
           <td className="p-2 text-center">{c.visits || "—"}</td><td className="p-2 text-center">{c.doctors || "—"}</td><td className="p-2 text-center text-xs">{dm(c.last_visit)}</td>
           <td className="p-2 text-center font-bold">{c.sales ? k(c.sales) : "—"}</td><td className="p-2 text-center text-xs">{dm(c.last_invoice)}</td>
           <td className="p-2 text-center"><span className={`rounded-md px-1.5 py-0.5 text-[10.5px] font-bold ${FLAG[c.flag][1]}`}>{FLAG[c.flag][0]}</span></td></tr>)}
