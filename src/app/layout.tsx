@@ -4,12 +4,12 @@ import { ToastProvider } from "@/components/Toast";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Elite Skin CRM — نظام إدارة الزيارات",
-  description: "نظام CRM طبي لإدارة زيارات المناديب والأطباء — Elite Skin",
-  applicationName: "Elite Skin",
+  title: "eliteSkin — منصّة إدارة المبيعات والعلاقات الطبية",
+  description: "eliteSkin CRM: إدارة الزيارات الميدانية والعلاقات مع الأطباء والعيادات والمبيعات",
+  applicationName: "eliteSkin",
   manifest: "/manifest.webmanifest",
   // "Add to Home Screen" on iPhone / iPad opens it full-screen like an app
-  appleWebApp: { capable: true, title: "Elite Skin", statusBarStyle: "black-translucent" },
+  appleWebApp: { capable: true, title: "eliteSkin", statusBarStyle: "black-translucent" },
   icons: { icon: [{ url: "/icons/favicon-32.png", sizes: "32x32" }, { url: "/icons/icon-192.png", sizes: "192x192" }], apple: "/icons/apple-touch-icon.png" },
   formatDetection: { telephone: false },
 };

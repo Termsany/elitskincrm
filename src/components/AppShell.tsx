@@ -48,7 +48,7 @@ export async function AppShell({ role: role0, email, name, jobTitle, productName
     <div className="fixed top-3 left-3 z-50 hidden lg:block"><NotificationsBell role={role}/></div>
     <aside className="es-sidebar hidden lg:flex shrink-0 flex-col text-white sticky top-0 h-screen">
       <div className="es-head flex items-center justify-between gap-2">
-        <div className="es-hide"><Logo variant="lockup" tone="onDark" markSize={38} tagline="نظام إدارة الزيارات الطبية" /></div>
+        <div className="es-hide"><Logo variant="lockup" tone="onDark" markSize={38} tagline="المبيعات والعلاقات الطبية" /></div>
         <div className="es-show-c"><Logo variant="mark" tone="onDark" markSize={40} /></div>
         <SidebarToggle />
       </div>

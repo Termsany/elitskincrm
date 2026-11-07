@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 /** Installable app for reps (Android "Install app", iPhone/iPad "Add to Home Screen"). */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Elite Skin CRM", short_name: "Elite Skin", description: "زيارات الأطباء والخطط والمبيعات — Elite Skin",
+    name: "eliteSkin CRM", short_name: "eliteSkin", description: "منصّة إدارة المبيعات والعلاقات الطبية — eliteSkin",
     start_url: "/", scope: "/", display: "standalone", orientation: "any", dir: "rtl", lang: "ar",
     background_color: "#f4f9f9", theme_color: "#10484f",
     icons: [

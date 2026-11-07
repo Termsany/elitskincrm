@@ -27,7 +27,7 @@ export default function LoginPage() {
         <div className="text-center mb-6">
           <Logo variant="full" tone="onLight" markSize={170} className="mb-2 h-auto w-[230px] sm:w-[260px]" />
           <h1 className="text-xl font-bold mt-4">تسجيل الدخول</h1>
-          <p className="text-sm text-[var(--muted)] mt-1">نظام إدارة زيارات المناديب الطبية</p>
+          <p className="text-sm text-[var(--muted)] mt-1">منصّة إدارة المبيعات والعلاقات الطبية</p>
         </div>
         <Card className="p-6">
           <form onSubmit={onSubmit} className="space-y-4">
