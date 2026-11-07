@@ -14,7 +14,7 @@ export default function HrHomeCard() {
   if (!d) return null;
   const b = d.balance, last = d.requests[0], pay = d.payroll;
   const up = d.requests.filter(r => r.kind === "leave" && ["approved", "completed"].includes(r.status) && (r.end_date || "") >= d.today).sort((a, b) => (a.start_date || "").localeCompare(b.start_date || ""))[0];
-  return <section className="es-card-in mb-4 flex flex-wrap items-center gap-4 rounded-3xl border border-[var(--border)] bg-white p-4 shadow-sm" aria-label="طلباتي الإدارية">
+  return <section className="es-card-in flex flex-wrap items-center gap-4 rounded-[28px] border border-[var(--border)] bg-white p-4 shadow-sm" aria-label="طلباتي الإدارية">
     {b && <BalanceRing remaining={b.remaining} total={b.entitled + b.carryover} size={72} />}
     <div className="min-w-0 flex-1">
       <b className="text-[var(--navy)]">رصيد إجازتك {b?.remaining ?? 0} يوم</b>

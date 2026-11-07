@@ -15,7 +15,7 @@ const COLLAPSE = "es-smart-collapsed";
 const pretty = (s: string) => s.replace(/\s*\(.*?\)\s*/g, " ").replace(/\s+/g, " ").trim().toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
 
 /** Rep home: what deserves attention today — clinics due to reorder (visit, snooze, or "not mine"), broken payment promises, pace to target, next week's plan. */
-export default function RepSmartCard() {
+export default function RepSmartCard({ hidePace = false, hidePlan = false }: { hidePace?: boolean; hidePlan?: boolean } = {}) {
   const toast = useToast();
   const [d, setD] = useState<D | null>(null); const [busy, setBusy] = useState(false);
   const [menu, setMenu] = useState<string | null>(null); const [docsFor, setDocsFor] = useState<string | null>(null);
@@ -26,11 +26,11 @@ export default function RepSmartCard() {
   useEffect(() => { if (!undo) return; const t = setTimeout(() => setUndo(null), 6000); return () => clearTimeout(t); }, [undo]);
   if (!d) return null;
 
-  const p = d.pace, wd = new Date(`${d.today}T12:00:00Z`).getUTCDay();
-  const showPlan = !d.nextWeek.plan && wd >= 3 && wd <= 6;
+  const p = hidePace ? null : d.pace, wd = new Date(`${d.today}T12:00:00Z`).getUTCDay();
+  const showPlan = !hidePlan && !d.nextWeek.plan && wd >= 3 && wd <= 6;
   const reorder = d.reorder.filter(r => !gone.includes(`reorder:${r.clinic_id}`)), promises = d.promises.filter(x => !gone.includes(`promise:${x.client_id}`));
   const urgent = reorder.filter(r => !r.visited_since_order).length + promises.length;
-  if (!reorder.length && !promises.length && !(p && p.target) && !showPlan && d.nextWeek.plan?.status !== "draft" && !undo) return null;
+  if (!reorder.length && !promises.length && !(p && p.target) && !showPlan && (hidePlan || d.nextWeek.plan?.status !== "draft") && !undo) return null;
 
   function toggleCollapse() { const v = !collapsed; setCollapsed(v); try { if (v) localStorage.setItem(COLLAPSE, new Date().toDateString()); else localStorage.removeItem(COLLAPSE); } catch { /* ignore */ } }
   async function dismiss(kind: string, ref: string, days: number, reason: string, label: string) {
@@ -57,7 +57,7 @@ export default function RepSmartCard() {
   const actions = (id: string, items: Array<[string, () => void]>) => menu === id && <div className="es-pop mt-2 flex flex-wrap gap-1.5 border-t border-[var(--border)] pt-2">
     {items.map(([l, f]) => <button key={l} type="button" onClick={f} className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-[11.5px] font-bold text-[var(--navy)] transition hover:border-[var(--navy)]">{l}</button>)}</div>;
 
-  return <section className="es-card-in mb-4 rounded-3xl border border-[var(--border)] bg-white shadow-sm" aria-label="اقتراحات النهارده">
+  return <section className="es-card-in rounded-[28px] border border-[var(--border)] bg-white shadow-sm" aria-label="اقتراحات النهارده">
     <button type="button" onClick={toggleCollapse} aria-expanded={!collapsed} className="flex w-full items-center gap-2 p-4 text-right">
       <span className="text-xl">💡</span><h2 className="font-extrabold text-[var(--navy)]">اقتراحات النهارده</h2>
       {urgent > 0 && <span className="rounded-full bg-[var(--navy)] px-2 py-0.5 text-[11px] font-bold text-white">{urgent}</span>}
@@ -112,7 +112,7 @@ export default function RepSmartCard() {
 
       {showPlan && <button type="button" disabled={busy} onClick={() => void draft()} className="flex w-full items-center justify-center gap-2 rounded-2xl bg-[var(--navy)] px-4 py-3 text-sm font-extrabold text-white shadow-md transition hover:-translate-y-0.5 disabled:opacity-60">
         <Icon name="calendar" size={18} />{busy ? "بجهّز…" : "جهّز لي خطة الأسبوع الجاي"}</button>}
-      {d.nextWeek.plan?.status === "draft" && <Link href={`/plans?planId=${d.nextWeek.plan.id}`} className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[var(--navy)]/30 px-4 py-3 text-sm font-bold text-[var(--navy)]">🗓️ مسودة خطة الأسبوع الجاي جاهزة — راجعها وابعتها ‹</Link>}
+      {!hidePlan && d.nextWeek.plan?.status === "draft" && <Link href={`/plans?planId=${d.nextWeek.plan.id}`} className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[var(--navy)]/30 px-4 py-3 text-sm font-bold text-[var(--navy)]">🗓️ مسودة خطة الأسبوع الجاي جاهزة — راجعها وابعتها ‹</Link>}
       {d.hiddenCount > 0 && <div className="text-center text-[10.5px] text-[var(--muted)]">{d.hiddenCount} اقتراح مخفي — هيرجعوا لوحدهم في ميعادهم</div>}
     </div>}
   </section>;

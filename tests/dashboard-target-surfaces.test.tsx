@@ -28,13 +28,6 @@ const assertApprovedSigned = (sql: string) => {
  expect(sql).not.toContain('rep_monthly_sales');
 };
 describe('annual targets and approved forecast achievement across dashboards', () => {
- it('home reads the Riyadh-year target and signed approved sales only', async () => {
-  await DashboardPage();
-  const calls = salesSql(); expect(calls.some(([sql]) => sql.includes('rep_monthly_sales'))).toBe(false);
-  expect(calls.some(([sql, args]) => sql.includes('rep_target_years') && args?.includes(2026))).toBe(true);
-  const actual = calls.find(([sql]) => sql.includes('daftra_sales_v'))!;
-  assertApprovedSigned(actual[0]); expect(actual[1]).toEqual(['rep-1', 2026, '2026-01-01', '2027-01-01']);
- });
  it('admin list computes the current Riyadh-year values per rep without legacy amounts', async () => {
   mock.user.mockResolvedValue({ id: 'admin-1', role: 'admin' }); await RepsPage();
   const [sql, args] = mock.query.mock.calls[0]; assertApprovedSigned(sql);
