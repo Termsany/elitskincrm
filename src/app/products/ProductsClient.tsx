@@ -290,7 +290,7 @@ export default function ProductsClient() {
                   <h3 className="font-extrabold text-[var(--navy)]">ملخص العرض</h3>
                   <span className="text-[11px] font-semibold text-[var(--muted)]">
                     إصدار {sel.detailing_version || "1.0"}
-                    {sel.content_updated_at ? ` · ${new Date(sel.content_updated_at).toLocaleDateString("ar-SA")}` : ""}
+                    {sel.content_updated_at ? ` · ${new Date(sel.content_updated_at).toLocaleDateString("ar-SA-u-nu-latn-ca-gregory")}` : ""}
                   </span>
                 </div>
                 <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-[var(--muted)]">

@@ -29,7 +29,7 @@ export default function DoctorStatsClient(){
                   <td className="p-3"><Badge tone={r.visits>0?"success":"neutral"}>{r.visits}</Badge></td>
                   <td className="p-3">{r.samples}</td>
                   <td className="p-3">{r.orders}</td>
-                  <td className="p-3 text-xs">{r.last_visit? new Date(r.last_visit).toLocaleDateString("ar-EG"): "—"}</td>
+                  <td className="p-3 text-xs">{r.last_visit? new Date(r.last_visit).toLocaleDateString("ar-EG-u-nu-latn"): "—"}</td>
                   <td className="p-3 text-xs max-w-[28ch] truncate" title={r.recent_notes}>{r.recent_notes||"—"}</td>
                 </tr>
               ))}

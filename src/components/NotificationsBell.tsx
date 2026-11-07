@@ -51,7 +51,7 @@ export default function NotificationsBell({role="sales_rep"}:{role?:string}){
                 <button type="button" key={n.id} onClick={()=>openNotification(n)} className={`w-full text-right p-3 text-sm hover:bg-sky-50 transition cursor-pointer ${!n.is_read? "bg-amber-50 border-r-4 border-amber-400":""}`}>
                   <div className="font-semibold">{n.message}</div>
                   {(n.task_title||n.plan_title) && <div className="text-xs text-[var(--muted)]">{n.task_title||n.plan_title}</div>}
-                  <div className="text-[11px] text-[var(--muted)] mt-1">{new Date(n.created_at).toLocaleString("ar-EG")} — {n.kind} · اضغط للفتح</div>
+                  <div className="text-[11px] text-[var(--muted)] mt-1">{new Date(n.created_at).toLocaleString("ar-EG-u-nu-latn")} — {n.kind} · اضغط للفتح</div>
                 </button>
               ))}
               {list.length===0 && <div className="p-8 text-center text-sm text-[var(--muted)]">لا إشعارات حاليا<br/><span className="text-xs">ستظهر هنا عند إسناد مهمة أو اكتمالها</span></div>}

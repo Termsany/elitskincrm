@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import OfflineServiceWorker from "@/components/OfflineServiceWorker";
 import { ToastProvider } from "@/components/Toast";
 import "./globals.css";
@@ -6,7 +6,14 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Elite Skin CRM — نظام إدارة الزيارات",
   description: "نظام CRM طبي لإدارة زيارات المناديب والأطباء — Elite Skin",
+  applicationName: "Elite Skin",
+  manifest: "/manifest.webmanifest",
+  // "Add to Home Screen" on iPhone / iPad opens it full-screen like an app
+  appleWebApp: { capable: true, title: "Elite Skin", statusBarStyle: "black-translucent" },
+  icons: { icon: [{ url: "/icons/favicon-32.png", sizes: "32x32" }, { url: "/icons/icon-192.png", sizes: "192x192" }], apple: "/icons/apple-touch-icon.png" },
+  formatDetection: { telephone: false },
 };
+export const viewport: Viewport = { width: "device-width", initialScale: 1, viewportFit: "cover", themeColor: "#10484f" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

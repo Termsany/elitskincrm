@@ -18,8 +18,8 @@ const kindLabel: Record<HomeKind, string> = {
   pendingOrders: "طلب منتج للموافقة", pendingDoctorRequests: "طلب طبيب للمراجعة", activeServiceRequests: "طلب خدمة مفتوح",
   pendingPlans: "خطة تنتظر الموافقة", overdueTasks: "مهمة متأخرة", overdueFollowups: "متابعة طبيب متأخرة"
 };
-const fmt = new Intl.DateTimeFormat("ar-SA", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Riyadh", calendar: "gregory" });
-const number = new Intl.NumberFormat("ar-SA");
+const fmt = new Intl.DateTimeFormat("ar-SA-u-nu-latn-ca-gregory", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Riyadh", calendar: "gregory" });
+const number = new Intl.NumberFormat("ar-SA-u-nu-latn-ca-gregory");
 const isRequest = (kind: HomeKind) => ["pendingOrders", "pendingDoctorRequests", "activeServiceRequests"].includes(kind);
 const isOverdue = (kind: HomeKind) => ["overdueTasks", "overdueFollowups"].includes(kind);
 

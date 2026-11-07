@@ -185,7 +185,7 @@ export default function VisitsClient({ isAdmin, reps, initialRepId="" }: { isAdm
             </div>
             <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
               <span className="rounded-full bg-[var(--bg)] border border-[var(--border)] px-2.5 py-1 font-semibold">{v.rep_name}</span>
-              <span className="rounded-full bg-white border border-[var(--border)] px-2.5 py-1 text-[var(--muted)]">{new Date(v.visited_at).toLocaleString("ar-EG")}</span>
+              <span className="rounded-full bg-white border border-[var(--border)] px-2.5 py-1 text-[var(--muted)]">{new Date(v.visited_at).toLocaleString("ar-EG-u-nu-latn")}</span>
             </div>
             <div className="mt-2 text-xs text-[var(--muted)] line-clamp-2 bg-[var(--bg)] border border-[var(--border)] rounded-xl p-2.5">{v.notes || "—"}</div>
             <div className="mt-3 flex gap-1.5 flex-wrap">
@@ -237,7 +237,7 @@ export default function VisitsClient({ isAdmin, reps, initialRepId="" }: { isAdm
                   <td className="p-3">
                     <Badge tone={statusMeta(v.status).tone}><Icon name={statusMeta(v.status).icon} size={13} className="inline align-[-2px] mr-0.5" /> {statusMeta(v.status).label}</Badge>
                   </td>
-                  <td className="p-3 text-xs text-[var(--muted)] font-medium">{new Date(v.visited_at).toLocaleString("ar-EG")}</td>
+                  <td className="p-3 text-xs text-[var(--muted)] font-medium">{new Date(v.visited_at).toLocaleString("ar-EG-u-nu-latn")}</td>
                   <td className="p-3 max-w-[28ch] truncate text-xs text-[var(--muted)]" title={v.notes}>
                     {v.notes}
                   </td>

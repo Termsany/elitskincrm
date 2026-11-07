@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useToast } from "@/components/Toast";
 import DoctorRequestsClient from "../admin/requests/DoctorRequestsClient";
@@ -83,6 +83,16 @@ export default function DoctorsHub({ isAdmin, reps, initialQ = "", initialTab = 
     const val = (d: HubDoctor): number | string => sort.k === "priority" ? pri(d) * 10000 - (d.days_since ?? 9999) : sort.k === "name" ? d.name : sort.k === "visits" ? d.visits : sort.k === "interest" ? (interestPct(d) ?? -1) : sort.k === "last" ? (d.days_since ?? 99999) : sort.k === "samples" ? d.samples : d.name;
     return [...xs].sort((a, b) => { const x = val(a), y = val(b); return (typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y))) * sort.dir; });
   }, [all, q, city, cls, clinic, seg, fav, sort]);
+  // cards: render a page at a time (174 cards = ~35,000px on a phone); more load as you scroll
+  const PAGE = 24;
+  const [limit, setLimit] = useState(PAGE);
+  useEffect(() => { setLimit(PAGE); }, [q, city, cls, clinic, seg, sort]);
+  const more = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = more.current; if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) setLimit(l => l + PAGE); }, { rootMargin: "600px 0px" });
+    io.observe(el); return () => io.disconnect();
+  }, [limit, list.length]);
 
   async function addToPlan(ids: string[], date: string) {
     if (isAdmin && !repId) { toast("اختار المندوب من فوق الأول", "info"); return; }
@@ -95,7 +105,7 @@ export default function DoctorsHub({ isAdmin, reps, initialQ = "", initialTab = 
     setChecked([]); setReload(n => n + 1);
   }
   const canPause = !isAdmin || !!repId;
-  const monthName = new Intl.DateTimeFormat("ar-EG", { month: "long", timeZone: "Asia/Riyadh" }).format(new Date());
+  const monthName = new Intl.DateTimeFormat("ar-EG-u-nu-latn", { month: "long", timeZone: "Asia/Riyadh" }).format(new Date());
   async function setPaused(ids: string[], paused: boolean) {
     if (!canPause) { toast("اختار المندوب من فوق الأول", "info"); return; }
     setRows(rs => rs && rs.map(d => ids.includes(d.id) ? { ...d, paused } : d)); // optimistic
@@ -159,7 +169,8 @@ export default function DoctorsHub({ isAdmin, reps, initialQ = "", initialTab = 
         {canPause && mode !== "phone" && Number(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh", day: "numeric" }).format(new Date())) <= 7 && !counts.paused && <div className="dz-in flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--sky-border)] bg-[var(--sky-light)] px-4 py-3 text-sm"><span className="text-lg">🗓️</span><span className="flex-1"><b className="text-[var(--navy)]">بداية شهر {monthName}:</b> حدد الأطباء اللي مش هتزورهم الشهر ده واعملهم <b>Inactive</b> — كده التغطية تتحسب على الأطباء الحقيقيين بس.</span><span className="text-[11px] text-[var(--muted)]">علّم عليهم من الجدول ← «Inactive الشهر ده»</span></div>}
         {checked.length > 0 && <BulkBar n={checked.length} onPlan={d => void addToPlan(checked, d)} exportHref={exportUrl(checked)} onClear={() => setChecked([])} needRep={isAdmin && !repId} onPause={canPause ? (p => void setPaused(checked, p)) : undefined} />}
         {effView === "table" ? <Table list={list} checked={checked} setChecked={setChecked} fav={fav} toggleFav={toggleFav} onOpen={setSel} sort={sort} setSort={setSort} />
-          : <div className={`grid gap-3 ${mode === "phone" ? "" : "sm:grid-cols-2 xl:grid-cols-3"}`}>{list.map(d => <DocCard key={d.id} d={d} fav={fav.includes(d.id)} toggleFav={() => toggleFav(d.id)} onOpen={() => setSel(d)} isAdmin={isAdmin} />)}</div>}
+          : <div className={`grid gap-3 ${mode === "phone" ? "" : "sm:grid-cols-2 xl:grid-cols-3"}`}>{list.slice(0, limit).map(d => <DocCard key={d.id} d={d} fav={fav.includes(d.id)} toggleFav={() => toggleFav(d.id)} onOpen={() => setSel(d)} isAdmin={isAdmin} />)}</div>}
+        {effView !== "table" && list.length > limit && <div ref={more} className="flex justify-center"><button type="button" onClick={() => setLimit(l => l + PAGE)} className="min-h-11 rounded-2xl border border-[var(--border)] bg-white px-5 text-sm font-bold text-[var(--navy)]">عرض المزيد ({list.length - limit} باقي)</button></div>}
         {!list.length && <div className="rounded-3xl border border-dashed border-[var(--border-strong)] bg-white p-10 text-center text-[var(--muted)]">لا يوجد أطباء مطابقين</div>}
       </>}
       {rows && tab === "clinics" && <Clinics rows={all.filter(d => (!city || d.city === city) && (!cls || d.classification === cls) && (!q.trim() || `${d.clinic_name} ${d.city}`.toLowerCase().includes(q.trim().toLowerCase())))} onPick={c => { setClinic(c); setTab("doctors"); setSeg("all"); }} />}

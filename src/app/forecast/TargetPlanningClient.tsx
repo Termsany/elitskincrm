@@ -10,7 +10,7 @@ type Queue = {id:string;rep_id:string;rep_name?:string;month?:string;year?:numbe
 type AdminPlan = {year:number;annual_targets:Array<{rep_id:string;rep_name?:string;amount:number|string}>;monthly_targets:Array<Month&{rep_id:string;rep_name?:string}>;pending_year_allocations:Queue[];pending_breakdowns:Queue[];team:Array<{rep_id:string;rep_name:string}>};
 type Directory = {clinics:Array<{id:string;name:string;city?:string}>;products:Array<{id:string;name:string}>;prices:Price[]};
 type Props = {role:"admin"|"sales_rep";month:string;data:RepPlan|AdminPlan|null;directory:Directory;busy:boolean;onAction:(action:string,body:Record<string,unknown>)=>void};
-const money=(n:number|string|null|undefined)=>Number(n??0).toLocaleString("ar-SA",{maximumFractionDigits:2});
+const money=(n:number|string|null|undefined)=>Number(n??0).toLocaleString("ar-SA-u-nu-latn-ca-gregory",{maximumFractionDigits:2});
 const validMoney=(v:string)=>v!==""&&Number.isFinite(Number(v))&&Number(v)>=0;
 const label=(s?:string|null)=>({approved:"معتمد",pending:"بانتظار المراجعة",rejected:"مرفوض",draft:"مسودة"})[s as "approved"]??"غير محدد";
 const monthsOf=(year:number)=>Array.from({length:12},(_,i)=>`${year}-${String(i+1).padStart(2,"0")}`);

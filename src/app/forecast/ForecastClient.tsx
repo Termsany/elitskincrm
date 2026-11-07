@@ -65,7 +65,7 @@ export function normalizeRepForecast(raw: any):ForecastData {
  const approvedRow=latest?.status!=="approved"?rows?.find((r:any)=>r.status==="approved"):undefined;
  const approved_baseline:Forecast|null=approvedRow?{id:approvedRow.id,status:"approved",lines:rows!.filter((r:any)=>r.id===approvedRow.id&&r.clinic_id).map((r:any)=>({clinic_id:r.clinic_id,product_id:r.product_id,qty:Number(r.quantity),unit_price:r.unit_price}))}:null;
  const lines = rows ? rows.filter((r:any)=>r.id===effective?.id && r.clinic_id).map((r:any)=>({clinic_id:r.clinic_id,product_id:r.product_id,qty:Number(r.quantity),unit_price:r.unit_price})) : raw.forecast?.lines ?? [];
- const forecast = rows ? (effective ? {id:effective.id,status:effective.status,lines,rejection_reason:latest?.status==="rejected"?latest.review_note:effective.review_note,submitted_at:effective.submitted_at,review_due_at:effective.status==="pending"&&effective.submitted_at?new Date(new Date(effective.submitted_at).getTime()+48*3600*1000).toLocaleString("ar-SA",{timeZone:"Asia/Riyadh"}):undefined} : null) : raw.forecast;
+ const forecast = rows ? (effective ? {id:effective.id,status:effective.status,lines,rejection_reason:latest?.status==="rejected"?latest.review_note:effective.review_note,submitted_at:effective.submitted_at,review_due_at:effective.status==="pending"&&effective.submitted_at?new Date(new Date(effective.submitted_at).getTime()+48*3600*1000).toLocaleString("ar-SA-u-nu-latn-ca-gregory",{timeZone:"Asia/Riyadh"}):undefined} : null) : raw.forecast;
  const targetQty = Number(raw.summary?.target ?? raw.summary?.target_qty ?? 0);
  const soldQty = Number(raw.summary?.actual ?? raw.summary?.sold_qty ?? 0);
  const normalizedTargets=raw.targets.map((t:any)=>({...t,qty:Number(t.qty ?? t.quantity)}));
@@ -128,7 +128,7 @@ export async function fetchPreviousMonthLines(month:string):Promise<Line[]> {
  if (!previous.forecast?.lines?.length) throw new Error("لا توجد توقعات للشهر السابق للنسخ.");
  return previous.forecast.lines.map(line=>({...line}));
 }
-const num = (value:number|undefined) => Number(value ?? 0).toLocaleString("ar-SA");
+const num = (value:number|undefined) => Number(value ?? 0).toLocaleString("ar-SA-u-nu-latn-ca-gregory");
 const field = "min-h-11";
 const statusLabel:Record<string,string> = {draft:"مسودة",submitted:"بانتظار المراجعة",pending:"بانتظار المراجعة",approved:"معتمد",rejected:"مرفوض",change_requested:"طلب تعديل",closed:"مغلق"};
 const qty = (lines:Line[],clinic_id:string,product_id:string) => lines.find(x=>x.clinic_id===clinic_id && x.product_id===product_id)?.qty ?? 0;

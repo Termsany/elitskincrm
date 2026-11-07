@@ -43,7 +43,7 @@ export async function AppShell({ role: role0, email, name, jobTitle, productName
   const more = items.filter((n) => n.group === "more").map(strip);
   const initials = name.split(/\s+/).map((x) => x[0]).slice(0, 2).join("").toUpperCase();
 
-  return <div className="min-h-screen flex flex-col lg:flex-row" dir="rtl">
+  return <div className="es-shell min-h-screen flex flex-col lg:flex-row" dir="rtl">
     <script dangerouslySetInnerHTML={{ __html: SB_BOOT }} />
     <div className="fixed top-3 left-3 z-50 hidden lg:block"><NotificationsBell role={role}/></div>
     <aside className="es-sidebar hidden lg:flex shrink-0 flex-col text-white sticky top-0 h-screen">

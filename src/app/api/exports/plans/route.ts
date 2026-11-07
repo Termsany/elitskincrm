@@ -15,7 +15,7 @@ export async function GET(req: Request){
   const format=searchParams.get("format")||"xlsx";
   if(format==="csv"){
     const header=["التاريخ","الطبيب","العيادة","المدينة","المنتج","الأولوية","ملاحظة"].map(esc).join(",");
-    const lines=items.rows.map((x:Record<string,unknown>)=> [x.planned_date? new Date(x.planned_date as string).toLocaleDateString("ar-EG"):"", x.doctor_name, x.clinic_name, x.city, x.product_name, x.priority, x.note].map(esc).join(","));
+    const lines=items.rows.map((x:Record<string,unknown>)=> [x.planned_date? new Date(x.planned_date as string).toLocaleDateString("ar-EG-u-nu-latn"):"", x.doctor_name, x.clinic_name, x.city, x.product_name, x.priority, x.note].map(esc).join(","));
     const csv="\uFEFF"+[header,...lines].join("\n");
     return new NextResponse(csv,{headers:{"content-type":"text/csv; charset=utf-8","content-disposition":`attachment; filename="plan-${id.slice(0,8)}.csv"`}});
   }
@@ -25,7 +25,7 @@ export async function GET(req: Request){
   ws.addRow([`خطة ${pr.period==="weekly"?"أسبوعية":"شهرية"} — ${pr.user_name}`]); ws.addRow([`الفترة: ${pr.period_start} → ${pr.period_end} — الحالة: ${pr.status}`]); ws.addRow([]);
   const hr=ws.addRow(["التاريخ","الطبيب","العيادة","المدينة","المنتج","الأولوية","ملاحظة"]);
   hr.eachCell(c=>{ c.font={bold:true, color:{argb:"FFFFFFFF"}}; c.fill={type:"pattern", pattern:"solid", fgColor:{argb:"FF091424"}}; });
-  for(const x of items.rows as Record<string,unknown>[]) ws.addRow([x.planned_date? new Date(x.planned_date as string).toLocaleDateString("ar-EG"):"", x.doctor_name, x.clinic_name, x.city, x.product_name, x.priority, x.note]);
+  for(const x of items.rows as Record<string,unknown>[]) ws.addRow([x.planned_date? new Date(x.planned_date as string).toLocaleDateString("ar-EG-u-nu-latn"):"", x.doctor_name, x.clinic_name, x.city, x.product_name, x.priority, x.note]);
   ws.columns.forEach(c=> c.width=18);
   const buf=await wb.xlsx.writeBuffer();
   return new NextResponse(buf as unknown as BodyInit,{headers:{"content-type":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","content-disposition":`attachment; filename="plan-${id.slice(0,8)}.xlsx"`}});

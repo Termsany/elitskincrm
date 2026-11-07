@@ -22,8 +22,8 @@ type Stats = {
 
 type SalesSummary = { annual_sales_target: number; annual_sales: number };
 
-const number = new Intl.NumberFormat("ar-SA");
-const money = new Intl.NumberFormat("ar-SA", { style: "currency", currency: "SAR", maximumFractionDigits: 0 });
+const number = new Intl.NumberFormat("ar-SA-u-nu-latn-ca-gregory");
+const money = new Intl.NumberFormat("ar-SA-u-nu-latn-ca-gregory", { style: "currency", currency: "SAR", maximumFractionDigits: 0 });
 
 /** Count-up for numbers (eases out, respects reduced motion). */
 function useCountUp(v: number, ms = 900) {
@@ -96,7 +96,7 @@ function RepDashboard({ salesSummary }: { salesSummary?: SalesSummary }) {
       <RepDailyWorkspace />
       <CollectionsCard />
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,.65fr)]">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,.65fr)]">
         <DashboardDoctorSuggestions />
         <SalesTargetCard sales={sales} />
       </div>
@@ -221,7 +221,7 @@ function AdminDashboard({ cities }: { cities: string[] }) {
             <div className="flex items-center justify-between border-b border-[var(--border)] p-4"><div><h2 className="font-extrabold text-[var(--navy)]">أحدث الزيارات</h2><p className="mt-1 text-xs text-[var(--muted)]">آخر 8 زيارات ضمن الفلتر الحالي</p></div><Link href="/visits" className="text-xs font-bold text-[var(--sky-deep)]">فتح السجل ←</Link></div>
             <div className="divide-y divide-[var(--border)]">
               {loading && !stats && <div className="p-4"><SkeletonRows rows={4} /></div>}
-              {(stats?.recent ?? []).map((visit) => <Link href="/visits" key={visit.id} className="flex flex-wrap items-center justify-between gap-3 p-4 hover:bg-[var(--sky-light)]"><div className="min-w-0"><div className="truncate text-sm font-bold text-[var(--navy)]">{visit.doctor_name} · {visit.clinic_name}</div><div className="mt-1 text-xs text-[var(--muted)]">{visit.rep_name} · {visit.city} · {new Date(visit.visited_at).toLocaleDateString("ar-SA")}</div></div><Badge tone={visit.status === "completed" ? "success" : visit.status === "cancelled" ? "danger" : "warn"}>{visit.status === "completed" ? "مكتملة" : visit.status === "cancelled" ? "ملغاة" : visit.status}</Badge></Link>)}
+              {(stats?.recent ?? []).map((visit) => <Link href="/visits" key={visit.id} className="flex flex-wrap items-center justify-between gap-3 p-4 hover:bg-[var(--sky-light)]"><div className="min-w-0"><div className="truncate text-sm font-bold text-[var(--navy)]">{visit.doctor_name} · {visit.clinic_name}</div><div className="mt-1 text-xs text-[var(--muted)]">{visit.rep_name} · {visit.city} · {new Date(visit.visited_at).toLocaleDateString("ar-SA-u-nu-latn-ca-gregory")}</div></div><Badge tone={visit.status === "completed" ? "success" : visit.status === "cancelled" ? "danger" : "warn"}>{visit.status === "completed" ? "مكتملة" : visit.status === "cancelled" ? "ملغاة" : visit.status}</Badge></Link>)}
               {!loading && stats && stats.recent.length === 0 && <div className="p-8 text-center text-sm text-[var(--muted)]">لا توجد زيارات ضمن الفلتر الحالي</div>}
             </div>
           </Card>

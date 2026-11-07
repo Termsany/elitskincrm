@@ -30,7 +30,7 @@ export default function MobileNav({ items, active, name, role }: { items: Item[]
   }
 
   return <>
-    <header className="sticky top-0 z-40 flex min-h-16 items-center justify-between gap-3 bg-gradient-to-l from-[var(--navy)] to-[#0b2a2f] px-3 text-white shadow-md sm:px-5 lg:hidden">
+    <header className="es-safe-top sticky top-0 z-40 flex min-h-16 items-center justify-between gap-3 bg-gradient-to-l from-[var(--navy)] to-[#0b2a2f] px-3 text-white shadow-md sm:px-5 lg:hidden">
       <button type="button" aria-label="فتح قائمة التنقل" aria-expanded={open} onClick={() => setOpen(true)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/10 transition active:scale-95 focus-visible:outline-dashed"><Icon name="more" size={22} /></button>
       <div className="min-w-0 flex-1 text-center">
         <div className="font-display truncate text-sm font-semibold tracking-[0.2em]">ELITE <span className="text-[var(--sky)]">SKIN</span></div>

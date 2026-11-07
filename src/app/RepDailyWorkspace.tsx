@@ -19,7 +19,7 @@ type Day = {
   activeRequests: number;
 };
 
-const number = new Intl.NumberFormat("ar-SA");
+const number = new Intl.NumberFormat("ar-SA-u-nu-latn-ca-gregory");
 
 export default function RepDailyWorkspace() {
   const [data, setData] = useState<Day | null>(null);
@@ -64,7 +64,7 @@ export default function RepDailyWorkspace() {
   }
 
   const next = data?.items.find((item) => item.id === data.summary.nextId);
-  const updated = data ? new Date(data.updatedAt).toLocaleTimeString("ar-SA", { timeZone: "Asia/Riyadh", hour: "2-digit", minute: "2-digit" }) : "";
+  const updated = data ? new Date(data.updatedAt).toLocaleTimeString("ar-SA-u-nu-latn-ca-gregory", { timeZone: "Asia/Riyadh", hour: "2-digit", minute: "2-digit" }) : "";
 
   return <section aria-label="مساحة عملي اليوم" className="space-y-4">
     <div className="flex flex-wrap items-end justify-between gap-3">
@@ -111,7 +111,7 @@ export default function RepDailyWorkspace() {
         </Link>)}
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,.65fr)]">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,.65fr)]">
         <Card className="overflow-hidden">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border)] p-4 sm:p-5">
             <div><h3 className="font-extrabold text-[var(--navy)]">خطة اليوم</h3><p className="mt-1 text-xs text-[var(--muted)]">نفّذ الزيارات بالترتيب المناسب لمسارك</p></div>

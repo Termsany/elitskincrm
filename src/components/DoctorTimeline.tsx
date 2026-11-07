@@ -3,7 +3,7 @@ import { Icon } from "@/components/Icon";
 import { PURPOSE_LABELS } from "@/lib/visit-entry";
 import type { DoctorTimelineEvent } from "@/lib/doctor-timeline";
 
-const date = (value: Date | string) => new Intl.DateTimeFormat("ar-SA", {
+const date = (value: Date | string) => new Intl.DateTimeFormat("ar-SA-u-nu-latn-ca-gregory", {
   timeZone: "Asia/Riyadh", calendar: "gregory", year: "numeric", month: "short", day: "numeric",
 }).format(new Date(typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T12:00:00+03:00` : value));
 

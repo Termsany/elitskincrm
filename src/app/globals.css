@@ -257,3 +257,24 @@ input[type="checkbox"] { transition: transform .15s var(--es-spring); } input[ty
   --success: #036d3c; --danger: #c92f36; --warn: #845005;
 }
 ::selection { background: #b0eae2; color: #0b1d20; }
+
+/* ───────── Touch devices (phone / iPad): field-rep comfort ─────────
+   - inputs at 16px so iOS Safari doesn't zoom the page on focus
+   - small chip/tab buttons get a ≥40px tap height
+   - the 10–11px helper text is nudged up for reading at arm's length
+   - no grey flash on tap, no accidental text selection on buttons */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea { font-size: max(16px, 1em); }
+  button.rounded-full, button.rounded-lg, button.rounded-xl, a.rounded-full, a.rounded-lg, [role="tab"] { min-height: 40px; }
+  button.rounded-full, a.rounded-full { display: inline-flex; align-items: center; justify-content: center; gap: .3em; }
+  .text-\[10px\], .text-\[10\.5px\] { font-size: 11.5px; }
+  .text-\[11px\], .text-\[11\.5px\] { font-size: 12px; }
+  .text-\[9px\], .text-\[9\.5px\] { font-size: 10.5px; }
+  a, button, [role="button"] { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+  button, [role="button"] { -webkit-user-select: none; user-select: none; }
+}
+/* installed app (Add to Home Screen): keep content clear of the notch / status bar */
+.es-safe-top { padding-top: env(safe-area-inset-top); }
+@media (min-width: 1024px) { .es-shell { padding-top: env(safe-area-inset-top); } }
+/* grid items may shrink below their content width — stops a long label from widening the page on phones */
+.grid > * { min-width: 0; }

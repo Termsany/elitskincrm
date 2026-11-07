@@ -36,7 +36,7 @@ export async function GET(req: Request) {
   // CSV with BOM for Excel Arabic
   const header = ["التاريخ","المندوب","الطبيب","العيادة","المدينة","التخصص","الحالة","الملاحظات","العينات/الأوردرات"].map(csvEscape).join(",");
   const lines = rows.rows.map((r: Record<string,unknown>)=>[
-    r.visited_at ? new Date(r.visited_at as string).toLocaleString("ar-EG") : "",
+    r.visited_at ? new Date(r.visited_at as string).toLocaleString("ar-EG-u-nu-latn") : "",
     r.rep_name, r.doctor_name, r.clinic_name, r.city, r.specialty, r.status, r.notes, r.items
   ].map(csvEscape).join(","));
   const csv = "\uFEFF" + [header, ...lines].join("\n");

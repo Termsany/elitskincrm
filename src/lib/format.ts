@@ -1,10 +1,10 @@
 export function fmtDate(d: string | Date) {
   const dt = new Date(d);
-  return dt.toLocaleDateString("ar-EG", { year: "numeric", month: "short", day: "numeric" });
+  return dt.toLocaleDateString("ar-EG-u-nu-latn", { year: "numeric", month: "short", day: "numeric" });
 }
 export function fmtDateTime(d: string | Date) {
   const dt = new Date(d);
-  return dt.toLocaleString("ar-EG", { dateStyle: "medium", timeStyle: "short" });
+  return dt.toLocaleString("ar-EG-u-nu-latn", { dateStyle: "medium", timeStyle: "short" });
 }
 export const statusLabel: Record<string, string> = {
   planned: "مجدولة",

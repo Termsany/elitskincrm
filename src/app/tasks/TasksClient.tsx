@@ -167,7 +167,7 @@ export default function TasksClient({ isAdmin, reps, currentUserId }: { isAdmin:
                 <div className="text-xs text-[var(--muted)] mt-2 flex flex-wrap gap-2">
                   <span>المسؤولون: <b className="text-[var(--ink)]">{t.assignees?.map((a:{name:string;status:string})=>`${a.name} (${statusLabel[a.status]||a.status})`).join("، ")||"—"}</b></span>
                   {t.doctor_name && <span>الطبيب: {t.doctor_name} {t.clinic_name? `— ${t.clinic_name}`:""}</span>}
-                  {t.due_date && <span>الاستحقاق: {new Date(t.due_date).toLocaleDateString("ar-EG")}</span>}
+                  {t.due_date && <span>الاستحقاق: {new Date(t.due_date).toLocaleDateString("ar-EG-u-nu-latn")}</span>}
                   {t.checklist_total>0 && <span className="inline-flex items-center gap-1"><Icon name="check" size={13} /> {t.checklist_done}/{t.checklist_total}</span>}
                   {t.comments_count>0 && <span>💬 {t.comments_count}</span>}
                   {t.attachments_count>0 && <span>📎 {t.attachments_count}</span>}
@@ -204,7 +204,7 @@ export default function TasksClient({ isAdmin, reps, currentUserId }: { isAdmin:
               <div className="text-xs flex flex-wrap gap-2">
                 <Badge tone={statusTone[String(detail.task.status)]||"neutral"}>{statusLabel[String(detail.task.status)]||String(detail.task.status)}</Badge>
                 {detail.task.doctor_name && <span className="bg-[var(--bg)] border border-[var(--border)] rounded-full px-2 py-0.5">الطبيب: {String(detail.task.doctor_name)} {detail.task.clinic_name? `— ${String(detail.task.clinic_name)}`:""}</span>}
-                {detail.task.due_date && <span className="bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">الاستحقاق: {new Date(String(detail.task.due_date)).toLocaleDateString("ar-EG")}</span>}
+                {detail.task.due_date && <span className="bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5">الاستحقاق: {new Date(String(detail.task.due_date)).toLocaleDateString("ar-EG-u-nu-latn")}</span>}
                 {detail.task.repeat_interval && String(detail.task.repeat_interval)!=="none" && <span className="bg-sky-50 border border-sky-200 rounded-full px-2 py-0.5">تكرار: {String(detail.task.repeat_interval)==="weekly"?"أسبوعي":"شهري"}</span>}
               </div>
 
@@ -269,7 +269,7 @@ export default function TasksClient({ isAdmin, reps, currentUserId }: { isAdmin:
                 <div className="space-y-2 max-h-[160px] overflow-auto">
                   {detail.comments.map(c=>(
                     <div key={c.id} className="rounded-xl bg-[var(--bg)] border border-[var(--border)] p-2">
-                      <div className="text-xs font-bold">{c.user_name} <span className="text-[var(--muted)] font-normal">{new Date(c.created_at).toLocaleString("ar-EG")}</span></div>
+                      <div className="text-xs font-bold">{c.user_name} <span className="text-[var(--muted)] font-normal">{new Date(c.created_at).toLocaleString("ar-EG-u-nu-latn")}</span></div>
                       <div className="text-sm whitespace-pre-wrap">{c.body}</div>
                     </div>
                   ))}
