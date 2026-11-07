@@ -30,8 +30,11 @@ export async function POST(req: Request) {
   if (b?.action !== "auto") return NextResponse.json({ error: "إجراء غير معروف" }, { status: 400 });
   const { clients } = await clientLinks(riyadhToday());
   let n = 0;
-  for (const c of clients) if (!c.linked && c.suggestion?.rep_id) {
-    await query("INSERT INTO daftra_client_links(client_id, rep_id, clinic_id, updated_by) VALUES($1,$2,$3,$4) ON CONFLICT (client_id) DO NOTHING", [c.client_id, c.suggestion.rep_id, c.suggestion.clinic_id, u.id]); n++;
+  // clinic-only suggestions are linked too: the clinic page and the slowdown alerts need them even without a rep
+  for (const c of clients) {
+    if (!c.linked && c.suggestion) { await query("INSERT INTO daftra_client_links(client_id, rep_id, clinic_id, updated_by) VALUES($1,$2,$3,$4) ON CONFLICT (client_id) DO NOTHING", [c.client_id, c.suggestion.rep_id, c.suggestion.clinic_id, u.id]); n++; }
+    // linked to an empty duplicate clinic → move to the matching clinic that has the doctors (keep a chosen rep)
+    else if (c.better) { await query("UPDATE daftra_client_links SET clinic_id=$2, rep_id=COALESCE(rep_id,$3), updated_by=$4, updated_at=now() WHERE client_id=$1", [c.client_id, c.better.clinic_id, c.better.rep_id, u.id]); n++; }
   }
   return NextResponse.json({ ok: true, linked: n });
 }

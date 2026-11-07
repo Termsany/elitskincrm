@@ -38,12 +38,12 @@ async function inbox(): Promise<Group[]> {
   ].filter(x => x.count > 0);
 }
 
-export async function adminDashboard(userName: string) {
+export async function adminDashboard(userName: string, opts: { manager?: boolean } = {}) {
   const today = riyadhToday();
   const from14 = addDays(today, -13), weekStart = addDays(today, -6), prevStart = addDays(today, -13), prevEnd = addDays(today, -7);
   const year = Number(today.slice(0, 4)), month = today.slice(0, 7);
   const [box, board, visits14, sales, coverage, activity, adhWeek, overdue, aGap] = await Promise.all([
-    inbox(),
+    inbox().then(gs => opts.manager ? gs.filter(g => g.key !== "expenses" && g.key !== "signs") : gs),
     todayBoard(),
     enrichedVisits({ from: from14, to: today }),
     salesHub({ id: "", role: "admin" }, year, null).catch(() => null),

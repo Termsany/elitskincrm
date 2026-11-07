@@ -86,6 +86,7 @@ export default function CommandCenter() {
   </section>;
 
   /* ───────── KPI row ───────── */
+  const mgr = !!(d as { manager?: boolean } | null)?.manager;
   const salesDelta = f?.configured && f.prev.sales ? Math.round((f.mtd.sales - f.prev.sales) / f.prev.sales * 100) : null;
   const planPct = f?.configured && f.plan?.target_revenue ? Math.round(f.mtd.sales / f.plan.target_revenue * 100) : null;
   const pulse = <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
@@ -100,6 +101,7 @@ export default function CommandCenter() {
       <div className="min-w-0"><div className="text-xs font-bold text-[var(--muted)]">جودة الزيارات</div><div className="text-[11px] text-[var(--muted)]">آخر 7 أيام · {p.quality.visits} زيارة</div>
         {p.quality.lastWeek > 0 && <div className={`mt-1.5 inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold ${qDelta >= 0 ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>{qDelta >= 0 ? "▲" : "▼"} {Math.abs(qDelta)} عن الأسبوع اللي فات</div>}</div>
     </Link>
+    {!mgr && <>
     <Link href="/daftra-sales?tab=sales" className={`${card} dz-card dz-in group p-4 sm:p-5`} style={{ "--d": "140ms" } as React.CSSProperties}>
       <div className="flex items-start justify-between gap-2"><div className="min-w-0"><div className="text-xs font-bold text-[var(--muted)]">مبيعات دفترة الشهر ده</div>
         <div className="mt-2 text-2xl font-extrabold text-[var(--navy)] sm:text-3xl">{f?.configured ? <><Num v={Math.round(f.mtd.sales)} fmt /><span className="text-sm font-bold text-[var(--muted)]"> ر.س</span></> : "—"}</div></div>
@@ -115,6 +117,7 @@ export default function CommandCenter() {
         <AIco name="wallet" color="#e16201" anim="wiggle" /></div>
       {f?.configured && <div className="mt-2 text-[11px] text-[var(--muted)]">إجمالي ليك {short(f.ar.total)}{f.ar.old60 > 0 && <> · <b className="text-red-600">{short(f.ar.old60)} أكتر من 60 يوم</b></>}</div>}
     </Link>
+    </>}
   </section>;
 
   /* ───────── Visits panel ───────── */
@@ -172,7 +175,7 @@ export default function CommandCenter() {
   </section>;
 
   /* ───────── System shortcuts (everything one tap away) ───────── */
-  const MODS: Array<[string, string, string, string, string | null]> = [
+  const MODS0: Array<[string, string, string, string, string | null]> = [
     ["/visits", "الزيارات", "visits", "#33b3a6", p.today.visits ? `${p.today.visits} النهارده` : null],
     ["/daftra-sales", "مبيعات دفترة", "receipt", "#1aa865", f?.configured && f.mtd.sales ? short(f.mtd.sales) : null],
     ["/daftra-sales?tab=plan", "خطة الشهر", "plans", "#10484f", null],
@@ -186,6 +189,8 @@ export default function CommandCenter() {
     ["/admin/products", "المنتجات", "products", "#9676e3", null],
     ["/admin/document-signing", "التوقيعات", "signature", "#3b90e8", null],
   ];
+  // sales managers don't get company-accounts shortcuts (see lib/manager-scope)
+  const MODS = MODS0.filter(([href]) => !(d as { manager?: boolean }).manager || !/^\/(daftra-sales|admin\/products|admin\/document-signing)/.test(href));
   const modules = <section className={`${card} dz-in p-5`} style={{ "--d": "420ms" } as React.CSSProperties}>
     <div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-extrabold text-[var(--navy)]">النظام كله في ضغطة</h2><button type="button" onClick={openPalette} className="text-xs font-bold text-[var(--navy)] opacity-70 hover:opacity-100">بحث ‹</button></div>
     <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-6">{MODS.map(([href, label, icon, color, badge], k) => <Link key={href} href={href} className="dz-tile group relative flex flex-col items-center gap-1.5 rounded-2xl p-2.5 text-center" style={{ "--d": `${480 + k * 40}ms` } as React.CSSProperties}>
@@ -232,7 +237,7 @@ export default function CommandCenter() {
   return <div className="mt-2 flex flex-col gap-4 pb-24 lg:gap-5 lg:pb-6">
     {header}
     {pulse}
-    <div className="grid gap-4 lg:gap-5 xl:grid-cols-[1.25fr_1fr]">{visits}{daftra}</div>
+    <div className={`grid gap-4 lg:gap-5 ${mgr ? "" : "xl:grid-cols-[1.25fr_1fr]"}`}>{visits}{!mgr && daftra}</div>
     <div className="grid gap-4 lg:gap-5 xl:grid-cols-[1.5fr_1fr]">{inbox}{insights}</div>
     <div className="grid gap-4 lg:gap-5 xl:grid-cols-[1.5fr_1fr]">{team}{modules}</div>
     {activity}

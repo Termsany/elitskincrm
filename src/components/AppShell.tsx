@@ -5,14 +5,17 @@ import SidebarNav, { SidebarToggle } from "./SidebarNav";
 import { Logo } from "@/components/Logo";
 import CommandPalette, { PaletteButton } from "@/components/CommandPalette";
 import GlobalFx from "@/components/GlobalFx";
+import { getCurrentUser } from "@/lib/session";
 
 type NavItem = { href: string; label: string; icon: string; show: boolean; group: "primary" | "more" };
 
 // Applies the saved collapsed state before first paint (no layout jump).
 const SB_BOOT = `try{if(localStorage.getItem('es-sb')==='c')document.documentElement.dataset.sb='c'}catch(e){}`;
 
-export function AppShell({ role, email, name, jobTitle, productName, children, active }: { role: string; email: string; name: string; jobTitle?: string; productName: string | null; children: React.ReactNode; active?: string }) {
-  const isAdmin = role === "admin";
+export async function AppShell({ role: role0, email, name, jobTitle, productName, children, active }: { role: string; email: string; name: string; jobTitle?: string; productName: string | null; children: React.ReactNode; active?: string }) {
+  // sales manager: admin navigation for sales work, without company accounts (see lib/manager-scope)
+  const manager = !!(await getCurrentUser().catch(() => null))?.manager;
+  const role = manager ? "admin" : role0, isAdmin = role === "admin";
   const NAV: NavItem[] = [
     // ── primary (always visible) ──
     { href: isAdmin ? "/admin" : "/", label: "الرئيسية", icon: "dashboard", show: true, group: "primary" },
@@ -23,14 +26,15 @@ export function AppShell({ role, email, name, jobTitle, productName, children, a
     { href: "/plans", label: "الخطط والاعتماد", icon: "plans", show: true, group: "primary" },
     { href: "/products", label: "المنتجات", icon: "products", show: !isAdmin, group: "primary" },
     { href: "/sales", label: "المبيعات والأهداف", icon: "sales", show: true, group: "primary" },
-    { href: "/daftra-sales", label: "مبيعات دفترة", icon: "receipt", show: isAdmin, group: "primary" },
+    { href: "/daftra-sales", label: "مبيعات دفترة", icon: "receipt", show: isAdmin && !manager, group: "primary" },
     { href: "/expenses", label: "المصروفات", icon: "wallet", show: true, group: "primary" },
     { href: "/library", label: "مكتبة المستندات", icon: "library", show: true, group: "primary" },
     { href: "/admin/reps", label: "المناديب", icon: "reps", show: isAdmin, group: "primary" },
     { href: "/admin/reports", label: "التقارير", icon: "reports", show: isAdmin, group: "primary" },
     // ── more (secondary, collapsed) ──
     { href: "/work", label: "مركز العمل", icon: "work", show: !isAdmin, group: "more" },
-    { href: "/admin/products", label: "المنتجات", icon: "products", show: isAdmin, group: "more" },
+    { href: "/admin/products", label: "المنتجات", icon: "products", show: isAdmin && !manager, group: "more" },
+    { href: "/products", label: "المنتجات", icon: "products", show: manager, group: "more" },
     { href: "/account", label: "حسابي", icon: "account", show: true, group: "more" },
   ];
   const items = NAV.filter((n) => n.show);
@@ -54,7 +58,7 @@ export function AppShell({ role, email, name, jobTitle, productName, children, a
       <div className="es-user mt-auto rounded-2xl bg-white/[0.07] p-2.5">
         <div className="flex items-center gap-2.5">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--sky)] text-xs font-extrabold text-[#0b1d20]" title={name}>{initials || "ES"}</div>
-          <div className="es-hide min-w-0 flex-1"><div className="truncate text-sm font-bold">{name}</div><div className="truncate text-[11px] text-[var(--sky)]">{isAdmin?"مدير النظام":(jobTitle||"مندوب")}</div>{!isAdmin&&productName&&<div className="truncate text-[10px] text-white/55">{productName}</div>}</div>
+          <div className="es-hide min-w-0 flex-1"><div className="truncate text-sm font-bold">{name}</div><div className="truncate text-[11px] text-[var(--sky)]">{manager?"مدير المبيعات":isAdmin?"مدير النظام":(jobTitle||"مندوب")}</div>{!isAdmin&&productName&&<div className="truncate text-[10px] text-white/55">{productName}</div>}</div>
         </div>
         <div className="es-hide mt-1 truncate px-1 text-[10px] text-white/45" dir="ltr">{email}</div>
         <form action="/api/auth/logout" method="post" className="es-hide mt-2"><button formAction={async()=>{"use server";const{destroySession}=await import("@/lib/session");await destroySession();}} className="w-full rounded-full bg-white/10 py-2 text-xs font-bold transition hover:bg-white/20">تسجيل خروج</button></form>

@@ -113,7 +113,7 @@ export async function PATCH(req: Request, {params}:{params:Promise<{id:string}>}
       await query(`INSERT INTO plan_items(plan_id, doctor_id, planned_date, product_id, note, priority, sort_order) VALUES($1,$2,$3,$4,$5,$6,$7)`,[id, it.doctor_id, it.planned_date, it.product_id||null, it.note||"", it.priority||"medium", idx]);
     }
     await query(`UPDATE plans SET status='pending', updated_at=now() WHERE id=$1`,[id]);
-    const admins=await query(`SELECT id FROM users WHERE role='admin'`);
+    const admins=await query(`SELECT id FROM users WHERE role IN ('admin','sales_manager')`);
     for(const a of admins.rows as Record<string,unknown>[]) await query(`INSERT INTO task_notifications(user_id, task_id, plan_id, kind, message) VALUES($1,NULL,$2,'plan_revision',$3)`,[a.id, id, `${user.name} طلب تعديل — ${note.slice(0,60)}`]);
     return NextResponse.json({ok:true});
   }

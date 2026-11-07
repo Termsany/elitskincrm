@@ -65,7 +65,7 @@ export async function agenda(u: Who, from: string, to: string, repId: string | n
 async function notify(userIds: string[], planId: string | null, kind: string, message: string) {
   for (const id of userIds) await query("INSERT INTO task_notifications(user_id,task_id,plan_id,kind,message) VALUES($1,NULL,$2,$3,$4)", [id, planId, kind, message]);
 }
-async function adminIds() { return (await query<{ id: string }>("SELECT id FROM users WHERE role='admin' AND active")).rows.map(r => r.id); }
+async function adminIds() { return (await query<{ id: string }>("SELECT id FROM users WHERE role IN ('admin','sales_manager') AND active")).rows.map(r => r.id); }
 const EDITABLE = new Set(["draft", "pending", "needs_revision"]);
 
 /** Move one planned visit to another day. Admin: direct. Rep: direct on unapproved plans, otherwise a change request. */

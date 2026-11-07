@@ -21,7 +21,7 @@ export async function GET(req: Request) {
   if (!owner) return NextResponse.json({ error: "no admin" }, { status: 500 });
   const d = await reportData(from, to);
   const id = await saveReportToLibrary(owner, await buildWorkbook(d), `التقرير الأسبوعي للزيارات ${from} إلى ${to}.xlsx`, key);
-  const admins = (await query(`SELECT id FROM users WHERE role='admin' AND active`)).rows as Array<{ id: string }>;
+  const admins = (await query(`SELECT id FROM users WHERE role IN ('admin','sales_manager') AND active`)).rows as Array<{ id: string }>;
   const k = d.kpi;
   for (const a of admins) await query(`INSERT INTO task_notifications(user_id,task_id,kind,message,action_url,entity_type,entity_id) VALUES($1,NULL,'visit_weekly_report',$2,$3,'library_file',$4)`,
     [a.id, `📊 التقرير الأسبوعي جاهز: ${k.visits} زيارة · جودة ${k.avgQuality}/100 · ${k.redFlags} تنبيه`, `/library?file=${id}`, id]);

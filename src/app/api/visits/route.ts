@@ -90,7 +90,7 @@ export async function POST(req: Request) {
     for (const it of filteredSamples) await client.query("INSERT INTO visit_items(visit_id, product_id, kind, quantity, sample_purpose) VALUES($1,$2,'sample',$3,$4)", [visitId, it.productId, it.quantity, it.purpose]);
     for (const it of filteredOrders) {
       const order = await client.query("INSERT INTO visit_items(visit_id, product_id, kind, quantity, approval_status) VALUES($1,$2,'order',$3,'pending') RETURNING id", [visitId, it.productId, it.quantity]);
-      const admins = await client.query("SELECT id FROM users WHERE role='admin' AND active=true");
+      const admins = await client.query("SELECT id FROM users WHERE role IN ('admin','sales_manager') AND active=true");
       for (const admin of admins.rows) await client.query("INSERT INTO task_notifications(user_id, task_id, order_item_id, kind, message) VALUES($1,NULL,$2,'order_pending',$3)", [admin.id, order.rows[0].id, `${user.name} أرسل طلب أوردر جديد يحتاج موافقة`]);
     }
     await client.query("COMMIT");

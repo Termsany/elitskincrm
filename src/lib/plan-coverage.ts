@@ -1,6 +1,6 @@
 import { riyadhDateParts } from "@/lib/plan-reminders";
 
-type CoverageActor = { id: string; role: "admin" | "sales_rep" };
+type CoverageActor = { id: string; role: "admin" | "sales_rep" | "sales_manager" };
 
 export function resolveCoverageUserId(actor: CoverageActor, requestedUserId?: string | null) {
   return actor.role === "admin" && requestedUserId ? requestedUserId : actor.id;

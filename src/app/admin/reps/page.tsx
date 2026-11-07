@@ -2,6 +2,7 @@ import {getCurrentUser} from "@/lib/session";
 import {AppShell} from "@/components/AppShell";
 import {redirect} from "next/navigation";
 import RepsClient from "./RepsClient";
+import ManagersCard from "./ManagersCard";
 import {riyadhNow} from "@/lib/forecast-contract";
 export default async function RepsPage(){
  const user=await getCurrentUser();if(!user)redirect("/login");if(user.role!=="admin")redirect("/");const{query}=await import("@/lib/db");
@@ -20,5 +21,6 @@ export default async function RepsPage(){
   (SELECT max(v.visited_at) FROM visits v WHERE v.sales_rep_id=u.id) last_visit
  FROM users u LEFT JOIN products p ON p.id=u.assigned_product_id LEFT JOIN rep_target_years ty ON ty.rep_id=u.id AND ty.year=$1 WHERE u.role='sales_rep' ORDER BY u.active DESC,u.name`,[year,`${year}-01-01`,`${year+1}-01-01`]);
  const products=await query("SELECT id,name,active FROM products WHERE active=true ORDER BY name");
- return <AppShell role={user.role} email={user.email} name={user.name} jobTitle={user.job_title} productName={user.product_name} active="/admin/reps"><h1 className="text-2xl font-extrabold text-[var(--navy)]">المناديب</h1><p className="mt-1 text-sm text-[var(--muted)]">مركز متابعة الزيارات والخطط والمبيعات والعينات والمهام وبيانات الحسابات</p><div className="mt-6"><RepsClient initial={reps.rows as any} products={products.rows as any}/></div></AppShell>;
+ const managers=await query("SELECT id,name,email,active,last_login_at FROM users WHERE role::text='sales_manager' ORDER BY active DESC,name");
+ return <AppShell role={user.role} email={user.email} name={user.name} jobTitle={user.job_title} productName={user.product_name} active="/admin/reps"><h1 className="text-2xl font-extrabold text-[var(--navy)]">المناديب</h1><p className="mt-1 text-sm text-[var(--muted)]">مركز متابعة الزيارات والخطط والمبيعات والعينات والمهام وبيانات الحسابات</p><div className="mt-6"><RepsClient initial={reps.rows as any} products={products.rows as any}/></div><div className="mt-4"><ManagersCard initial={JSON.parse(JSON.stringify(managers.rows))} canEdit={!user.manager}/></div></AppShell>;
 }

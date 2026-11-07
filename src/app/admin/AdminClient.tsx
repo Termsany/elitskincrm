@@ -130,7 +130,7 @@ export default function AdminClient({ users:initialUsers, products:initialProduc
             <form onSubmit={createUser} className="grid md:grid-cols-3 gap-3">
               <div><Label>الاسم</Label><Input value={nuName} onChange={e=>setNuName(e.target.value)} required /></div>
               <div><Label>البريد</Label><Input value={nuEmail} onChange={e=>setNuEmail(e.target.value)} placeholder="name@eliteskinsa.com" required type="email" /></div>
-              <div><Label>الدور</Label><Select value={nuRole} onChange={e=>setNuRole(e.target.value)}><option value="sales_rep">مندوب</option><option value="admin">مدير</option></Select></div>
+              <div><Label>الدور</Label><Select value={nuRole} onChange={e=>setNuRole(e.target.value)}><option value="sales_rep">مندوب</option><option value="sales_manager">مدير مبيعات (بدون الحسابات)</option><option value="admin">مدير النظام (كل الصلاحيات)</option></Select></div>
               {nuRole==="sales_rep" && <div><Label>المنتج</Label><Select value={nuProd} onChange={e=>setNuProd(e.target.value)} required><option value="">اختر المنتج</option>{products.map(p=> <option key={p.id} value={p.id}>{p.name}</option>)}</Select></div>}
               <div><Label>كلمة المرور</Label><Input value={nuPass} onChange={e=>setNuPass(e.target.value)} required type="password" placeholder="8+ أحرف" /></div>
               <div className="flex items-end"><Button type="submit" className="w-full">إضافة</Button></div>
@@ -145,7 +145,7 @@ export default function AdminClient({ users:initialUsers, products:initialProduc
                     <tr key={u.id} className="border-t border-[var(--border)]">
                       <td className="p-3 font-semibold"><Link href={`/admin/rep/${u.id}`} className="text-[var(--navy)] hover:underline">{u.name}</Link></td>
                       <td className="p-3 text-xs" dir="ltr">{u.email}</td>
-                      <td className="p-3"><Badge tone={u.role==="admin"?"info":"neutral"}>{u.role==="admin"?"مدير":"مندوب"}</Badge></td>
+                      <td className="p-3"><Badge tone={u.role==="admin"?"info":(u.role as string)==="sales_manager"?"warn":"neutral"}>{u.role==="admin"?"مدير":(u.role as string)==="sales_manager"?"مدير مبيعات":"مندوب"}</Badge></td>
                       <td className="p-3">
                         {u.role==="sales_rep" ? (
                           <select value={u.assigned_product_id||""} onChange={e=>updateUserProduct(u.id, e.target.value)} className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs">
@@ -174,7 +174,7 @@ export default function AdminClient({ users:initialUsers, products:initialProduc
                 <div><Label>الاسم</Label><Input value={editUser.name||""} onChange={e=>setEditUser({...editUser, name:e.target.value})} /></div>
                 <div><Label>البريد</Label><Input value={editUser.email||""} onChange={e=>setEditUser({...editUser, email:e.target.value})} dir="ltr" /></div>
                 <div><Label>المسمى الوظيفي</Label><Select value={["MED REP","KEY ACCOUNT EXECUTIVE","KEY ACCOUNT MANAGER"].includes(editJobTitle)?editJobTitle:"manual"} onChange={e=>{const v=e.target.value;setEditJobTitle(v==="manual"?"":v);}}><option value="MED REP">MED REP</option><option value="KEY ACCOUNT EXECUTIVE">KEY ACCOUNT EXECUTIVE</option><option value="KEY ACCOUNT MANAGER">KEY ACCOUNT MANAGER</option><option value="manual">إدخال يدوي</option></Select>{(!["MED REP","KEY ACCOUNT EXECUTIVE","KEY ACCOUNT MANAGER"].includes(editJobTitle))&&<Input value={editJobTitle} onChange={e=>setEditJobTitle(e.target.value)} placeholder="اكتب المسمى الوظيفي" className="mt-2"/>}</div>
-                <div><Label>الدور الداخلي</Label><Select value={editUser.role as string} onChange={e=>setEditUser({...editUser, role:e.target.value as "admin"|"sales_rep"})}><option value="sales_rep">مستخدم ميداني</option><option value="admin">مدير النظام</option></Select></div>
+                <div><Label>الدور الداخلي</Label><Select value={editUser.role as string} onChange={e=>setEditUser({...editUser, role:e.target.value as "admin"|"sales_rep"})}><option value="sales_rep">مستخدم ميداني</option><option value="sales_manager">مدير مبيعات (بدون الحسابات)</option><option value="admin">مدير النظام</option></Select></div>
                 {(editUser.role==="sales_rep") && <div><Label>المنتج</Label><Select value={editUser.assigned_product_id||""} onChange={e=>setEditUser({...editUser, assigned_product_id:e.target.value})}><option value="">— اختر —</option>{products.map(p=> <option key={p.id} value={p.id}>{p.name}</option>)}</Select></div>}
                 <div className="flex items-center gap-2"><input type="checkbox" checked={!!editUser.active} onChange={e=>setEditUser({...editUser, active:e.target.checked})} id="editActive" /><label htmlFor="editActive" className="text-sm">نشط</label></div>
                 <div><Label>كلمة مرور جديدة (اختياري)</Label><Input type="password" value={editUser.password||""} onChange={e=>setEditUser({...editUser, password:e.target.value})} placeholder="اتركه فارغ إذا لا تريد التغيير" /></div>

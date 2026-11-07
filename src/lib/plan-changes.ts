@@ -25,7 +25,7 @@ async function enrich(items: PlanItemLike[]) {
 }
 
 async function notifyAdmins(planId: string, kind: string, message: string) {
-  const admins = (await query(`SELECT id FROM users WHERE role='admin' AND active`)).rows as Array<{ id: string }>;
+  const admins = (await query(`SELECT id FROM users WHERE role IN ('admin','sales_manager') AND active`)).rows as Array<{ id: string }>;
   for (const a of admins) await query(`INSERT INTO task_notifications(user_id,task_id,plan_id,kind,message,action_url) VALUES($1,NULL,$2,$3,$4,$5)`, [a.id, planId, kind, message, `/plans?planId=${planId}`]);
 }
 

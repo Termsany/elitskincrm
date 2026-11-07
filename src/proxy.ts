@@ -8,6 +8,8 @@ export function proxy(req: NextRequest) {
   if (isPublic) return NextResponse.next();
   if (!isAuth && !isLogin && req.nextUrl.pathname !== "/") return NextResponse.redirect(new URL("/login", req.url));
   if (isAuth && isLogin) return NextResponse.redirect(new URL("/", req.url));
-  return NextResponse.next();
+  // the path/method let the session apply the sales-manager scope (see lib/manager-scope)
+  const h = new Headers(req.headers); h.set("x-es-path", req.nextUrl.pathname); h.set("x-es-method", req.method);
+  return NextResponse.next({ request: { headers: h } });
 }
 export const config = { matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"] };

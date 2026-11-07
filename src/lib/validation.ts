@@ -19,7 +19,7 @@ export const loginSchema = z.object({ email: z.string().email().max(254), passwo
 export const userUpsertSchema = z.object({
   name: z.string().trim().min(2).max(80),
   email: z.string().email().max(254),
-  role: z.enum(['admin','sales_rep']),
+  role: z.enum(['admin','sales_rep','sales_manager']),
   job_title: z.string().trim().max(120).optional(),
   assigned_product_id: z.string().uuid().nullable().optional(),
   password: z.string().min(8).max(128).optional().or(z.literal('')),

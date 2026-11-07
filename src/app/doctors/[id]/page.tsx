@@ -6,6 +6,9 @@ import { query } from '@/lib/db';
 import { doctorProfileQueries } from '@/lib/doctor-profile';
 import { buildDoctorTimeline, type Followup } from '@/lib/doctor-timeline';
 import DoctorFollowups from '@/components/DoctorFollowups';
+import ClinicAccountCard from '@/components/ClinicAccountCard';
+import { clinicAccount, doctorClinic } from '@/lib/clinic-account';
+import { riyadhToday } from '@/lib/finance';
 
 export default async function DoctorProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
@@ -23,10 +26,14 @@ export default async function DoctorProfilePage({ params }: { params: Promise<{ 
     query<ProfileTask>(sql.tasks.text, sql.tasks.values),
     query<Followup>(sql.followups.text, sql.followups.values),
   ]);
+  // Daftra account of the doctor's clinic (balance + buying pattern). Never blocks the page.
+  const clinic = await doctorClinic(id).catch(() => null);
+  const account = clinic ? await clinicAccount(clinic.id, riyadhToday()).catch(() => null) : null;
   const timeline = buildDoctorTimeline({ visits: visits.rows, followups: followups.rows, tasks: tasks.rows, plans: plans.rows });
   const isAdmin = user.role === 'admin';
   return <AppShell role={user.role} email={user.email} name={user.name} jobTitle={user.job_title} productName={user.product_name} active="/doctors">
     <DoctorProfile doctor={doctor} summary={summary.rows[0]} timeline={timeline} isAdmin={isAdmin} />
+    <ClinicAccountCard clinic={clinic} account={account ? JSON.parse(JSON.stringify(account)) : null} isAdmin={isAdmin} />
     {!isAdmin && <DoctorFollowups doctorId={id} />}
   </AppShell>;
 }

@@ -8,6 +8,7 @@ import DetailingPresenter from "@/components/detailing/DetailingPresenter";
 import type { DetailProduct, PresenterResult } from "@/components/detailing/types";
 import { BrochureCover } from "@/components/detailing/BrochureViewer";
 import { brochureUrl } from "@/components/detailing/pdf";
+import ClinicHint from "./ClinicHint";
 
 import { getVisitStatusMeta } from "@/lib/visit-workflow";
 import { PURPOSE_LABELS, REACTION_LABELS, collectSampleItems, type Reaction, type SamplePurpose, type SampleRow } from "@/lib/visit-entry";
@@ -362,6 +363,7 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
           </button>)}
         </div>
       </div>}
+      {selectedDoctor && <ClinicHint doctorId={selectedDoctor.id} />}
       {selectedDoctor ? (
         <div className="rounded-2xl border border-[var(--navy)]/20 bg-[var(--sky-light)] p-3 flex items-center gap-3">
           <div className="h-12 w-12 rounded-2xl bg-[var(--navy)] text-white grid place-items-center text-lg font-extrabold shrink-0">{ctx?.doctor.classification || selectedDoctor.name.slice(0, 1)}</div>
@@ -504,7 +506,7 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
         {banners}
         <fieldset disabled={locked} className="space-y-3 border-0 p-0 m-0 min-w-0">
           {wiz === 0 && <>{doctorSection}{contextCard}</>}
-          {wiz === 1 && productsSection}
+          {wiz === 1 && <>{selectedDoctor && <ClinicHint doctorId={selectedDoctor.id} />}{productsSection}</>}
           {wiz === 2 && resultSection}
         </fieldset>
         {wiz === 3 && <>{extrasSection}{summary}</>}

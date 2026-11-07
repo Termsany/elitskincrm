@@ -24,7 +24,7 @@ export async function POST(req:Request){
   const dup=await client.query(`SELECT 1 FROM plan_items WHERE plan_id=$1 AND doctor_id=$2 AND planned_date=$3`,[planId,doctorId,date]); if(dup.rows[0]){await client.query("ROLLBACK");return NextResponse.json({error:"الطبيب موجود بالفعل في هذا اليوم"},{status:409});}
   const count=await client.query(`SELECT count(*)::int n FROM plan_items WHERE plan_id=$1`,[planId]); if(Number(count.rows[0].n)>=50){await client.query("ROLLBACK");return NextResponse.json({error:"الخطة وصلت للحد الأقصى"},{status:400});}
   await client.query(`INSERT INTO plan_items(plan_id,doctor_id,planned_date,priority,sort_order) VALUES($1,$2,$3,'medium',$4)`,[planId,doctorId,date,Number(count.rows[0].n)]);
-  const admins=await client.query(`SELECT id FROM users WHERE role='admin'`);for(const a of admins.rows as Record<string,unknown>[])await client.query(`INSERT INTO task_notifications(user_id,task_id,plan_id,kind,message) VALUES($1,NULL,$2,'plan_pending',$3)`,[a.id,planId,`${user.name} أضاف طبيبًا مقترحًا إلى خطة ${startStr}`]);
+  const admins=await client.query(`SELECT id FROM users WHERE role IN ('admin','sales_manager')`);for(const a of admins.rows as Record<string,unknown>[])await client.query(`INSERT INTO task_notifications(user_id,task_id,plan_id,kind,message) VALUES($1,NULL,$2,'plan_pending',$3)`,[a.id,planId,`${user.name} أضاف طبيبًا مقترحًا إلى خطة ${startStr}`]);
   await client.query("COMMIT");return NextResponse.json({ok:true,plan_id:planId,period_start:startStr,period_end:endStr});
  }catch(e){await client.query("ROLLBACK");throw e;}finally{client.release();}
 }

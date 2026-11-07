@@ -89,7 +89,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }
     if (orders !== undefined) {
       await client.query("DELETE FROM visit_items WHERE visit_id=$1 AND kind='order' AND approval_status='pending'", [id]);
-      const admins = isAdmin ? { rows: [] as Array<{ id: string }> } : await client.query("SELECT id FROM users WHERE role='admin' AND active=true");
+      const admins = isAdmin ? { rows: [] as Array<{ id: string }> } : await client.query("SELECT id FROM users WHERE role IN ('admin','sales_manager') AND active=true");
       for (const it of orders) {
         const status = isAdmin ? "approved" : "pending";
         const order = await client.query("INSERT INTO visit_items(visit_id, product_id, kind, quantity, approval_status, approved_by, approved_at) VALUES($1,$2,'order',$3,$4,$5,$6) RETURNING id", [id, it.productId, it.quantity, status, isAdmin ? user.id : null, isAdmin ? new Date() : null]);

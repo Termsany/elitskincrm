@@ -20,7 +20,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (d.name !== undefined) { sets.push(`name=$${idx++}`); vals.push(d.name); }
   if (d.job_title !== undefined) { sets.push(`job_title=$${idx++}`); vals.push(d.job_title || ""); }
   if (d.email !== undefined) { sets.push(`email=lower($${idx++})`); vals.push(d.email); }
-  if (d.role !== undefined) { sets.push(`role=$${idx++}`); vals.push(d.role); if (d.role === "admin" && d.assigned_product_id === undefined) sets.push("assigned_product_id=NULL"); }
+  if (d.role !== undefined) { sets.push(`role=$${idx++}`); vals.push(d.role); if (d.role !== "sales_rep" && d.assigned_product_id === undefined) sets.push("assigned_product_id=NULL"); }
   if (d.assigned_product_id !== undefined) { sets.push(`assigned_product_id=$${idx++}`); vals.push(d.assigned_product_id || null); }
   if (d.active !== undefined) { sets.push(`active=$${idx++}`); vals.push(d.active); }
   if (d.password && String(d.password).trim().length >= 8) {

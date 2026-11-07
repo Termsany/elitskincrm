@@ -15,7 +15,8 @@ export function tokens(s: string) {
 }
 export function similarity(a: string, b: string) {
   const A = new Set(tokens(a)), Bt = new Set(tokens(b)); if (!A.size || !Bt.size) return 0;
-  let hit = 0; for (const w of A) if (Bt.has(w) || [...Bt].some(x => (x.length > 3 && w.length > 3) && (x.startsWith(w) || w.startsWith(x)))) hit++;
+  const same = (w: string, x: string) => w === x || (x.length > 3 && w.length > 3 && (x.startsWith(w) || w.startsWith(x)));
+  let hit = 0; for (const w of A) if ([...Bt].some(x => same(w, x))) hit++;
   return hit / Math.min(A.size, Bt.size) * (Math.min(A.size, Bt.size) / Math.max(A.size, Bt.size)) ** 0.25;
 }
 
@@ -27,23 +28,27 @@ export async function clientLinks(today: string) {
       max($1::date - (invoice_date + COALESCE(due_days,0))) FILTER (WHERE unpaid > 0) oldest
       FROM daftra_invoices WHERE client_id IS NOT NULL AND payment_status <> 3 GROUP BY client_id ORDER BY sum(unpaid) DESC`, [today]),
     query<{ client_id: string; rep_id: string | null; clinic_id: string | null }>("SELECT client_id, rep_id, clinic_id FROM daftra_client_links"),
-    query<{ id: string; name: string; city: string; rep_id: string | null; rep_name: string | null }>(`SELECT c.id, c.name, c.city, top.rep_id, top.rep_name FROM clinics c
+    query<{ id: string; name: string; city: string; rep_id: string | null; rep_name: string | null; docs: number }>(`SELECT c.id, c.name, c.city, top.rep_id, top.rep_name, (SELECT count(*) FROM doctors d WHERE d.clinic_id=c.id)::int docs FROM clinics c
       LEFT JOIN LATERAL (SELECT v.sales_rep_id rep_id, u.name rep_name, count(*) n FROM visits v JOIN doctors d ON d.id=v.doctor_id JOIN users u ON u.id=v.sales_rep_id
         WHERE (d.clinic_id=c.id OR lower(btrim(d.clinic_name))=lower(btrim(c.name))) AND v.visited_at > now() - interval '180 days' AND u.role='sales_rep' AND u.active
-        GROUP BY 1,2 ORDER BY n DESC LIMIT 1) top ON true WHERE c.active ORDER BY c.name`),
+        GROUP BY 1,2 ORDER BY n DESC LIMIT 1) top ON true WHERE c.active ORDER BY docs DESC, c.name`),
     query<{ id: string; name: string }>("SELECT id, name FROM users WHERE role='sales_rep' AND active ORDER BY name"),
     query<{ client_id: string; result: string; promise_date: string | null; note: string; created_at: string; rep_name: string }>(`SELECT DISTINCT ON (f.client_id) f.client_id, f.result, f.promise_date::text, f.note, f.created_at, u.name rep_name
       FROM collection_followups f JOIN users u ON u.id=f.rep_id ORDER BY f.client_id, f.created_at DESC`),
   ]);
   const L = new Map(links.rows.map(l => [String(l.client_id), l])), F = new Map(fu.rows.map(f => [String(f.client_id), f]));
   return {
-    reps: reps.rows, clinics: clinics.rows.map(c => ({ id: c.id, name: c.name, city: c.city })),
+    reps: reps.rows, clinics: clinics.rows.map(c => ({ id: c.id, name: c.name, city: c.city, docs: c.docs })),
     clients: cl.rows.map(c => {
-      let best: { clinic_id: string; clinic_name: string; rep_id: string | null; rep_name: string | null; score: number } | null = null;
-      for (const k of clinics.rows) { const sc = similarity(c.name, k.name); if (sc >= 0.5 && (!best || sc > best.score)) best = { clinic_id: k.id, clinic_name: k.name, rep_id: k.rep_id, rep_name: k.rep_name, score: Math.round(sc * 100) / 100 }; }
+      // a clinic with doctors beats a same-named empty one (duplicates created from Daftra names): the doctor page and alerts need doctors
+      let best: { clinic_id: string; clinic_name: string; rep_id: string | null; rep_name: string | null; score: number; docs: number } | null = null;
+      const rank = (x: { score: number; docs: number }) => (x.docs > 0 ? 1 : 0) + x.score;
+      for (const k of clinics.rows) { const sc = similarity(c.name, k.name); if (sc < 0.5) continue; const cand = { clinic_id: k.id, clinic_name: k.name, rep_id: k.rep_id, rep_name: k.rep_name, score: Math.round(sc * 100) / 100, docs: k.docs }; if (!best || rank(cand) > rank(best)) best = cand; }
       const l = L.get(String(c.client_id));
+      const linkedDocs = l?.clinic_id ? clinics.rows.find(k => k.id === l.clinic_id)?.docs ?? 0 : null;
       return { client_id: Number(c.client_id), name: c.name, unpaid: Math.round(c.unpaid * 100) / 100, overdue: Math.round((c.overdue || 0) * 100) / 100, invoices: c.n, oldest: c.oldest,
-        rep_id: l?.rep_id ?? null, clinic_id: l?.clinic_id ?? null, linked: !!l, suggestion: best, last_followup: F.get(String(c.client_id)) ?? null };
+        rep_id: l?.rep_id ?? null, clinic_id: l?.clinic_id ?? null, linked: !!l, suggestion: best, clinic_docs: linkedDocs,
+        better: l && linkedDocs === 0 && best && best.docs > 0 && best.clinic_id !== l.clinic_id ? best : null, last_followup: F.get(String(c.client_id)) ?? null };
     }),
   };
 }
