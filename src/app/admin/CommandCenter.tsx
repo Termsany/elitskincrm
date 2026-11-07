@@ -3,10 +3,14 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { GlyphIcon, Icon } from "@/components/Icon";
 import type { DaftraPulse } from "@/lib/dash-daftra";
+import type { Gap } from "@/lib/data-gaps";
+import type { Morning } from "@/lib/morning-summary";
+import { GapsCard, InboxList, MorningCard } from "./HomeExtras";
 
 type D = {
   greeting: string; name: string; today: string; summary: string; pendingTotal: number;
-  inbox: Array<{ key: string; label: string; icon: string; href: string; count: number; items: Array<{ id: string; title: string; owner: string | null; at: string; href: string }> }>;
+  inbox: Array<{ key: string; label: string; icon: string; href: string; count: number; bulk?: boolean; items: Array<{ id: string; title: string; owner: string | null; at: string; href: string; bulk?: boolean }> }>;
+  gaps?: Gap[]; morning?: Morning | null;
   pulse: { today: { visits: number; planned: number; done: number; active: number; reps: number; red: number }; quality: { week: number; lastWeek: number; visits: number; bands: { excellent: number; good: number; weak: number } };
     sales: { target: number; actual: number; forecast: number; pace: number; annual: number; ytd: number }; coverage: Array<{ cls: string; total: number; visited: number }> };
   team: Array<{ rep_id: string; rep_name: string; state: string; visits: number; planned: number; done: number; avgQuality: number | null; sinceMin: number | null; redFlags: number }>;
@@ -200,15 +204,11 @@ export default function CommandCenter() {
     </Link>)}</div>
   </section>;
 
-  const inbox = <section className={`${card} dz-in overflow-hidden`} style={{ "--d": "360ms" } as React.CSSProperties}>
+  const inbox = <section id="inbox" className={`${card} dz-in scroll-mt-24 overflow-hidden`} style={{ "--d": "360ms" } as React.CSSProperties}>
     <div className="flex items-center justify-between p-5 pb-3"><div className="flex items-center gap-2"><h2 className="text-lg font-extrabold text-[var(--navy)]">محتاج قرارك</h2>{d.pendingTotal > 0 && <span className="rounded-full bg-[var(--navy)] px-2.5 py-0.5 text-xs font-bold text-white">{d.pendingTotal}</span>}</div>{g && <Link href={g.href} className="text-xs font-bold text-[var(--navy)] opacity-70 hover:opacity-100">افتح الكل ‹</Link>}</div>
     {!d.inbox.length ? <div className="px-5 pb-8 pt-4 text-center"><div className="es-pop mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600"><Icon name="sparkle" size={30} /></div><div className="mt-2 font-extrabold text-[var(--navy)]">مفيش حاجة مستنياك</div><div className="text-sm text-[var(--muted)]">كل الخطط والطلبات والتوقيعات متراجعة</div></div> : <>
       <div className="flex gap-1.5 overflow-x-auto px-5 pb-3">{d.inbox.map(x => <button key={x.key} onClick={() => setGrp(x.key)} className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition ${grp === x.key ? "bg-[var(--navy)] text-white shadow" : "bg-[var(--bg)] text-[var(--muted)] hover:text-[var(--navy)]"}`}><GlyphIcon g={x.icon} size={14} />{x.label}<span className={`rounded-full px-1.5 text-[10px] ${grp === x.key ? "bg-white/20" : "bg-white"}`}>{x.count}</span></button>)}</div>
-      <div className="divide-y divide-[var(--border)] border-t border-[var(--border)]">{g?.items.map(it => <Link key={it.id} href={it.href} className="group flex items-center gap-3 px-5 py-3 transition hover:bg-[var(--sky-light)]/50">
-        <GlyphIcon g={g.icon} chip size={18} box={36} />
-        <div className="min-w-0 flex-1"><div className="truncate text-sm font-bold text-[var(--ink)]" dir="auto">{it.title}</div><div className="text-[11px] text-[var(--muted)]">{it.owner ? `${it.owner} · ` : ""}{rel(it.at)}</div></div>
-        <span className="rounded-lg bg-[var(--navy)] px-2.5 py-1 text-[11px] font-bold text-white opacity-0 transition group-hover:opacity-100">راجع ‹</span>
-      </Link>)}{g && g.count > g.items.length && <Link href={g.href} className="block px-5 py-2.5 text-center text-xs font-bold text-[var(--muted)] hover:text-[var(--navy)]">+ {g.count - g.items.length} كمان</Link>}</div>
+      {g && <InboxList key={g.key} g={g} onDone={() => void load()} />}
     </>}
   </section>;
 
@@ -236,9 +236,10 @@ export default function CommandCenter() {
 
   return <div className="mt-2 flex flex-col gap-4 pb-24 lg:gap-5 lg:pb-6">
     {header}
+    {d.morning && <MorningCard m={d.morning} mgr={mgr} />}
     {pulse}
     <div className={`grid gap-4 lg:gap-5 ${mgr ? "" : "xl:grid-cols-[1.25fr_1fr]"}`}>{visits}{!mgr && daftra}</div>
-    <div className="grid gap-4 lg:gap-5 xl:grid-cols-[1.5fr_1fr]">{inbox}{insights}</div>
+    <div className="grid gap-4 lg:gap-5 xl:grid-cols-[1.5fr_1fr]">{inbox}<div className="flex flex-col gap-4 lg:gap-5">{d.gaps && d.gaps.length > 0 && <GapsCard gaps={d.gaps} onDone={() => void load()} />}{insights}</div></div>
     <div className="grid gap-4 lg:gap-5 xl:grid-cols-[1.5fr_1fr]">{team}{modules}</div>
     {activity}
   </div>;

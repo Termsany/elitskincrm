@@ -2,36 +2,39 @@ import { query } from "@/lib/db";
 import { pausedByTeamSql } from "@/lib/doctor-pauses";
 import { enrichedVisits, summarize, todayBoard, riyadhToday, planAdherence } from "@/lib/visit-intel";
 import { salesHub } from "@/lib/sales-hub";
+import { dataGaps } from "@/lib/data-gaps";
+import { morningSummary } from "@/lib/morning-summary";
 
 const addDays = (d: string, n: number) => { const x = new Date(`${d}T12:00:00Z`); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
-type Item = { id: string; title: string; owner: string | null; at: string; href: string };
-type Group = { key: string; label: string; icon: string; href: string; count: number; items: Item[] };
+type Item = { id: string; title: string; owner: string | null; at: string; href: string; bulk?: boolean };
+type Group = { key: string; label: string; icon: string; href: string; count: number; items: Item[]; bulk?: boolean };
 
 /** Everything waiting for the manager, from every module, as one inbox. */
-async function inbox(): Promise<Group[]> {
+export async function inbox(): Promise<Group[]> {
   const q = async (sql: string, vals: unknown[] = []) => (await query(sql, vals)).rows as Array<Record<string, any>>;
   const [plans, changes, signs, samples, doctorReqs, service, tasks, sales] = await Promise.all([
     q(`SELECT p.id::text id, 'خطة ' || CASE p.period::text WHEN 'weekly' THEN 'أسبوعية' WHEN 'monthly' THEN 'شهرية' ELSE 'يومية' END || ' · ' || to_char(p.period_start,'DD/MM') title, u.name owner, p.created_at at FROM plans p JOIN users u ON u.id=p.user_id WHERE p.status::text='pending' ORDER BY p.created_at`),
     q(`SELECT r.plan_id::text id, 'تعديل على خطة معتمدة' || CASE WHEN r.note<>'' THEN ' — ' || left(r.note,50) ELSE '' END title, u.name owner, r.created_at at FROM plan_edit_requests r JOIN users u ON u.id=r.requested_by WHERE r.status='pending' ORDER BY r.created_at`),
     q(`SELECT s.id::text id, CASE s.want WHEN 'stamp' THEN 'ختم' WHEN 'both' THEN 'توقيع وختم' ELSE 'توقيع' END || ' · ' || s.file_name title, u.name owner, s.created_at at FROM sign_requests s JOIN users u ON u.id=s.requested_by WHERE s.status='pending' ORDER BY s.created_at`),
-    q(`SELECT vi.visit_id::text id, CASE vi.kind::text WHEN 'order' THEN 'طلب' ELSE 'عينة' END || ' ' || p.name || ' × ' || vi.quantity || ' · ' || d.name title, u.name owner, vi.created_at at FROM visit_items vi JOIN visits v ON v.id=vi.visit_id JOIN products p ON p.id=vi.product_id JOIN doctors d ON d.id=v.doctor_id JOIN users u ON u.id=v.sales_rep_id WHERE vi.approval_status='pending' ORDER BY vi.created_at`),
+    q(`SELECT vi.id::text id, vi.visit_id::text vid, CASE vi.kind::text WHEN 'order' THEN 'طلب' ELSE 'عينة' END || ' ' || p.name || ' × ' || vi.quantity || ' · ' || d.name title, u.name owner, vi.created_at at FROM visit_items vi JOIN visits v ON v.id=vi.visit_id JOIN products p ON p.id=vi.product_id JOIN doctors d ON d.id=v.doctor_id JOIN users u ON u.id=v.sales_rep_id WHERE vi.approval_status='pending' ORDER BY vi.created_at`),
     q(`SELECT d.id::text id, CASE WHEN d.kind='create' THEN 'إضافة طبيب: ' ELSE 'تعديل طبيب: ' END || COALESCE(NULLIF(d.payload->>'name',''),'طلب') title, u.name owner, d.created_at at FROM doctor_requests d JOIN users u ON u.id=d.requester_id WHERE d.status='pending' ORDER BY d.created_at`),
     q(`SELECT r.id::text id, r.title, u.name owner, r.created_at at FROM service_requests r JOIN users u ON u.id=r.requester_id WHERE r.status IN ('pending','in_progress','needs_info','reopened') AND r.kind NOT IN ('leave','exit_reentry','advance','salary_letter') ORDER BY r.created_at`),
     q(`SELECT t.id::text id, t.title || ' · كانت ' || to_char(t.due_date,'DD/MM') title, NULL owner, t.created_at at FROM tasks t WHERE t.archived=false AND t.status::text IN ('pending','in_progress') AND t.due_date < $1::date ORDER BY t.due_date`, [riyadhToday()]),
     q(`SELECT 'f'||v.id::text id, 'توقع مبيعات' title, u.name owner, v.created_at at FROM forecast_versions v JOIN users u ON u.id=v.rep_id WHERE v.status IN ('pending','submitted')
        UNION ALL SELECT 't'||t.id::text, 'توزيع هدف', u.name, t.created_at FROM rep_target_versions t JOIN users u ON u.id=t.rep_id WHERE t.status='pending' ORDER BY 4`).catch(() => []),
   ]);
-  const hr = await q(`SELECT r.id::text id, r.title, u.name owner, r.created_at at FROM service_requests r JOIN users u ON u.id=r.requester_id
+  const hr = await q(`SELECT r.id::text id, r.title, u.name owner, r.created_at at, (r.status IN ('pending','reopened','in_progress','deferred')) bulk FROM service_requests r JOIN users u ON u.id=r.requester_id
     WHERE r.kind IN ('leave','exit_reentry','advance','salary_letter') AND (r.status IN ('pending','reopened','in_progress','deferred') OR (r.status='approved' AND r.kind IN ('exit_reentry','salary_letter'))) ORDER BY r.created_at`).catch(() => []);
   const expenses = await q(`SELECT e.id::text id, c.name || ' · ' || to_char(e.amount, 'FM999,999,990.00') || ' ر.س' title, u.name owner, e.created_at at FROM expenses e JOIN users u ON u.id=e.rep_id JOIN expense_categories c ON c.id=e.category_id WHERE e.status='pending' ORDER BY e.created_at`).catch(() => []);
+  const BULK = ["hr", "plans", "samples", "expenses"];
   const g = (key: string, label: string, icon: string, href: string, rows: Array<Record<string, any>>, link: (r: Record<string, any>) => string): Group =>
-    ({ key, label, icon, href, count: rows.length, items: rows.slice(0, 5).map(r => ({ id: r.id, title: r.title, owner: r.owner, at: r.at, href: link(r) })) });
+    ({ key, label, icon, href, count: rows.length, bulk: BULK.includes(key), items: rows.slice(0, 30).map(r => ({ id: r.id, title: r.title, owner: r.owner, at: r.at, href: link(r), bulk: BULK.includes(key) && r.bulk !== false })) });
   return [
     g("hr", "طلبات الموظفين", "🌴", "/admin/requests#hr", hr, r => `/admin/requests?hr=${r.id}#hr`),
     g("plans", "خطط للاعتماد", "🗓️", "/plans?status=pending", plans, r => `/plans?planId=${r.id}`),
     g("changes", "تعديلات على خطط", "✎", "/plans?status=pending", changes, r => `/plans?planId=${r.id}`),
     g("signs", "طلبات توقيع", "🖋️", "/library?view=signreq", signs, () => "/library?view=signreq"),
-    g("samples", "عينات وطلبات", "🧪", "/visits?tab=visits", samples, r => `/visits?visit=${r.id}`),
+    g("samples", "عينات وطلبات", "🧪", "/visits?tab=visits", samples, r => `/visits?visit=${r.vid}`),
     g("expenses", "مصروفات للاعتماد", "💵", "/expenses?tab=review", expenses, () => "/expenses?tab=review"),
     g("sales", "مبيعات وتوقعات", "💰", "/sales?tab=workspace", sales as Array<Record<string, any>>, () => "/sales?tab=workspace"),
     g("doctors", "طلبات أطباء", "🩺", "/admin/requests", doctorReqs, () => "/admin/requests"),
@@ -40,7 +43,7 @@ async function inbox(): Promise<Group[]> {
   ].filter(x => x.count > 0);
 }
 
-export async function adminDashboard(userName: string, opts: { manager?: boolean } = {}) {
+export async function adminDashboard(userName: string, opts: { manager?: boolean; userId?: string } = {}) {
   const today = riyadhToday();
   const from14 = addDays(today, -13), weekStart = addDays(today, -6), prevStart = addDays(today, -13), prevEnd = addDays(today, -7);
   const year = Number(today.slice(0, 4)), month = today.slice(0, 7);
@@ -86,6 +89,10 @@ export async function adminDashboard(userName: string, opts: { manager?: boolean
   const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Riyadh", hour: "2-digit", hour12: false }).format(new Date()));
   const greeting = hour < 12 ? "صباح الخير" : hour < 17 ? "مساء النور" : "مساء الخير";
   const pendingTotal = box.reduce((a, g) => a + g.count, 0);
+  const [gaps, morning] = await Promise.all([
+    dataGaps(opts.userId || "00000000-0000-0000-0000-000000000000", year, opts).catch(e => { console.error("data gaps", e); return []; }),
+    morningSummary(today, pendingTotal, opts).catch(e => { console.error("morning", e); return null; }),
+  ]);
   const active = board.board.filter(b => b.state === "active").length;
   const summary = [
     board.summary.visits ? `${board.summary.visits} زيارة النهارده` : "لسه مفيش زيارات النهارده",
@@ -94,7 +101,7 @@ export async function adminDashboard(userName: string, opts: { manager?: boolean
   ].filter(Boolean).join(" · ");
   return {
     greeting, name: userName.split(" ")[0], today, summary,
-    inbox: box, pendingTotal,
+    inbox: box, pendingTotal, gaps, morning,
     pulse: {
       today: { visits: board.summary.visits, planned: board.planned, done: board.done, active, reps: board.board.length, red: board.summary.redFlags },
       quality: { week: thisWeek.kpi.avgQuality, lastWeek: lastWeek.kpi.avgQuality, visits: thisWeek.kpi.visits, bands: thisWeek.bands },

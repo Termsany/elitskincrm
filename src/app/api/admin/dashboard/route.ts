@@ -6,5 +6,5 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const u = await getCurrentUser();
   if (!u || u.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  return NextResponse.json({ ...(await adminDashboard(u.name || "", { manager: !!u.manager })), manager: !!u.manager }, { headers: { "cache-control": "private, no-store" } });
+  return NextResponse.json({ ...(await adminDashboard(u.name || "", { manager: !!u.manager, userId: u.id })), manager: !!u.manager }, { headers: { "cache-control": "private, no-store" } });
 }

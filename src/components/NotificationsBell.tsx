@@ -1,65 +1,116 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { notificationHref } from "@/lib/notification-links";
+import { GROUP_LABEL, QUICK_APPROVE } from "@/lib/notification-levels";
 import { Icon } from "@/components/Icon";
-type N = { id:string; message:string; kind:string; is_read:boolean; created_at:string; task_id:string|null; task_title:string|null; plan_title:string|null; plan_id:string|null; action_url:string|null };
-export default function NotificationsBell({role="sales_rep"}:{role?:string}){
-  const router = useRouter();
-  const [list,setList]=useState<N[]>([]); const [unread,setUnread]=useState(0); const [open,setOpen]=useState(false);
-  const [hasNew,setHasNew]=useState(false);
-  const load=useCallback(async()=>{
-    const r=await fetch("/api/notifications").then(x=>x.json()).catch(()=>null);
-    if(r){
-      const newCount=r.unread||0;
-      setUnread(previous=>{ if(newCount>previous) setHasNew(true); return newCount; });
-      setList(r.notifications||[]);
-    }
-  },[]);
-  useEffect(()=>{
-    // Poll every 60s only while the tab is visible; refresh as soon as it becomes visible again.
-    load();
-    const id=setInterval(()=>{ if(document.visibilityState==="visible") load(); }, 60*1000);
-    const onVis=()=>{ if(document.visibilityState==="visible") load(); };
-    document.addEventListener("visibilitychange", onVis);
-    return ()=>{ clearInterval(id); document.removeEventListener("visibilitychange", onVis); };
-  },[load]);
-  useEffect(()=>{ if(hasNew) { const t=setTimeout(()=> setHasNew(false), 2000); return ()=> clearTimeout(t); } },[hasNew]);
-  async function markAll(){ const response=await fetch("/api/notifications",{method:"PATCH", headers:{"content-type":"application/json"}, body:JSON.stringify({all:true})}); if(response.ok)setUnread(0); await load(); }
 
-  async function openNotification(n:N){
-    if(!n.is_read){ const response=await fetch("/api/notifications",{method:"PATCH",headers:{"content-type":"application/json"},body:JSON.stringify({id:n.id})}); if(response.ok){setUnread(Math.max(0,unread-1));setList(list.map(x=>x.id===n.id?{...x,is_read:true}:x));} }
+type N = { id: string; message: string; kind: string; is_read: boolean; created_at: string; task_id: string | null; task_title: string | null; plan_title: string | null; plan_id: string | null; action_url: string | null; entity_id: string | null; level: "important" | "info" };
+type Row = { group: false; n: N } | { group: true; kind: string; items: N[] };
+const rel = (iso: string) => { const m = Math.round((Date.now() - Date.parse(iso)) / 6e4); return m < 1 ? "دلوقتي" : m < 60 ? `من ${m} د` : m < 1440 ? `من ${Math.round(m / 60)} س` : `من ${Math.round(m / 1440)} يوم`; };
+
+/** Bell with two levels (important / FYI), piles of the same kind grouped, and one-tap approve for plans and expenses. */
+export default function NotificationsBell({ role = "sales_rep" }: { role?: string }) {
+  const router = useRouter();
+  const [list, setList] = useState<N[]>([]); const [important, setImportant] = useState(0); const [info, setInfo] = useState(0);
+  const [open, setOpen] = useState(false); const [tab, setTab] = useState<"important" | "info">("important");
+  const [hasNew, setHasNew] = useState(false); const [expanded, setExpanded] = useState<string | null>(null);
+  const [busy, setBusy] = useState(""); const [msg, setMsg] = useState("");
+  const load = useCallback(async () => {
+    const r = await fetch("/api/notifications").then(x => x.json()).catch(() => null);
+    if (r) {
+      const n = r.important ?? r.unread ?? 0;
+      setImportant(p => { if (n > p) setHasNew(true); return n; }); setInfo(r.info || 0);
+      setList(r.notifications || []);
+    }
+  }, []);
+  useEffect(() => {
+    void load();
+    const id = setInterval(() => { if (document.visibilityState === "visible") void load(); }, 60 * 1000);
+    const onVis = () => { if (document.visibilityState === "visible") void load(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { clearInterval(id); document.removeEventListener("visibilitychange", onVis); };
+  }, [load]);
+  useEffect(() => { if (hasNew) { const t = setTimeout(() => setHasNew(false), 2000); return () => clearTimeout(t); } }, [hasNew]);
+  useEffect(() => { if (open) setTab(important || !info ? "important" : "info"); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const shown = useMemo(() => list.filter(n => (n.level || "important") === tab), [list, tab]);
+  const rows = useMemo<Row[]>(() => {
+    const unreadByKind = new Map<string, N[]>();
+    for (const n of shown) if (!n.is_read) unreadByKind.set(n.kind, [...(unreadByKind.get(n.kind) || []), n]);
+    const out: Row[] = [], done = new Set<string>();
+    for (const n of shown) {
+      const pile = unreadByKind.get(n.kind);
+      if (!n.is_read && pile && pile.length >= 3) { if (!done.has(n.kind)) { done.add(n.kind); out.push({ group: true, kind: n.kind, items: pile }); } continue; }
+      out.push({ group: false, n });
+    }
+    return out;
+  }, [shown]);
+
+  async function markIds(ids: string[]) {
+    await fetch("/api/notifications", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ ids }) });
+  }
+  async function markAll() { await fetch("/api/notifications", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ all: true, level: tab }) }); await load(); }
+  async function openNotification(n: N) {
+    if (!n.is_read) await markIds([n.id]);
     setOpen(false); router.push(notificationHref(n, role));
   }
+  async function approve(n: N) {
+    setBusy(n.id); setMsg("");
+    const r = n.kind === "plan_pending" && n.plan_id
+      ? await fetch(`/api/plans/${n.plan_id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ status: "approved", admin_note: "" }) })
+      : await fetch("/api/admin/expenses/review", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ids: [n.entity_id], action: "approve" }) });
+    const j = await r.json().catch(() => null);
+    setBusy("");
+    if (!r.ok) { setMsg(j?.error || "تعذر الاعتماد — افتح التفاصيل"); return; }
+    await markIds([n.id]); setMsg("اتعتمد ✓"); await load(); setTimeout(() => setMsg(""), 1800);
+  }
+  const canApprove = (n: N) => role === "admin" && !n.is_read && QUICK_APPROVE.includes(n.kind) && (n.kind === "plan_pending" ? !!n.plan_id : !!n.entity_id);
+
+  const item = (n: N, inner = false) => <div key={n.id} className={`flex items-start gap-2 p-3 text-sm transition hover:bg-sky-50 ${!n.is_read ? "bg-amber-50/70" : ""} ${inner ? "pr-6" : ""}`}>
+    {!n.is_read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" />}
+    <button type="button" onClick={() => void openNotification(n)} className="min-w-0 flex-1 text-right">
+      <div className={`leading-6 ${n.is_read ? "text-[var(--muted)]" : "font-semibold"}`}>{n.message}</div>
+      {(n.task_title || n.plan_title) && <div className="text-xs text-[var(--muted)]">{n.task_title || n.plan_title}</div>}
+      <div className="mt-0.5 text-[11px] text-[var(--muted)]">{rel(n.created_at)}</div>
+    </button>
+    {canApprove(n) && <button type="button" disabled={busy === n.id} onClick={() => void approve(n)} className="shrink-0 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[11px] font-bold text-white disabled:opacity-60">{busy === n.id ? "…" : "✓ اعتماد"}</button>}
+  </div>;
+
+  const total = important + info;
   return (
     <div className="relative">
-      <button onClick={()=>setOpen(!open)} className={`relative flex items-center justify-center h-11 w-11 rounded-2xl border-2 shadow-md transition ${unread>0? "bg-[var(--navy)] border-[var(--sky)] text-white es-bell-ring":"bg-white border-[var(--border)] text-[var(--navy)] hover:border-[var(--sky)] es-bell-idle"} ${hasNew? "scale-110":""}`} title="الإشعارات" aria-label="الإشعارات">
+      <button onClick={() => setOpen(!open)} className={`relative flex h-11 w-11 items-center justify-center rounded-2xl border-2 shadow-md transition ${important > 0 ? "es-bell-ring border-[var(--sky)] bg-[var(--navy)] text-white" : "es-bell-idle border-[var(--border)] bg-white text-[var(--navy)] hover:border-[var(--sky)]"} ${hasNew ? "scale-110" : ""}`} title="الإشعارات" aria-label={`الإشعارات${important ? ` — ${important} مهم` : ""}`}>
         <Icon name="bell" size={22} />
-        {unread>0 && <span key={unread} className="es-badge-pop absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[11px] font-extrabold rounded-full h-6 min-w-6 flex items-center justify-center px-1 border-2 border-white shadow">{unread>99? "99+": unread}</span>}
+        {important > 0 ? <span key={important} className="es-badge-pop absolute -right-1.5 -top-1.5 flex h-6 min-w-6 items-center justify-center rounded-full border-2 border-white bg-red-500 px-1 text-[11px] font-extrabold text-white shadow">{important > 99 ? "99+" : important}</span>
+          : info > 0 ? <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-white bg-sky-400" /> : null}
       </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={()=>setOpen(false)} />
-          <div className="absolute left-0 mt-2 w-[360px] max-w-[90vw] rounded-2xl bg-white border border-[var(--border)] shadow-2xl z-50 overflow-hidden">
-            <div className="p-3 flex items-center justify-between border-b border-[var(--border)] bg-[var(--navy)] text-white">
-              <span className="font-bold text-sm flex items-center gap-2"><Icon name="bell" size={16} /> الإشعارات {unread>0 && <span className="bg-red-500 text-white text-xs rounded-full px-2 py-0.5">{unread} جديد</span>}</span>
-              <button onClick={markAll} className="text-xs bg-white/15 hover:bg-white/20 rounded-full px-2 py-1 font-bold">تعليم الكل مقروء</button>
-            </div>
-            <div className="max-h-[50vh] overflow-auto divide-y divide-[var(--border)]">
-              {list.map(n=>(
-                <button type="button" key={n.id} onClick={()=>openNotification(n)} className={`w-full text-right p-3 text-sm hover:bg-sky-50 transition cursor-pointer ${!n.is_read? "bg-amber-50 border-r-4 border-amber-400":""}`}>
-                  <div className="font-semibold">{n.message}</div>
-                  {(n.task_title||n.plan_title) && <div className="text-xs text-[var(--muted)]">{n.task_title||n.plan_title}</div>}
-                  <div className="text-[11px] text-[var(--muted)] mt-1">{new Date(n.created_at).toLocaleString("ar-EG-u-nu-latn")} — {n.kind} · اضغط للفتح</div>
-                </button>
-              ))}
-              {list.length===0 && <div className="p-8 text-center text-sm text-[var(--muted)]">لا إشعارات حاليا<br/><span className="text-xs">ستظهر هنا عند إسناد مهمة أو اكتمالها</span></div>}
-            </div>
-            <Link href={list.some(n=>n.plan_id)?"/plans":"/tasks"} onClick={()=>setOpen(false)} className="block text-center text-xs font-bold text-[var(--navy)] py-3 border-t border-[var(--border)] bg-[var(--gold-soft)] hover:bg-[var(--bg)]">عرض التفاصيل →</Link>
+      {open && <>
+        <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+        <div className="absolute left-0 z-50 mt-2 w-[380px] max-w-[92vw] overflow-hidden rounded-2xl border border-[var(--border)] bg-white text-[var(--ink)] shadow-2xl">
+          <div className="flex items-center justify-between gap-2 bg-[var(--navy)] p-3 text-white">
+            <span className="flex items-center gap-2 text-sm font-bold"><Icon name="bell" size={16} /> الإشعارات</span>
+            {(tab === "important" ? important : info) > 0 && <button onClick={() => void markAll()} className="rounded-full bg-white/15 px-2 py-1 text-xs font-bold hover:bg-white/20">تعليم الكل مقروء</button>}
           </div>
-        </>
-      )}
+          <div className="grid grid-cols-2 gap-1 border-b border-[var(--border)] bg-[var(--bg)] p-1.5">
+            {([["important", "مهم", important], ["info", "للعلم", info]] as const).map(([t, l, c]) => <button key={t} type="button" onClick={() => { setTab(t); setExpanded(null); }}
+              className={`rounded-xl py-2 text-xs font-bold transition ${tab === t ? "bg-white text-[var(--navy)] shadow" : "text-[var(--muted)]"}`}>{l}{c ? <span className={`mr-1.5 rounded-full px-1.5 text-[10px] text-white ${t === "important" ? "bg-red-500" : "bg-sky-500"}`}>{c}</span> : null}</button>)}
+          </div>
+          {msg && <div className="border-b border-[var(--border)] bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">{msg}</div>}
+          <div className="max-h-[55vh] divide-y divide-[var(--border)] overflow-auto">
+            {rows.map(r => r.group ? <div key={`g-${r.kind}`}>
+              <button type="button" onClick={() => setExpanded(expanded === r.kind ? null : r.kind)} className="flex w-full items-center gap-3 bg-amber-50 p-3 text-right text-sm hover:bg-amber-100/70">
+                <span className="flex h-8 min-w-8 items-center justify-center rounded-full bg-amber-500 px-2 text-xs font-extrabold text-white">{r.items.length}</span>
+                <span className="min-w-0 flex-1 font-bold">{GROUP_LABEL[r.kind] || r.items[0].message}<span className="block text-[11px] font-normal text-[var(--muted)]">آخرها {rel(r.items[0].created_at)}</span></span>
+                <span className="text-xs text-[var(--muted)]">{expanded === r.kind ? "▴" : "▾"}</span>
+              </button>
+              {expanded === r.kind && <div className="divide-y divide-[var(--border)] border-t border-[var(--border)]">{r.items.map(n => item(n, true))}
+                <button type="button" onClick={() => void markIds(r.items.map(n => n.id)).then(load)} className="w-full py-2 text-center text-[11px] font-bold text-[var(--muted)] hover:text-[var(--navy)]">تعليم المجموعة مقروءة</button></div>}
+            </div> : item(r.n))}
+            {!rows.length && <div className="p-8 text-center text-sm text-[var(--muted)]">{tab === "important" ? "مفيش حاجة محتاجاك ✓" : "مفيش إشعارات للعلم"}<br /><span className="text-xs">{total ? "" : "هتظهر هنا لما يحصل جديد"}</span></div>}
+          </div>
+        </div>
+      </>}
     </div>
   );
 }

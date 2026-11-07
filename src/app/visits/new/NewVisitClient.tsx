@@ -9,6 +9,7 @@ import type { DetailProduct, PresenterResult } from "@/components/detailing/type
 import { BrochureCover } from "@/components/detailing/BrochureViewer";
 import { brochureUrl } from "@/components/detailing/pdf";
 import ClinicHint from "./ClinicHint";
+import VoiceNote from "./VoiceNote";
 
 import { getVisitStatusMeta } from "@/lib/visit-workflow";
 import { PURPOSE_LABELS, REACTION_LABELS, collectSampleItems, type Reaction, type SamplePurpose, type SampleRow } from "@/lib/visit-entry";
@@ -363,7 +364,6 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
           </button>)}
         </div>
       </div>}
-      {selectedDoctor && <ClinicHint doctorId={selectedDoctor.id} />}
       {selectedDoctor ? (
         <div className="rounded-2xl border border-[var(--navy)]/20 bg-[var(--sky-light)] p-3 flex items-center gap-3">
           <div className="h-12 w-12 rounded-2xl bg-[var(--navy)] text-white grid place-items-center text-lg font-extrabold shrink-0">{ctx?.doctor.classification || selectedDoctor.name.slice(0, 1)}</div>
@@ -387,7 +387,8 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
     </Section>
   );
 
-  const contextCard = doctorId ? <ContextCard ctx={ctx} loading={ctxLoading} products={products} onPresent={presentFrom} /> : null;
+  const samePresented = (ids: string[]) => { const ok = ids.filter(id => products.some(p => p.id === id)); setPresented(prev => [...prev, ...ok.filter(id => !prev.some(x => x.productId === id)).map(productId => ({ productId, reaction: "neutral" as Reaction }))]); if (ok.length) toast(`اتضاف ${ok.length} منتج زي المرة اللي فاتت`, "success"); };
+  const contextCard = doctorId ? <ContextCard ctx={ctx} loading={ctxLoading} products={products} onPresent={presentFrom} doctorId={doctorId} onSame={samePresented} already={presented.map(x => x.productId)} /> : null;
 
   const productsSection = (
     <Section n={2} title="المنتجات والعرض" done={presented.length > 0} hint="اضغط على المنتج اللي شرحته، وحدد رد فعل الطبيب والعينة">
@@ -442,7 +443,7 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
         {([["completed", "✓ مكتملة", "bg-emerald-600 border-emerald-600"], ["planned", "🕑 مجدولة", "bg-sky-600 border-sky-600"], ["cancelled", "✕ ملغاة", "bg-red-600 border-red-600"]] as const).map(([v, l, c]) =>
           <button key={v} type="button" onClick={() => setStatus(v)} className={`min-h-12 rounded-2xl border-2 font-bold text-sm transition ${status === v ? `${c} text-white` : "bg-white border-[var(--border)] text-[var(--muted)]"}`}>{l}</button>)}
       </div>
-      <div className="flex items-center justify-between mb-1.5"><span className="text-sm font-bold">الملاحظات <span className="text-red-600">*</span></span><span className={`text-[11px] font-bold rounded-full px-2 py-0.5 ${notesOk ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{notesOk ? "✓" : `${Math.max(0, 10 - notesLen)} حرف كمان`}</span></div>
+      <div className="flex items-center justify-between mb-1.5"><span className="flex flex-wrap items-center gap-2 text-sm font-bold">الملاحظات <span className="text-red-600">*</span><VoiceNote onText={t => setNotes(n => (n.trim() ? `${n.trim()} ` : "") + t)} /></span><span className={`text-[11px] font-bold rounded-full px-2 py-0.5 ${notesOk ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{notesOk ? "✓" : `${Math.max(0, 10 - notesLen)} حرف كمان`}</span></div>
       <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={mode === "phone" ? 4 : 5} placeholder="اكتب اللي حصل في الزيارة…" className="w-full rounded-2xl border border-[var(--border)] px-3 py-3 text-base outline-none focus:border-[var(--navy)]" />
       <div className="flex flex-wrap gap-1.5 mt-2">{quick.map(t => <button key={t} type="button" onClick={() => addNote(t)} className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-bold hover:border-[var(--navy)]">+ {t}</button>)}</div>
       <div className="mt-4">
@@ -567,7 +568,7 @@ function Section({ n, title, done, hint, children }: { n: number; title: string;
 }
 
 const RX: Record<string, string> = { interested: "👍", neutral: "😐", not_interested: "👎" };
-function ContextCard({ ctx, loading, products, onPresent }: { ctx: VisitContext | null; loading: boolean; products: Array<{ id: string; name: string }>; onPresent: (id: string) => void }) {
+function ContextCard({ ctx, loading, products, onPresent, doctorId, onSame, already }: { ctx: VisitContext | null; loading: boolean; products: Array<{ id: string; name: string }>; onPresent: (id: string) => void; doctorId: string; onSame: (ids: string[]) => void; already: string[] }) {
   if (loading && !ctx) return <div className="rounded-3xl border border-[var(--border)] bg-white p-4 space-y-2">{[0, 1, 2].map(i => <div key={i} className="h-5 rounded bg-[var(--bg)] animate-pulse" />)}</div>;
   if (!ctx) return null;
   const last = ctx.history[0];
@@ -577,6 +578,7 @@ function ContextCard({ ctx, loading, products, onPresent }: { ctx: VisitContext 
   return (
     <div className="rounded-3xl border border-[var(--navy)]/15 bg-gradient-to-b from-[var(--sky-light)] to-white p-4 space-y-3">
       <div className="flex items-center gap-2"><span className="text-lg">✨</span><span className="font-extrabold text-[var(--navy)]">قبل ما تدخل</span></div>
+      <ClinicHint doctorId={doctorId} />
       <div className="grid grid-cols-2 gap-2 text-center">
         <div className="rounded-2xl bg-white border border-[var(--border)] p-2"><div className="text-[11px] text-[var(--muted)]">آخر زيارة</div><div className={`font-extrabold ${late ? "text-red-700" : "text-[var(--navy)]"}`}>{ctx.daysSince === null ? "أول زيارة" : ctx.daysSince === 0 ? "النهارده" : `من ${ctx.daysSince} يوم`}</div></div>
         <div className="rounded-2xl bg-white border border-[var(--border)] p-2"><div className="text-[11px] text-[var(--muted)]">الفئة</div><div className="font-extrabold text-[var(--navy)]">{ctx.doctor.classification || "—"}{gap ? <span className="text-[11px] font-normal text-[var(--muted)]"> · كل {gap} يوم</span> : null}</div></div>
@@ -587,6 +589,7 @@ function ContextCard({ ctx, loading, products, onPresent }: { ctx: VisitContext 
         <div className="text-xs text-[var(--muted)] mb-1">آخر مرة ({last.mine ? "إنت" : last.rep_name})</div>
         {last.presented.length > 0 && <div className="flex flex-wrap gap-1 mb-1">{last.presented.map(p => <span key={p.product_id} className="rounded-full bg-[var(--bg)] px-2 py-0.5 text-[11px] font-bold">{RX[p.reaction] || ""} {p.name}</span>)}</div>}
         {last.notes && <div className="text-xs leading-5 line-clamp-3">«{last.notes}»</div>}
+        {last.presented.some(p => !already.includes(p.product_id)) && <button type="button" onClick={() => onSame(last.presented.map(p => p.product_id))} className="mt-2 w-full rounded-xl border border-[var(--navy)]/25 bg-[var(--sky-light)] px-3 py-2 text-xs font-bold text-[var(--navy)] transition hover:bg-[var(--navy)] hover:text-white">↺ نفس منتجات المرة اللي فاتت ({last.presented.length})</button>}
       </div>}
       {ctx.suggested.length > 0 && <div>
         <div className="text-xs font-bold text-[var(--muted)] mb-1.5">اقتراح العرض</div>
