@@ -1,3 +1,4 @@
+import { addDays } from "@/lib/fmt";
 /** Pure keyword rules for visit notes — safe to import in the browser (the visit form shows them live). */
 export type Insights = { objections: string[]; positives: string[]; next: string | null; follow_up: { date: string; reason: string } | null; sentiment: "positive" | "neutral" | "negative"; source: "rules" | "ai" };
 
@@ -25,7 +26,7 @@ const RULES_POS: Array<[string, RegExp]> = [
   ["event", R("أكد|اكد|confirmed|attend|حضور|invitation|دعوة")],
 ];
 
-export const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 864e5).toISOString().slice(0, 10);
+export { addDays };
 /** Relative timing words → a date counted from the visit day. */
 export function followUpFrom(text: string, day: string): { date: string; reason: string } | null {
   const m: Array<[RegExp, number, string]> = [

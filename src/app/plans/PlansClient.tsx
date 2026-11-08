@@ -1,4 +1,5 @@
 "use client";
+import { riyadhToday } from "@/lib/fmt";
 import { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/components/Toast";
 import { Icon } from "@/components/Icon";
@@ -29,7 +30,6 @@ const L = "ar-EG-u-nu-latn";
 const d10 = (v: unknown) => String(v ?? "").slice(0, 10);
 const fd = (d: unknown, o: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" }) => { const s = d10(d); return s ? new Date(s + "T12:00:00").toLocaleDateString(L, o) : "—"; };
 const fdt = (d: unknown) => new Date(String(d)).toLocaleString(L, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
-const riyadhToday = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date());
 const STATUS: Record<string, { label: string; cls: string; dot: string }> = {
   draft: { label: "مسودة", cls: "bg-slate-100 text-slate-700", dot: "bg-slate-400" },
   pending: { label: "بانتظار الاعتماد", cls: "bg-amber-100 text-amber-800", dot: "bg-amber-500" },
@@ -298,7 +298,7 @@ export default function PlansClient({ isAdmin, reps, doctors, products, initialS
     const ds = workDays(start, planPeriod).map(d => d.date).filter(d => !lockPast || d >= today); if (!ds.length) return;
     const target = Math.min(50, Math.max(1, targetVisits || 10, ds.length * 9));
     const focus = doctors.find(d => items.some(i => i.doctor_id === d.id));
-    const q = new URLSearchParams({ period: planPeriod, start, end: end || start, target: String(target), focusCity: focus?.city || "", focusClinic: focus?.clinic_name || "" });
+    const q = new URLSearchParams({ period: planPeriod, start, end: end || start, target: String(target), focusCity: focus?.city || "", focusClinic: focus?.clinic_name || "", ...(isAdmin && adminPlanRepId ? { repId: adminPlanRepId } : {}) });
     const r = await fetch(`/api/plans/suggest?${q}`).then(x => x.json()).catch(() => null);
     if (!r?.suggestions?.length) { toast("مفيش اقتراحات", "info"); return; }
     const grouped = distributeSuggestionsByArea((r.suggestions as Array<{ id: string; city?: string; clinic_name?: string; classification?: string }>).slice(0, target), ds);
@@ -387,7 +387,7 @@ export default function PlansClient({ isAdmin, reps, doctors, products, initialS
 
   // ───────────── render helpers ─────────────
   const repName = (id: string) => reps.find(r => r.id === id)?.name || "";
-  const tabs: Array<[Tab, string, number?]> = [["overview", "نظرة عامة"], ...(isAdmin ? [["review", "الاعتماد", reviewCount] as [Tab, string, number]] : []), ["builder", editingPlanId ? "تعديل الخطة" : isAdmin ? "خطة جديدة" : "رتّب خطتك"], ["plans", "كل الخطط"], ["execution", "التنفيذ"]];
+  const tabs: Array<[Tab, string, number?]> = [["overview", "نظرة عامة"], ...(isAdmin ? [["review", "الاعتماد", reviewCount] as [Tab, string, number]] : []), ["builder", editingPlanId ? "تعديل الخطة" : isAdmin ? "خطة جديدة" : "رتّب خطتك"], ["plans", "كل الخطط"]];
 
   const kpi = (label: string, value: number | string, sub: string, tone = "", onClick?: () => void) => <button type="button" onClick={onClick} disabled={!onClick} className={`${card} rounded-2xl p-3.5 text-right transition enabled:hover:border-[var(--sky-border)] enabled:hover:shadow-sm`}><div className="text-xs text-[var(--muted)]">{label}</div><div className={`mt-1 text-2xl font-extrabold text-[var(--navy)] ${tone}`}>{value}</div><div className="mt-0.5 truncate text-[11px] text-[var(--muted)]">{sub}</div></button>;
 
@@ -673,6 +673,7 @@ export default function PlansClient({ isAdmin, reps, doctors, products, initialS
       {tab === "builder" && builder}
       {tab === "plans" && plansView}
       {tab === "execution" && execution}
+      <div className="text-center"><a href="/plans" className="text-xs font-bold text-teal-700">متابعة التنفيذ يوم بيوم ← {isAdmin ? "خطط الفريق" : "خطتي الأسبوع ده"}</a></div>
 
       {detail && !inlineReview && <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 backdrop-blur-[2px] sm:items-center sm:p-4" onClick={() => setDetail(null)}>
         <div onClick={e => e.stopPropagation()} className={`flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-3xl bg-[var(--bg)] shadow-2xl sm:rounded-3xl ${device === "desktop" ? "max-w-[1100px]" : "max-w-[640px]"}`}>

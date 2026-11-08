@@ -5,6 +5,7 @@ import { Icon } from "@/components/Icon";
 import { useToast } from "@/components/Toast";
 import { actionRequest, fetchForecast, fetchPreviousMonthLines, fetchSourceSales, postForecastAction, riyadhMonth, type ForecastData } from "../forecast/ForecastClient";
 import { fetchTargetPlan, targetRequest, type TargetPlanningClient } from "../forecast/TargetPlanningClient";
+import { riyadhToday } from "@/lib/fmt";
 
 type Line = { clinic_id: string; product_id: string; qty: number; unit_price?: string };
 type Sale = ForecastData["sales"][number];
@@ -92,7 +93,7 @@ export default function RepSales() {
   const cur = hub.nowMonth;
   const past = hub.monthly.filter(m => m.month <= cur);
   const ytd = past.reduce((a, m) => a + m.actual, 0);
-  const yearPace = (() => { const d = new Date(`${new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date())}T12:00:00Z`); const y = hub.year; if (y < d.getUTCFullYear()) return 100; if (y > d.getUTCFullYear()) return 0; return Math.round((d.getTime() - Date.UTC(y, 0, 1)) / (Date.UTC(y + 1, 0, 1) - Date.UTC(y, 0, 1)) * 100); })();
+  const yearPace = (() => { const d = new Date(`${riyadhToday()}T12:00:00Z`); const y = hub.year; if (y < d.getUTCFullYear()) return 100; if (y > d.getUTCFullYear()) return 0; return Math.round((d.getTime() - Date.UTC(y, 0, 1)) / (Date.UTC(y + 1, 0, 1) - Date.UTC(y, 0, 1)) * 100); })();
   const yp = pct(ytd, hub.annual), yT = tone(yp, yearPace);
   const monthsLeft = hub.year === Number(cur.slice(0, 4)) ? 12 - Number(cur.slice(5, 7)) + 1 : 0;
   const need = hub.annual > ytd && monthsLeft ? (hub.annual - ytd) / monthsLeft : 0;

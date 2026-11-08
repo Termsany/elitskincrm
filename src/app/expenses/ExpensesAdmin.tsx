@@ -3,10 +3,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { useToast } from "@/components/Toast";
 import { type Cat, type Exp, sar, StatusPill, CatIcon, Receipts, Flags, tone } from "./shared";
+import { riyadhToday } from "@/lib/fmt";
 
 type Tab = "review" | "all" | "pnl" | "settings";
 type Rep = { id: string; name: string };
-const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date());
+const today = () => riyadhToday();
 const firstOfMonth = () => `${today().slice(0, 7)}-01`;
 const MONTHS = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
 

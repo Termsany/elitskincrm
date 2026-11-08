@@ -1,6 +1,7 @@
 import { query } from "@/lib/db";
 
 import { riyadhToday } from "@/lib/riyadh-day";
+import { addDays } from "@/lib/fmt";
 export { riyadhToday };
 
 /* ───────────────────────── Types ───────────────────────── */
@@ -24,7 +25,6 @@ export type Input = { sales: Doc[]; purchases: Doc[]; products: Product[]; payme
 /* ───────────────────────── helpers ───────────────────────── */
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const month = (d: string) => d.slice(0, 7);
-const addDays = (d: string, n: number) => { const t = new Date(`${d}T00:00:00Z`); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
 const daysBetween = (a: string, b: string) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 864e5);
 export const norm = (s: string) => s.toLowerCase().replace(/[\s\-_()]+/g, " ").replace(/\s+/g, " ").trim();
 /** Share of a document still standing after refunds (fully refunded → 0). */

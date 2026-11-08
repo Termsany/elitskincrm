@@ -4,11 +4,12 @@ import { Icon } from "@/components/Icon";
 import { useToast } from "@/components/Toast";
 import { computePlan, draftPlan, type CatalogRow, type PlanCost, type PlanData, type PlanItem } from "@/lib/plan";
 import { C, Card, ExcelBtn, Hint, Kpi, MONTHS, Pill, num, pct, sar } from "./kit";
+import { riyadhToday } from "@/lib/fmt";
 
 type Resp = { month: string; today: string; plan: PlanData | null; updated_at: string | null; catalog: CatalogRow[]; fixed: PlanCost[]; daftraCosts: PlanCost[]; saved_months: string[]; history: { from: string; to: string }; target_net_margin: number; has_daftra_month: boolean };
 const shift = (m: string, n: number) => { const [y, mo] = m.split("-").map(Number); return new Date(Date.UTC(y, mo - 1 + n, 1)).toISOString().slice(0, 7); };
 const mName = (m: string) => `${MONTHS[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`;
-const riyadh = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date());
+const riyadh = () => riyadhToday();
 const nowMonth = () => riyadh().slice(0, 7);
 /** After the 20th we're usually planning next month. */
 const startMonth = () => { const d = riyadh(); return Number(d.slice(8, 10)) >= 20 ? shift(d.slice(0, 7), 1) : d.slice(0, 7); };

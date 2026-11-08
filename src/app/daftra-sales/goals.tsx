@@ -4,6 +4,7 @@ import { Icon } from "@/components/Icon";
 import { useToast } from "@/components/Toast";
 import { planOf, type Goals, type scorecard as Scorecard, type levers as Levers, type suggestGoals } from "@/lib/fin-goals";
 import { sar, pct, MONTHS, C, Hint, Kpi, Card, MonthChart, Table } from "./kit";
+import { riyadhToday } from "@/lib/fmt";
 
 type SC = ReturnType<typeof Scorecard>;
 type Data = { year: number; today: string; goals: Goals | null; updated_at: string | null; suggestion: Goals; basis: ReturnType<typeof suggestGoals>["basis"]; seasonal: number[]; scorecard: SC | null; preview: SC; levers: ReturnType<typeof Levers>; rep_targets?: { reps: Array<{ id: string; name: string; annual: number; locked: boolean }>; total: number }; baseline: { sales: number; cogs: number; opex: number; other: number; net: number } | null; years: number[] };
@@ -20,9 +21,9 @@ function Slider({ label, v, set }: { label: string; v: number; set: (n: number) 
 
 export function GoalsTab() {
   const toast = useToast();
-  const cy = Number(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date()).slice(0, 4));
+  const cy = Number(riyadhToday().slice(0, 4));
   // from November on, the useful plan is next year's
-  const [year, setYear] = useState(() => Number(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date()).slice(5, 7)) >= 11 ? cy + 1 : cy);
+  const [year, setYear] = useState(() => Number(riyadhToday().slice(5, 7)) >= 11 ? cy + 1 : cy);
   const [d, setD] = useState<Data | null>(null);
   const [g, setG] = useState<Goals | null>(null);
   const [saving, setSaving] = useState(false);

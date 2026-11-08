@@ -1,3 +1,4 @@
+import { addDays, riyadhToday } from "@/lib/fmt";
 export type Kind = "plan" | "visit" | "event" | "followup" | "task";
 export type PlanRow = { id: string; date: string; priority: string; note: string; plan_id: string; plan_status: string; period: string; period_start: string; period_end: string; rep_id: string; rep_name: string; doctor_id: string; doctor_name: string; clinic_name: string | null; city: string | null; classification: string | null; phone: string | null; product_id: string | null; product_name: string | null; visit_id: string | null; change_pending: boolean };
 export type VisitRow = { id: string; date: string; visited_at: string; status: string; rep_id: string; rep_name: string; doctor_id: string; doctor_name: string; clinic_name: string | null; city: string | null; classification: string | null };
@@ -12,11 +13,11 @@ export type Item =
   | { kind: "followup"; key: string; date: string; rep_id: string; row: FollowRow }
   | { kind: "task"; key: string; date: string; rep_id: string; row: TaskRow };
 
-export const addDays = (d: string, n: number) => { const t = new Date(`${d}T12:00:00Z`); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
+export { addDays };
 export const dow = (d: string) => new Date(`${d}T12:00:00Z`).getUTCDay();
 export const weekStart = (d: string) => addDays(d, -dow(d));
 export const monthGridStart = (d: string) => weekStart(`${d.slice(0, 7)}-01`);
-export const todayRiyadh = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date());
+export const todayRiyadh = () => riyadhToday();
 const L = "ar-EG-u-nu-latn";
 export const fmtDay = (d: string, o: Intl.DateTimeFormatOptions = { weekday: "long", day: "numeric", month: "long" }) => new Intl.DateTimeFormat(L, { ...o, timeZone: "UTC" }).format(new Date(`${d}T12:00:00Z`));
 export const fmtTime = (t: string) => new Intl.DateTimeFormat(L, { hour: "numeric", minute: "2-digit", timeZone: "Asia/Riyadh" }).format(new Date(t));

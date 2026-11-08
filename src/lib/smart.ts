@@ -1,10 +1,10 @@
 import { query } from "@/lib/db";
 import { analyzeAccount, type AInv, type ALine } from "@/lib/clinic-account";
 import { clinicsOfClientSql } from "@/lib/clinic-groups";
+import { addDays } from "@/lib/fmt";
 
 const DAY = 864e5;
 const t = (d: string) => Date.parse(`${d}T00:00:00Z`);
-const addDays = (d: string, n: number) => new Date(t(d) + n * DAY).toISOString().slice(0, 10);
 const diff = (a: string, b: string) => Math.round((t(b) - t(a)) / DAY);
 
 export type ReorderDue = { clinic_id: string; clinic_name: string; customer: string; next_expected: string; days_to: number; usual_gap: number; last: string;

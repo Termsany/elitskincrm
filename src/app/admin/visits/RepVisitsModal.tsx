@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { addDays } from "@/lib/fmt";
 
 type DaySummary = { day: string; total: number; completed: number };
 type DayVisit = { id: string; day: string; visited_at: string; status: string; doctor_name: string; clinic_name: string; city: string };
@@ -49,7 +50,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 const DAY_RE = /^20\d\d-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
-const addDays = (d: string, n: number) => { const t = new Date(`${d}T12:00:00Z`); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
 const monthEnd = (m: string) => { const [y, mo] = m.split("-").map(Number); return new Date(Date.UTC(y, mo, 0)).toISOString().slice(0, 10); };
 
 export default function RepVisitsModal({ rep, onClose, initialDay = "" }: { rep: { id: string; name: string }; onClose: () => void; initialDay?: string }) {

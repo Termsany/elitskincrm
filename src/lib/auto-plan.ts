@@ -1,10 +1,9 @@
 import { pool, query } from "@/lib/db";
-import { pausedSql } from "@/lib/doctor-pauses";
-import { reorderDue } from "@/lib/smart";
+import { rankedDoctors } from "@/lib/doctor-suggest";
+import { addDays } from "@/lib/fmt";
 
 const DAY = 864e5;
 const t = (d: string) => Date.parse(`${d}T00:00:00Z`);
-const addDays = (d: string, n: number) => new Date(t(d) + n * DAY).toISOString().slice(0, 10);
 const PER_DAY = 8;
 
 /** Sunday that starts the week after `today` (Riyadh work week Sun–Thu). */
@@ -27,30 +26,11 @@ export function distribute(c: Cand[], days: string[], perDay = PER_DAY) {
   return out;
 }
 
-/** Score every active doctor for one rep for the week: reorder due, follow-up due, late by class, never visited. */
-async function candidates(repId: string, weekStart: string, weekEnd: string, today: string): Promise<Cand[]> {
-  const rows = (await query<{ id: string; name: string; city: string | null; clinic: string | null; cls: string | null; last: string | null; gap: number; fu: string | null }>(`
-    SELECT d.id, d.name, d.city, d.clinic_name clinic, upper(d.classification) cls,
-      (SELECT max(v.visited_at)::date::text FROM visits v WHERE v.doctor_id=d.id AND v.status::text<>'cancelled') last,
-      COALESCE(ceil(30.0 / NULLIF((SELECT visits_per_month FROM plan_frequencies f WHERE f.classification=d.classification), 0)), 30)::int gap,
-      (SELECT min(x.due)::text FROM (
-        SELECT v.follow_up_at::date due FROM visits v WHERE v.doctor_id=d.id AND v.sales_rep_id=$1 AND v.follow_up_at IS NOT NULL AND v.follow_up_at::date <= $3::date
-          AND NOT EXISTS (SELECT 1 FROM visits v2 WHERE v2.doctor_id=d.id AND v2.visited_at > v.visited_at AND v2.status::text='completed')
-        UNION ALL SELECT f.due_at::date FROM doctor_followups f WHERE f.doctor_id=d.id AND f.sales_rep_id=$1 AND f.completed_at IS NULL AND f.due_at::date <= $3::date) x) fu
-    FROM doctors d WHERE COALESCE(d.status,'active')='active' AND NOT ${pausedSql("$1", "d.id", "$2::date")}`, [repId, weekStart, weekEnd]).catch(e => { console.error("auto-plan candidates", e); return { rows: [] }; })).rows;
-  const due = new Map<string, string>();
-  for (const r of await reorderDue(today, { repId, ahead: 10 }).catch(() => [])) for (const doc of r.doctors.slice(0, 2)) due.set(doc.id, r.days_to < 0 ? `طلبها متأخر ${-r.days_to} يوم` : `طلبها الجاي خلال ${r.days_to} يوم`);
-  const out: Cand[] = [];
-  for (const r of rows) {
-    const since = r.last ? Math.round((t(weekStart) - t(r.last)) / DAY) : null, late = since === null ? null : since - r.gap;
-    let score = 0, reason = "";
-    if (due.has(r.id)) { score = 100; reason = due.get(r.id)!; }
-    else if (r.fu) { score = 90; reason = "متابعة مستحقة"; }
-    else if (late !== null && late >= 0) { score = (r.cls === "A" ? 80 : r.cls === "B" ? 60 : 40) + Math.min(19, late); reason = `متأخر ${late} يوم (فئة ${r.cls || "—"})`; }
-    else if (since === null) { score = r.cls === "A" ? 70 : r.cls === "B" ? 45 : 25; reason = "عمره ما اتزار"; }
-    if (score) out.push({ id: r.id, name: r.name, city: r.city || "بدون مدينة", clinic: r.clinic || "", cls: r.cls || "", score, reason });
-  }
-  return out.sort((a, b) => b.score - a.score);
+/** Candidates for the week, from the shared ranking (counted as of the week's last day, so follow-ups due that week are in). */
+async function candidates(repId: string, _weekStart: string, weekEnd: string): Promise<Cand[]> {
+  const rows = await rankedDoctors(repId, weekEnd).catch(e => { console.error("auto-plan candidates", e); return []; });
+  return rows.filter(d => !d.paused && d.prio.score >= 20)
+    .map(d => ({ id: d.id, name: d.name, city: d.city || "بدون مدينة", clinic: d.clinic_name || "", cls: (d.classification || "").toUpperCase(), score: d.prio.score, reason: d.prio.reason }));
 }
 
 /** Build next week's draft plan for each active rep that has no plan for that week yet. Returns what was created. */
@@ -64,7 +44,7 @@ export async function buildAutoPlans(today: string, opts: { repId?: string; week
     const leave = (await query<{ s: string; e: string }>("SELECT start_date::text s, end_date::text e FROM service_requests WHERE requester_id=$1 AND kind='leave' AND status IN ('approved','completed','closed','pending') AND start_date<=$3::date AND end_date>=$2::date", [rep.id, weekStart, weekEnd]).catch(() => ({ rows: [] }))).rows;
     const free = days.filter(d => !leave.some(l => l.s <= d && l.e >= d));
     if (!free.length) { skipped.push({ rep: rep.name, why: "في إجازة الأسبوع كله" }); continue; }
-    const picked = (await candidates(rep.id, weekStart, weekEnd, today)).slice(0, Math.min(50, free.length * PER_DAY));
+    const picked = (await candidates(rep.id, weekStart, weekEnd)).slice(0, Math.min(50, free.length * PER_DAY));
     if (!picked.length) { skipped.push({ rep: rep.name, why: "مفيش أطباء محتاجين زيارة" }); continue; }
     const items = distribute(picked, free);
     const client = await pool.connect();

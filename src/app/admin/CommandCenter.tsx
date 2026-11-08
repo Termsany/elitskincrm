@@ -74,7 +74,7 @@ export default function CommandCenter() {
   const load = async () => { try { const r = await fetch("/api/admin/dashboard", { cache: "no-store" }); if (!r.ok) throw 0; const j = await r.json(); setD(j); setErr(false); } catch { setErr(true); } };
   const loadF = async () => { try { const r = await fetch("/api/admin/dashboard/daftra", { cache: "no-store" }); if (r.ok) setF(await r.json()); else setF({ configured: false }); } catch { /* keep last */ } };
   const isMgr = !!(d as { manager?: boolean } | null)?.manager, known = !!d;
-  const isMgrRef = useRef(false); isMgrRef.current = isMgr;
+  const isMgrRef = useRef(false); useEffect(() => { isMgrRef.current = isMgr; }, [isMgr]);
   useEffect(() => { if (known && !isMgr) void loadF(); }, [known, isMgr]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { void load(); const t = setInterval(() => { if (document.visibilityState === "visible") { void load(); if (!isMgrRef.current) void loadF(); } }, 120000); return () => clearInterval(t); }, []);
   useEffect(() => { if (d && (!grp || !d.inbox.some(g => g.key === grp))) setGrp(d.inbox[0]?.key || ""); }, [d]); // eslint-disable-line react-hooks/exhaustive-deps

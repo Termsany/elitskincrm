@@ -1,7 +1,8 @@
+import { addDays } from "@/lib/fmt";
 /** Pure helpers for the weekly plan screens (rep "my week" and the admin team board). Saudi week: Sun–Thu. */
 const DAY = 864e5;
 const t = (d: string) => Date.parse(`${d.slice(0, 10)}T12:00:00Z`);
-export const addDays = (d: string, n: number) => new Date(t(d) + n * DAY).toISOString().slice(0, 10);
+export { addDays };
 export const weekday = (d: string) => new Date(t(d)).getUTCDay();
 
 /** The week to show: this week's Sunday; on Fri/Sat the coming week. */

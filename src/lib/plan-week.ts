@@ -1,7 +1,8 @@
 import { query } from "@/lib/db";
-import { hubDoctors, type HubDoctor } from "@/lib/doctors-hub";
+import type { HubDoctor } from "@/lib/doctors-hub";
+import { rankedDoctors } from "@/lib/doctor-suggest";
 import { clinicBalances, type ClinicBalance } from "@/lib/clinic-balances";
-import { priority, type Prio } from "@/lib/doctor-priority";
+import type { Prio } from "@/lib/doctor-priority";
 import { addDays, itemState, pace, planChecks, suggestDay, weekDays, type DayLoad, type ItemState } from "@/lib/plan-week-core";
 import { diffSummaryText } from "@/lib/plan-diff";
 import { opsCounts } from "@/lib/plan-changes";
@@ -14,12 +15,10 @@ export type WeekItem = { id: string; date: string; plan_id: string; plan_status:
   product_id: string | null; product: string | null; done_at: string | null; done_on: string | null; pending_change: boolean; state: ItemState; reason: string; icon: string; tone: string };
 export type Suggest = { doctor_id: string; name: string; clinic: string; city: string; cls: string | null; reason: string; icon: string; tone: string; day: string | null; score: number };
 
-type Ctx = { hub: Map<string, HubDoctor>; bal: (d: HubDoctor) => ClinicBalance | null; prio: Map<string, Prio> };
+type Ctx = { hub: Map<string, HubDoctor>; prio: Map<string, Prio> };
 async function context(repId: string, today: string, balances?: ClinicBalance[]): Promise<Ctx> {
-  const [rows, bals] = await Promise.all([hubDoctors({ id: repId, role: "sales_rep" }, 90, null), balances ? Promise.resolve(balances) : clinicBalances(today).catch(() => [])]);
-  const byId = new Map(bals.map(b => [b.id, b])), byName = new Map(bals.map(b => [b.name.trim().toLowerCase(), b]));
-  const bal = (d: HubDoctor) => (d.clinic_id && byId.get(d.clinic_id)) || byName.get((d.clinic_name || "").trim().toLowerCase()) || null;
-  return { hub: new Map(rows.map(d => [d.id, d])), bal, prio: new Map(rows.map(d => [d.id, priority(d, bal(d), today)])) };
+  const rows = await rankedDoctors(repId, today, balances);
+  return { hub: new Map(rows.map(d => [d.id, d])), prio: new Map(rows.map(d => [d.id, d.prio])) };
 }
 
 export async function repWeek(repId: string, start: string, today: string, opts: { balances?: ClinicBalance[]; ctx?: Ctx } = {}) {

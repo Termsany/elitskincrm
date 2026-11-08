@@ -2,11 +2,12 @@ import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { query } from "@/lib/db";
 import { sniffUpload } from "@/lib/upload-sniff";
+import { UUID_RE } from "@/lib/fmt";
 
 export type Who = { id: string; role: string; name: string };
 export const SOURCES = ["lib", "brochure", "visit", "task", "request", "request_signed"] as const;
 export type Src = typeof SOURCES[number];
-export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export { UUID_RE };
 export const MAX_UPLOAD = 15 * 1024 * 1024;
 
 /** Every file in the app the user is allowed to see, as one virtual table. $1 = user id, $2 = is admin. */

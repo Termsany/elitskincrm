@@ -3,9 +3,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { useToast } from "@/components/Toast";
 import { type Cat, type Exp, sar, StatusPill, CatIcon, Receipts, Flags, tone } from "./shared";
+import { riyadhToday } from "@/lib/fmt";
 
 type Doc = { id: string; name: string; clinic_name: string | null; city: string | null };
-const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date());
+const today = () => riyadhToday();
 const monthKey = (d: string) => d.slice(0, 7);
 const monthLabel = (k: string) => new Date(`${k}-15T12:00:00Z`).toLocaleDateString("ar-EG-u-nu-latn", { month: "long", year: "numeric" });
 type Form = { id?: string; category_id: string; amount: string; expense_date: string; merchant: string; description: string; tax_invoice: boolean; doctor_id: string; doctorQ: string; files: File[] };

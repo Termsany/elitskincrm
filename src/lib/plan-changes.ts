@@ -1,12 +1,13 @@
 import { pool, query } from "@/lib/db";
 import { applyRequestOps, dayKeys, diffCounts, diffPlanItems, diffSummaryText, type PlanItemLike } from "@/lib/plan-diff";
+import { UUID_RE as UUID } from "@/lib/fmt";
+import { riyadhToday } from "@/lib/fmt";
 
 type Who = { id: string; role: string; name: string };
 type Q = { query: (sql: string, vals?: unknown[]) => Promise<{ rows: any[]; rowCount: number | null }> };
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DAY = /^20\d\d-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 const PRIORITIES = new Set(["low", "medium", "high", "urgent"]);
-const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date());
+const today = () => riyadhToday();
 
 export async function planItemsNow(db: Q, planId: string): Promise<PlanItemLike[]> {
   const r = await db.query(`SELECT pi.id, pi.doctor_id::text doctor_id, pi.planned_date::text planned_date, pi.product_id::text product_id, pi.priority::text priority, COALESCE(pi.note,'') note,

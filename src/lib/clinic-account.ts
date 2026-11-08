@@ -1,5 +1,6 @@
 import { query } from "@/lib/db";
 import { clinicsOfClientSql } from "@/lib/clinic-groups";
+import { addDays } from "@/lib/fmt";
 
 /**
  * A clinic's account from Daftra (read-only mirror): what it buys, how often, whether it is slowing down,
@@ -14,7 +15,6 @@ export const DROP = 0.3;          // last 90 days at least 30% below the 90 befo
 const DAY = 864e5;
 const t = (d: string) => Date.parse(`${d}T00:00:00Z`);
 const days = (a: string, b: string) => Math.round((t(b) - t(a)) / DAY);
-const addDays = (d: string, n: number) => new Date(t(d) + n * DAY).toISOString().slice(0, 10);
 const r2 = (n: number) => Math.round(n * 100) / 100;
 const median = (a: number[]) => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
 

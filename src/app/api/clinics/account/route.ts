@@ -3,8 +3,8 @@ import { getCurrentUser } from "@/lib/session";
 import { query } from "@/lib/db";
 import { riyadhToday } from "@/lib/riyadh-day";
 import { clinicAccount } from "@/lib/clinic-account";
+import { UUID_RE } from "@/lib/fmt";
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** One clinic's Daftra account (balance, open invoices, what it buys) — by clinic id, or by name for doctors without a clinic id. */
 export async function GET(req: Request) {

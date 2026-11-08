@@ -1,7 +1,7 @@
 import { query } from "@/lib/db";
 import { brokenPromises, salesPace } from "@/lib/smart";
+import { addDays } from "@/lib/fmt";
 
-const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 864e5).toISOString().slice(0, 10);
 
 export type Morning = {
   date: string; yesterday: string;

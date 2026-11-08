@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { query } from "@/lib/db";
+import { UUID_RE, riyadhToday } from "@/lib/fmt";
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DAY_RE = /^20\d\d-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 const STATUS: Record<string, string> = { completed: "مكتملة", planned: "مجدولة", cancelled: "ملغاة", follow_up: "متابعة" };
 const REACTION: Record<string, string> = { interested: "مهتم", neutral: "محايد", not_interested: "غير مهتم" };
@@ -24,7 +24,7 @@ export async function GET(req: Request) {
   const sp = new URL(req.url).searchParams;
   const repId = sp.get("repId") || "";
   // the one visits export (Excel): optional range (defaults to everything), status and free-text filters
-  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date());
+  const today = riyadhToday();
   const from = sp.get("from") || "2024-01-01", to = sp.get("to") || today;
   const status = sp.get("status") || "", q = (sp.get("q") || "").trim().slice(0, 80);
   if ((repId && !UUID_RE.test(repId)) || !DAY_RE.test(from) || !DAY_RE.test(to) || from > to)

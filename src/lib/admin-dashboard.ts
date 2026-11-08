@@ -4,8 +4,8 @@ import { enrichedVisits, summarize, todayBoard, riyadhToday, planAdherence } fro
 import { salesHub } from "@/lib/sales-hub";
 import { dataGaps } from "@/lib/data-gaps";
 import { morningSummary } from "@/lib/morning-summary";
+import { addDays } from "@/lib/fmt";
 
-const addDays = (d: string, n: number) => { const x = new Date(`${d}T12:00:00Z`); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
 type Item = { id: string; title: string; owner: string | null; at: string; href: string; bulk?: boolean };
 type Group = { key: string; label: string; icon: string; href: string; count: number; items: Item[]; bulk?: boolean };
 

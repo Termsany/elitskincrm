@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { hubDoctors } from "@/lib/doctors-hub";
+import { UUID_RE } from "@/lib/fmt";
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export async function GET(req: Request) {
   const u = await getCurrentUser();
   if (!u) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

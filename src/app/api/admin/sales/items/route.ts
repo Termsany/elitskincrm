@@ -2,13 +2,14 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { query } from "@/lib/db";
 import { UUID_RE } from "@/lib/ids";
+import { riyadhToday } from "@/lib/fmt";
 
 /** Daftra items → CRM product. Sales are credited to the reps who carry the product (see migration 060). CRM only. */
 const forbid = () => NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
 export async function GET(req: Request) {
   const u = await getCurrentUser(); if (!u || u.role !== "admin") return forbid();
-  const year = Number(new URL(req.url).searchParams.get("year")) || Number(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date()).slice(0, 4));
+  const year = Number(new URL(req.url).searchParams.get("year")) || Number(riyadhToday().slice(0, 4));
   const [items, products, reps] = await Promise.all([
     query<{ item: string; value: number; lines: number; product_id: string | null; mapped: boolean; reps: string | null }>(`
       SELECT min(v.item) item, sum(v.value)::float8 value, count(DISTINCT v.invoice_id || '-' || v.id)::int lines, (array_agg(v.product_id))[1] product_id,

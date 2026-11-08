@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { useToast } from "@/components/Toast";
+import { riyadhToday } from "@/lib/fmt";
 
 type Inv = { id: number; no: string; date: string; due: string; unpaid: number; days: number };
 type Fu = { id: string; result: string; promise_date: string | null; amount: number | null; note: string; created_at: string; rep_name: string };
@@ -11,7 +12,7 @@ const RES: Array<[string, string, string]> = [["contacted", "اتواصلت", "�
 const RL = Object.fromEntries(RES.map(([k, l, e]) => [k, `${e} ${l}`]));
 const money = (n: number) => `${Math.round(n).toLocaleString("en-US")} ر.س`;
 const tone = (d: number) => d > 90 ? "bg-red-600 text-white" : d > 60 ? "bg-red-50 text-red-700 ring-1 ring-red-200" : d > 0 ? "bg-amber-50 text-amber-800 ring-1 ring-amber-200" : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200";
-const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date());
+const today = () => riyadhToday();
 
 /** Rep home: the customer invoices this rep should collect (from Daftra), with one-tap follow-up logging. */
 export default function CollectionsCard() {

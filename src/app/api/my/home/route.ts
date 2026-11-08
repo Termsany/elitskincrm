@@ -2,11 +2,11 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { query } from "@/lib/db";
 import { riyadhToday } from "@/lib/riyadh-day";
-import { staleDoctors } from "@/lib/my-alerts";
+import { rankedDoctors } from "@/lib/doctor-suggest";
 import { salesPace } from "@/lib/smart";
 import { nextWeekStart, workDays } from "@/lib/auto-plan";
+import { addDays } from "@/lib/fmt";
 
-const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 864e5).toISOString().slice(0, 10);
 
 /** Everything the rep home needs in one call: today's plan, follow-ups, late doctors, month target + 6-month trend, open tasks, next week's plan. */
 export async function GET() {
@@ -25,7 +25,7 @@ export async function GET() {
         SELECT v.doctor_id FROM visits v WHERE v.sales_rep_id=$1 AND v.follow_up_at IS NOT NULL AND v.follow_up_at::date <= $2::date AND v.status::text<>'cancelled'
           AND NOT EXISTS (SELECT 1 FROM visits v2 WHERE v2.doctor_id=v.doctor_id AND v2.sales_rep_id=v.sales_rep_id AND v2.visited_at > v.visited_at AND v2.status::text='completed')
         UNION SELECT f.doctor_id FROM doctor_followups f WHERE f.sales_rep_id=$1 AND f.completed_at IS NULL AND f.due_at::date <= $2::date) x`, [u.id, today]).catch(() => ({ rows: [{ n: 0 }] })),
-    staleDoctors(u.id, 60).catch(() => []),
+    rankedDoctors(u.id, today).catch(() => []),
     salesPace(today, u.id).catch(() => []),
     query<{ month: string; v: number }>(`SELECT to_char(date_trunc('month', invoice_date), 'YYYY-MM') AS month, COALESCE(sum(value),0)::float8 v FROM daftra_sales_v
       WHERE rep_id=$1 AND invoice_date >= $2::date AND invoice_date <= $3::date GROUP BY 1 ORDER BY 1`, [u.id, m6, today]),
@@ -37,7 +37,8 @@ export async function GET() {
       WHERE p.user_id=$1 AND p.status::text<>'rejected' AND p.period_start<=$3::date AND p.period_end>=$2::date ORDER BY p.created_at DESC LIMIT 1`, [u.id, ws, we]),
   ]);
   const inPlan = new Set(plan.rows.map(p => p.doctor_id));
-  const late = stale.filter(s => !s.next_planned && !inPlan.has(s.id)).sort((a, b) => (a.classification === "A" ? 0 : 1) - (b.classification === "A" ? 0 : 1) || b.overdue_days - a.overdue_days);
+  const late = stale.filter(s => !s.paused && s.prio.tags.includes("late") && !s.in_plan_next && !inPlan.has(s.id))
+    .map(s => ({ ...s, classification: (s.classification || "").toUpperCase(), overdue_days: (s.days_since ?? 0) - (s.gap_days ?? 0) }));
   // last 6 months, zero-filled
   const months = Array.from({ length: 6 }, (_, i) => { const d = new Date(Date.UTC(Number(today.slice(0, 4)), Number(today.slice(5, 7)) - 6 + i, 1)); return d.toISOString().slice(0, 7); });
   const tv = new Map(trend.rows.map(r => [r.month, r.v]));

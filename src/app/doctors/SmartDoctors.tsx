@@ -4,8 +4,8 @@ import Link from "next/link";
 import type { HubDoctor } from "@/lib/doctors-hub";
 import type { ClinicBalance } from "@/lib/clinic-balances";
 import type { Prio, Tag, Tone } from "@/lib/doctor-priority";
+import { sar } from "@/lib/fmt";
 
-const sar = (n: number) => `${Math.round(n).toLocaleString("en-US")} ر.س`;
 const short = (d: string) => `${Number(d.slice(8, 10))}/${Number(d.slice(5, 7))}`;
 const TONE: Record<Tone, string> = { red: "text-red-700", amber: "text-amber-800", teal: "text-teal-700", gold: "text-amber-700", slate: "text-slate-600", navy: "text-[var(--navy)]", green: "text-emerald-700" };
 const RX: Record<string, [string, string]> = { interested: ["👍", "bg-emerald-50 text-emerald-800"], neutral: ["😐", "bg-slate-100 text-slate-700"], not_interested: ["👎", "bg-red-50 text-red-700"] };

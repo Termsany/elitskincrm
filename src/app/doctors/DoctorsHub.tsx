@@ -10,6 +10,7 @@ import { nextWorkDay, parseSmart, priority, type Prio, type Tag } from "@/lib/do
 import type { HubDoctor } from "@/lib/doctors-hub";
 import type { ClinicBalance } from "@/lib/clinic-balances";
 import type { Account } from "@/lib/clinic-account";
+import { addDays, sar, riyadhToday } from "@/lib/fmt";
 
 type Opt = { id: string; name: string };
 type Tab = "doctors" | "clinics" | "insights" | "requests" | "merge";
@@ -20,8 +21,7 @@ const FAV = "elite_doctor_favorites";
 const VIEWS = "elite_doctor_views";
 type SavedView = { name: string; q: string; city: string; cls: string; tag: Tag | ""; seg: Seg };
 const L = "ar-EG-u-nu-latn";
-const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date());
-const addDays = (d: string, n: number) => { const t = new Date(`${d}T12:00:00Z`); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
+const today = () => riyadhToday();
 const fmtD = (s: string | null) => s ? new Intl.DateTimeFormat(L, { day: "numeric", month: "short", timeZone: "Asia/Riyadh" }).format(new Date(s.length === 10 ? `${s}T12:00:00Z` : s)) : "—";
 
 type Health = "never" | "overdue" | "soon" | "ok";
@@ -354,7 +354,6 @@ function QuickView({ d, isAdmin, onClose, onPlan, onEdit, fav, toggleFav, sheet,
 }
 
 type ClinicGroup = { key: string; id: string | null; name: string; city: string | null; ds: HubDoctor[]; visits: number; overdue: number; never: number; covered: number; a: number; last: number | null };
-const sar = (n: number) => `${Math.round(n).toLocaleString("en-US")} ر.س`;
 const normName = (s: string | null) => (s || "").trim().toLowerCase();
 function balanceOf(g: ClinicGroup, bal: ClinicBalance[] | null) {
   if (!bal) return undefined;

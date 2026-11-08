@@ -5,6 +5,7 @@ import { computeFinance, loadInput, riyadhToday } from "@/lib/finance";
 import { levers, normWeights, scorecard, seasonalWeights, splitGoal, suggestGoals, validateGoals, type Goals } from "@/lib/fin-goals";
 import { loadGoals } from "@/lib/fin-cfo";
 import { setAnnual } from "@/lib/target-planning";
+import { addDays } from "@/lib/fmt";
 
 /** Reps' annual sales targets for the year (the rep side of the one target chain: company goal → reps → months). */
 async function repTargets(year: number) {
@@ -16,7 +17,6 @@ async function repTargets(year: number) {
 
 
 const forbid = () => NextResponse.json({ error: "Forbidden" }, { status: 403 });
-const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 864e5).toISOString().slice(0, 10);
 
 export async function GET(req: Request) {
   const u = await getCurrentUser(); if (!u || u.role !== "admin") return forbid();

@@ -1,11 +1,11 @@
 import { query } from "@/lib/db";
+import { UUID_RE, addDays } from "@/lib/fmt";
 
 /* ───────── Visit intelligence: quality score, location checks, bursts, summaries ───────── */
 export const DAY_RE = /^20\d\d-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
-export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export { UUID_RE };
 import { riyadhToday } from "@/lib/riyadh-day";
 export { riyadhToday };
-const addDays = (d: string, n: number) => { const x = new Date(`${d}T12:00:00Z`); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0, 10); };
 
 export function periodRange(period: string, from?: string | null, to?: string | null) {
   const t = riyadhToday();

@@ -5,6 +5,7 @@ import RepVisitsModal from "../visits/RepVisitsModal";
 import PulseBoard from "./PulseBoard";
 import InsightPanels from "./InsightPanels";
 import { PURPOSE_LABELS } from "@/lib/visit-entry";
+import { riyadhToday } from "@/lib/fmt";
 
 type Opt = { id: string; name: string };
 type ColType = "text" | "int" | "money" | "pct" | "date" | "datetime" | "time" | "status" | "reaction" | "approval" | "purpose";
@@ -23,7 +24,7 @@ const PURPOSE: Record<string, string> = PURPOSE_LABELS;
 const KPIS: Array<[keyof Totals, string]> = [["visits", "الزيارات"], ["completed", "المكتملة"], ["doctors", "الأطباء"], ["reps", "المناديب النشطون"], ["samples", "العينات"], ["orders", "الأوردرات"]];
 
 // ── dates (Riyadh, Sunday-first weeks) ──
-const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date());
+const today = () => riyadhToday();
 const add = (d: string, n: number) => { const t = new Date(`${d}T12:00:00Z`); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
 const dow = (d: string) => new Date(`${d}T12:00:00Z`).getUTCDay();
 const monthEnd = (d: string) => { const [y, m] = d.split("-").map(Number); return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10); };

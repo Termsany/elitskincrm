@@ -3,8 +3,8 @@ import { getCurrentUser } from "@/lib/session";
 import { riyadhToday } from "@/lib/riyadh-day";
 import { repWeek } from "@/lib/plan-week";
 import { currentWeekStart, weekday } from "@/lib/plan-week-core";
+import { UUID_RE } from "@/lib/fmt";
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DAY_RE = /^20\d\d-\d\d-\d\d$/;
 
 /** One rep's week (rep: own; admin: ?repId). ?start= a Sunday, defaults to the current week. */

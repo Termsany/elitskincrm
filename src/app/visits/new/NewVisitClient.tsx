@@ -13,6 +13,7 @@ import { OBJECTIONS, POSITIVES, ruleInsights } from "@/lib/visit-insights-rules"
 
 import { PURPOSE_LABELS, REACTION_LABELS, collectSampleItems, type Reaction, type SamplePurpose, type SampleRow } from "@/lib/visit-entry";
 import { classifyOfflineResponse, ensureIdempotencyKey } from "@/lib/idempotency-queue";
+import { riyadhToday } from "@/lib/fmt";
 
 type Doctor = { id:string; name:string; clinic_name:string; city:string; classification?: string|null };
 type Product = { id:string; name:string };
@@ -285,7 +286,7 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
   const [ctxLoading, setCtxLoading] = useState(false);
   const [todayPlan, setTodayPlan] = useState<TodayItem[]>([]);
   useEffect(() => {
-    const t = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date());
+    const t = riyadhToday();
     fetch(`/api/agenda?from=${t}&to=${t}`).then(r => r.ok ? r.json() : null).then(j => j && setTodayPlan((j.plan || []).map((p: Record<string, unknown>) => ({ id: String(p.id), doctor_id: String(p.doctor_id), doctor_name: String(p.doctor_name), clinic_name: String(p.clinic_name || ""), product_id: p.product_id ? String(p.product_id) : null, product_name: p.product_name ? String(p.product_name) : null, done: !!p.visit_id })))).catch(() => {});
     fetch("/api/products/catalog").then(r => r.ok ? r.json() : null).then(j => j && setCatalog(j.products)).catch(() => {});
   }, [setCatalog]);
@@ -335,7 +336,7 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
   ];
   const canSave = !loading && (locked || (!!doctorId && notesOk && !sampleInvalid));
 
-  const riyadhDay = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date());
+  const riyadhDay = riyadhToday();
   const planDone = todayPlan.filter(t => t.done).length;
   const nextPlan = todayPlan.find(t => !t.done && t.doctor_id !== doctorId) || null;
   const planIds = useMemo(() => new Set(todayPlan.filter(t => !t.done).map(t => t.doctor_id)), [todayPlan]);

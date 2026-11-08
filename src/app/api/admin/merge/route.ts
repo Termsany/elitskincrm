@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { query } from "@/lib/db";
 import { MergeError, mergeClinics, mergeDoctors, mergeSuggestions } from "@/lib/merge";
+import { UUID_RE } from "@/lib/fmt";
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 async function admin() { const u = await getCurrentUser(); return u && u.role === "admin" && !u.manager ? u : null; }
 
 /** Duplicate clinics / doctors: suggestions (GET), merge (POST), "not the same" (PUT). Admin only. */

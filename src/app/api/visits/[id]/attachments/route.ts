@@ -5,11 +5,11 @@ import { writeFile, mkdir, unlink } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { sniffUpload } from "@/lib/upload-sniff";
+import { UUID_RE } from "@/lib/fmt";
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || "/tmp/elite-crm-uploads";
 const MAX_BYTES = 10 * 1024 * 1024;
 const MAX_FILES_PER_VISIT = 20;
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }){
   const user = await getCurrentUser();

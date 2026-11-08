@@ -1,4 +1,5 @@
 import { query } from "@/lib/db";
+import { riyadhToday } from "@/lib/fmt";
 
 const SIGN = "(CASE WHEN fs.kind='return' THEN -1 ELSE fs.direction END)";
 export type RepRow = { rep_id: string; rep_name: string; annual: number; ytd: number; month_target: number; month_actual: number; month_forecast: number; pending: number };
@@ -39,7 +40,7 @@ export async function salesHub(u: { id: string; role: string }, year: number, re
   for (const r of ovr.rows) (target[r.rep_id] ||= {})[r.month] = Number(r.amount);
   const sum = (rows: Array<{ rep_id: string; month: string; value: string; qty: string }>) => { const m: Record<string, Record<string, { value: number; qty: number }>> = {}; for (const r of rows) (m[r.rep_id] ||= {})[r.month] = { value: Number(r.value), qty: Number(r.qty) }; return m; };
   const act = sum(sales.rows), fct = sum(fc.rows);
-  const nowMonth = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date()).slice(0, 7);
+  const nowMonth = riyadhToday().slice(0, 7);
   const monthly = months.map(m => ({
     month: m,
     target: ids.reduce((a, id) => a + (target[id]?.[m] || 0), 0),

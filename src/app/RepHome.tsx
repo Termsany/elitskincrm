@@ -72,9 +72,10 @@ export default function RepHome() {
     // next working day (Sun–Thu)
     let t = new Date(`${d!.today}T12:00:00Z`); do { t = new Date(t.getTime() + 864e5); } while (t.getUTCDay() === 5 || t.getUTCDay() === 6);
     setBusy(doc.id);
-    const r = await fetch("/api/dashboard/doctor-suggestions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ doctor_id: doc.id, planned_date: t.toISOString().slice(0, 10) }) });
+    const r = await fetch("/api/agenda/plan-items", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ doctorId: doc.id, date: t.toISOString().slice(0, 10) }) });
     const j = await r.json().catch(() => null); setBusy("");
-    if (!r.ok) { toast(j?.error || "تعذر الإضافة", "error"); return; }
+    if (!r.ok && r.status !== 202) { toast(j?.error || "تعذر الإضافة", "error"); return; }
+    if (r.status === 202) { setAdded(a => [...a, doc.id]); toast("خطتك معتمدة — اتبعت طلب للمدير يضيفه", "info"); return; }
     setAdded(a => [...a, doc.id]); toast(`اتضاف ${doc.name} لخطة ${new Intl.DateTimeFormat(L, { weekday: "long", timeZone: "UTC" }).format(t)} ✓`, "success");
   }
   async function draftWeek() {
@@ -152,7 +153,7 @@ export default function RepHome() {
 
   /* ───── late doctors ───── */
   const late = d.late.length > 0 && <section id="late-doctors" className={`${card} scroll-mt-24 p-4 sm:p-5`} style={{ animationDelay: "180ms" }}>
-    <Title icon="doctors" t="أطباء محتاجين زيارة" right={<Link href="/my/alerts" className="text-[11.5px] font-bold text-[var(--sky-deep)]">الكل ({d.lateCount}) ‹</Link>} />
+    <Title icon="doctors" t="أطباء محتاجين زيارة" right={<Link href="/doctors?tag=late" className="text-[11.5px] font-bold text-[var(--sky-deep)]">الكل ({d.lateCount}) ‹</Link>} />
     <ul className="grid gap-2 sm:grid-cols-2">{d.late.map(x => <li key={x.id} className="flex items-center gap-2.5 rounded-2xl border border-[var(--border)] p-2.5">
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[var(--sky-light)] text-sm font-extrabold text-[var(--navy)]">{x.name.replace(/^د\.?\s*/, "").trim()[0] || "د"}</span>
       <div className="min-w-0 flex-1"><b className="block truncate text-sm" dir="auto">{x.name}</b><span className="block truncate text-[11px] text-[var(--muted)]" dir="auto">{[x.clinic, x.city].filter(Boolean).join(" · ")}</span>

@@ -2,10 +2,10 @@ import { query } from "@/lib/db";
 import { gapSql } from "@/lib/my-alerts";
 import { getDetailedReportData } from "@/lib/report-data";
 import { reportDefinition, type ReportType } from "@/lib/reporting";
+import { UUID_RE, addDays } from "@/lib/fmt";
 
 // ───────────────────────── Filters ─────────────────────────
 export type ReportFilters = { from: string; to: string; repId: string; productId: string; city: string; status: string };
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DAY_RE = /^20\d\d-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 const STATUSES = new Set(["completed", "planned", "cancelled", "follow_up"]);
 
@@ -25,7 +25,6 @@ export function parseReportFilters(sp: URLSearchParams): ReportFilters {
   return { from, to, repId, productId, city, status };
 }
 
-const addDays = (d: string, n: number) => { const t = new Date(`${d}T12:00:00Z`); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
 const spanDays = (a: string, b: string) => Math.round((Date.parse(`${b}T12:00:00Z`) - Date.parse(`${a}T12:00:00Z`)) / 864e5) + 1;
 export function previousPeriod(f: ReportFilters) { const n = spanDays(f.from, f.to); return { from: addDays(f.from, -n), to: addDays(f.from, -1) }; }
 

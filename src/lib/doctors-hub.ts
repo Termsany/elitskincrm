@@ -31,7 +31,7 @@ export async function hubDoctors(u: { id: string; role: string }, days: number, 
     agg AS (SELECT v.doctor_id,
         count(*) FILTER (WHERE v.visited_at > now() - make_interval(days => $1::int))::int visits,
         count(*) FILTER (WHERE v.visited_at > now() - make_interval(days => $1::int) AND v.status='completed')::int completed,
-        count(*)::int total_visits, max(v.visited_at) last_visit,
+        count(*)::int total_visits, max(v.visited_at) FILTER (WHERE v.status::text IN ('completed','follow_up')) last_visit,
         string_agg(DISTINCT u.name, '، ') FILTER (WHERE v.visited_at > now() - make_interval(days => $1::int)) reps
       FROM v JOIN users u ON u.id=v.sales_rep_id GROUP BY v.doctor_id),
     lastv AS (SELECT DISTINCT ON (v.doctor_id) v.doctor_id, u.name last_rep, NULLIF(btrim(v.notes),'') last_note FROM v JOIN users u ON u.id=v.sales_rep_id ORDER BY v.doctor_id, v.visited_at DESC),

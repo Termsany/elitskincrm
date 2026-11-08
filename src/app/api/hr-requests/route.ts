@@ -4,8 +4,8 @@ import { getCurrentUser } from "@/lib/session";
 import { sniffUpload } from "@/lib/upload-sniff";
 import { riyadhToday } from "@/lib/visit-intel";
 import { LEAVE_TYPES, LETTER_TYPES, OPEN, VISA_TYPES, addMonths, daysBetween, hrRequests, hrTitle, isDate, isHrKind, leaveBalances, payrollMonth } from "@/lib/hr";
+import { addDays } from "@/lib/fmt";
 
-const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 864e5).toISOString().slice(0, 10);
 const bad = (error: string, status = 400) => NextResponse.json({ error }, { status });
 
 /** Rep: own employee requests, leave balance and this month's deductions. Admin: everything to decide + payroll for ?month. */

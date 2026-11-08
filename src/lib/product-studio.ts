@@ -1,6 +1,7 @@
 import { query } from "@/lib/db";
+import { UUID_RE } from "@/lib/fmt";
 
-export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export { UUID_RE };
 export const BROCHURE_MAX = 19 * 1024 * 1024;
 export const BROCHURE_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 export const isHtmlFile = (f: File) => /\.html?$/i.test(f.name) || f.type === "text/html";

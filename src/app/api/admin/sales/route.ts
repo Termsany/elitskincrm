@@ -3,10 +3,11 @@ import { getCurrentUser } from "@/lib/session";
 import { query } from "@/lib/db";
 import { UUID_RE } from "@/lib/ids";
 import { adminSalesView, arabicError, setProductTarget, syncDaftraClinics } from "@/lib/sales-admin";
+import { riyadhToday } from "@/lib/fmt";
 
 /** Admin sales & targets console (admin only). Approvals reuse /api/admin/forecast and /api/admin/forecast/targets. */
 async function admin() { const u = await getCurrentUser(); return u && u.role === "admin" ? u : null; }
-const nowParts = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date());
+const nowParts = () => riyadhToday();
 export async function GET(req: Request) {
   if (!await admin()) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const sp = new URL(req.url).searchParams, today = nowParts();
