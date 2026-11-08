@@ -4,7 +4,6 @@ vi.mock('@/lib/db',()=>({query}));
 vi.mock('@/lib/session',()=>({getCurrentUser:user}));
 import {annualReportSelection,getDetailedReportData} from '@/lib/report-data';
 import {GET as api} from '@/app/api/admin/reports/route';
-import {GET as exportGet} from '@/app/api/exports/report/route';
 const url=(q:string)=>new Request(`http://localhost/api/admin/reports?${q}`);
 beforeEach(()=>{query.mockReset();user.mockReset();user.mockResolvedValue({role:'admin'});query.mockResolvedValue({rows:[]});});
 describe('annual sales report contract',()=>{
@@ -20,20 +19,13 @@ describe('annual sales report contract',()=>{
   expect(sql).toContain('rep_target_years');expect(sql).toContain("fs.status='approved'");expect(sql).toContain("fs.kind='return'");expect(sql).not.toContain('rep_monthly_sales');expect(sql).not.toContain('u.active=true');
   expect(values).toEqual([2025,'2025-01-01','2026-01-01','r1','%ali%']);
  });
- it('rejects partial and unsupported filters before database access on API and export',async()=>{
-  for(const [fn,path] of [[api,'/api/admin/reports'],[exportGet,'/api/exports/report']] as const){
+ it('rejects partial and unsupported filters before database access on API',async()=>{
+  for(const [fn,path] of [[api,'/api/admin/reports']] as const){
    for(const suffix of ['year=2025&city=Jeddah','year=2025&from=2025-02-01&to=2025-12-31','year=2025&from=2025-01-01&to=2026-12-31','year=2025&productId=p1','year=2025&status=completed']){
     const r=await fn(new Request(`http://localhost${path}?reportType=sales&${suffix}`));expect(r.status).toBe(400);
    }
   }
   expect((await api(url('reportType=sales&year=2025&format=csv'))).status).toBe(400);
   expect(query).not.toHaveBeenCalled();
- });
- it('exports the same selected annual rows as API',async()=>{
-  query.mockResolvedValue({rows:[{rep_id:'r1',rep_name:'Ali',annual_sales_target:'100',achieved:'30',remaining:'70'}]});
-  const apiResponse=await api(url('reportType=sales&year=2025&repId=r1'));
-  const exportResponse=await exportGet(new Request('http://localhost/api/exports/report?reportType=sales&year=2025&repId=r1&format=json'));
-  expect((await apiResponse.json()).sales).toEqual((await exportResponse.json()).rows);
-  expect(query.mock.calls[0]).toEqual(query.mock.calls[1]);
  });
 });

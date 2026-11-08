@@ -1,26 +1,32 @@
 import { NextResponse } from "next/server";
 import { hitRateLimitDb } from "@/lib/rate-limit";
 import { query } from "@/lib/db";
-import { hashPassword } from "@/lib/auth";
 import { getClientIp } from "@/lib/client-ip";
-// Simple: if user provides email, admin can reset via this endpoint (admin-only in practice)
-// For self-service without email, we return generic message
-export async function POST(req: Request){
+
+// Self-service "forgot password": there is no mail flow, so the request goes to the admin(s),
+// who set a new password from the reps page. The answer is always the same (no account enumeration).
+export async function POST(req: Request) {
   const ip = getClientIp(req);
-  const rl=await hitRateLimitDb(`forgot:ip:${ip}`,5,10*60*1000);
-  if(!rl.allowed) return NextResponse.json({error:"حاول لاحقا"},{status:429});
-  const body = await req.json().catch(()=>null) as Record<string,unknown>|null;
-  const email = String(body?.email||"").trim().toLowerCase();
-  if (!email) return NextResponse.json({ error: "البريد مطلوب" }, { status: 400 });
-  // Generic response to avoid enumeration, but actually reset if admin calls
-  // Check if caller is admin via session — if not, just return success message
-  const { getCurrentUser } = await import("@/lib/session");
-  const caller = await getCurrentUser();
-  if (caller?.role === "admin" && body?.newPassword && String(body.newPassword).length >= 8) {
-    const h = await hashPassword(String(body.newPassword));
-    await query("UPDATE users SET password_hash=$1 WHERE lower(email)=lower($2)", [h, email]);
-    return NextResponse.json({ ok: true, reset: true });
+  const rl = await hitRateLimitDb(`forgot:ip:${ip}`, 5, 10 * 60 * 1000);
+  if (!rl.allowed) return NextResponse.json({ error: "حاول لاحقا" }, { status: 429 });
+  const body = await req.json().catch(() => null) as Record<string, unknown> | null;
+  const email = String(body?.email || "").trim().toLowerCase();
+  if (!email || !email.includes("@") || email.length > 200) return NextResponse.json({ error: "اكتب البريد الإلكتروني" }, { status: 400 });
+  const rl2 = await hitRateLimitDb(`forgot:email:${email}`, 2, 60 * 60 * 1000);
+  if (rl2.allowed) {
+    const u = await query<{ id: string; name: string }>("SELECT id, name FROM users WHERE lower(email)=$1 AND active=true AND role::text<>'admin'", [email]);
+    const user = u.rows[0];
+    if (user) {
+      const open = await query("SELECT 1 FROM password_reset_requests WHERE user_id=$1 AND handled_at IS NULL", [user.id]);
+      if (!open.rows.length) {
+        await query("INSERT INTO password_reset_requests(user_id) VALUES($1)", [user.id]);
+        await query(
+          `INSERT INTO task_notifications(user_id, task_id, kind, message, action_url)
+           SELECT id, NULL, 'password_reset_request', $1, '/admin/reps' FROM users WHERE role::text='admin' AND active=true`,
+          [`${user.name} طلب إعادة تعيين كلمة السر`],
+        ).catch(() => {});
+      }
+    }
   }
-  // For non-admin, just acknowledge
-  return NextResponse.json({ ok: true, message: "تواصل مع الأدمن لإعادة التعيين" });
+  return NextResponse.json({ ok: true, message: "لو الحساب موجود وصل الطلب للأدمن، وهيبعتلك كلمة سر جديدة." });
 }

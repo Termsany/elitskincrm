@@ -24,7 +24,7 @@ type Hist = { id: string; status: string; note: string; admin_note: string; crea
 type Detail = { plan: Plan & Record<string, unknown>; items: Array<Record<string, any>>; revisions: Array<{ id: string; user_name: string; note: string; created_at: string }>; comments: Array<{ id: string; body: string; user_name: string; created_at: string }>; change_request: ChangeReq | null; change_history: Hist[] };
 type QueueReq = { id: string; plan_id: string; note: string; proposed_items: Array<Record<string, any>>; created_at: string; requested_by_name: string; ps: string; pe: string };
 type EditMode = null | "admin" | "rep-direct" | "rep-request";
-type Tab = "overview" | "review" | "builder" | "plans" | "execution";
+type Tab = "overview" | "review" | "builder" | "plans";
 
 const L = "ar-EG-u-nu-latn";
 const d10 = (v: unknown) => String(v ?? "").slice(0, 10);
@@ -155,9 +155,6 @@ export default function PlansClient({ isAdmin, reps, doctors, products, initialS
   const [frequencies, setFrequencies] = useState<Array<{ classification: string; visits_per_month: number }>>([]);
   const [coverage, setCoverage] = useState<Array<{ classification: string; freq: number; doctors: number; expected: number; planned: number; coverage: number }>>([]);
   const [compliance, setCompliance] = useState<Array<{ user_id: string; name: string; totalPlanned: number; totalDone: number; adherence: number }>>([]);
-  const [executionRows, setExecutionRows] = useState<Array<Record<string, any>>>([]);
-  const [executionSummary, setExecutionSummary] = useState({ planned: 0, done: 0, missed: 0 });
-  const [executionLoading, setExecutionLoading] = useState(false);
   const [current, setCurrent] = useState<Detail | null>(null);
 
   const days = periodDays(start, planPeriod);
@@ -188,15 +185,6 @@ export default function PlansClient({ isAdmin, reps, doctors, products, initialS
     ]);
     if (a?.plans) setReviewPlans(a.plans);
     if (b?.requests) setQueue(b.requests);
-  }
-  async function loadExecution() {
-    setExecutionLoading(true);
-    const base = start || today; const e = new Date(base + "T12:00:00"); e.setDate(e.getDate() + 29);
-    const p = new URLSearchParams({ start: base, end: iso(e) });
-    if (isAdmin && viewRepId) p.set("repId", viewRepId);
-    const r = await fetch(`/api/plans/calendar?${p}`, { cache: "no-store" }).then(x => x.json()).catch(() => null);
-    if (r) { setExecutionRows(r.rows || []); setExecutionSummary(r.summary || { planned: 0, done: 0, missed: 0 }); }
-    setExecutionLoading(false);
   }
   async function loadIQVIA(rep = viewRepId) {
     const fr = await fetch("/api/plans/frequencies").then(x => x.json()).catch(() => null);
@@ -383,7 +371,7 @@ export default function PlansClient({ isAdmin, reps, doctors, products, initialS
     await fetch(`/api/plans/${detail.plan.id}/comments`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ body: commentBody }) });
     setCommentBody(""); await openDetailById(String(detail.plan.id));
   }
-  function goTab(t: Tab) { setTab(t); if (t === "execution") void loadExecution(); if (t === "review") void loadReview(); if (t !== "builder" && detail && device === "desktop" && t !== "review") setDetail(null); }
+  function goTab(t: Tab) { setTab(t); if (t === "review") void loadReview(); if (t !== "builder" && detail && device === "desktop" && t !== "review") setDetail(null); }
 
   // ───────────── render helpers ─────────────
   const repName = (id: string) => reps.find(r => r.id === id)?.name || "";
@@ -645,13 +633,6 @@ export default function PlansClient({ isAdmin, reps, doctors, products, initialS
     </div>
   </div>;
 
-  const execGroups = Object.entries(executionRows.reduce((g: Record<string, Array<Record<string, any>>>, row) => { (g[d10(row.planned_date)] ||= []).push(row); return g; }, {})).sort(([a], [b]) => a.localeCompare(b));
-  const execution = <div className="space-y-3">
-    <div className={`${card} flex flex-wrap items-center justify-between gap-3 p-4`}><div><div className="font-extrabold text-[var(--navy)]">تنفيذ الخطط — 30 يوم</div><div className="text-xs text-[var(--muted)]">الزيارة بتتحسب منفذة لما تتسجل مكتملة أو متابعة لنفس الطبيب في نفس اليوم</div></div><div className="flex items-center gap-2">{isAdmin && <select value={viewRepId} onChange={e => setViewRepId(e.target.value)} className={`${field} w-44`}><option value="">كل المناديب</option>{reps.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}</select>}<button disabled={executionLoading} onClick={() => void loadExecution()} className={btnGhost}>{executionLoading ? "جاري…" : "تحديث"}</button></div></div>
-    <div className="grid grid-cols-3 gap-2">{kpi("مخططة", executionSummary.planned, "زيارة")}{kpi("منفذة", executionSummary.done, executionSummary.planned ? `${Math.round(executionSummary.done / executionSummary.planned * 100)}%` : "—", "text-emerald-700")}{kpi("فائتة", executionSummary.missed, "محتاجة تعويض", "text-red-700")}</div>
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{execGroups.map(([day, rows]) => { const done = rows.filter(r => r.done).length; return <div key={day} className={`${card} rounded-2xl p-3`}><div className="mb-2 flex items-center justify-between"><div className="font-extrabold text-[var(--navy)]">{fd(day, { weekday: "long", day: "numeric", month: "short" })}</div><span className={`rounded-full px-2 py-0.5 text-xs font-bold ${done === rows.length ? "bg-emerald-100 text-emerald-800" : day < today ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600"}`}>{done}/{rows.length}</span></div><div className="space-y-1.5">{rows.map(row => <div key={String(row.id)} className={`flex items-center gap-2 rounded-xl border p-2 ${row.done ? "border-emerald-200 bg-emerald-50/60" : day < today ? "border-red-100 bg-red-50/40" : "border-[var(--border)]"}`}><span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs ${row.done ? "bg-emerald-600 text-white" : "border bg-white"}`}>{row.done ? <Icon name="check" size={11} /> : null}</span><div className="min-w-0 flex-1"><div className="truncate text-sm font-bold">{String(row.doctor_name || "")}</div><div className="truncate text-[11px] text-[var(--muted)]">{isAdmin && row.user_name ? `${row.user_name} · ` : ""}{String(row.product_name || "بدون منتج")} · {String(row.clinic_name || "")}</div></div>{!isAdmin && !row.done && day <= today && <a href={`/visits/new?doctorId=${row.doctor_id}${row.product_id ? `&productId=${row.product_id}` : ""}`} className="text-[11px] font-bold text-[var(--navy)]">سجّل ‹</a>}</div>)}</div></div>; })}
-      {!execGroups.length && !executionLoading && <div className={`${card} p-8 text-center text-sm text-[var(--muted)] md:col-span-2 xl:col-span-3`}>مفيش زيارات مخططة في الفترة دي</div>}</div>
-  </div>;
 
   return (
     <div className="mt-4 space-y-3 pb-20 lg:pb-0">
@@ -672,7 +653,6 @@ export default function PlansClient({ isAdmin, reps, doctors, products, initialS
         : reviewQueue)}
       {tab === "builder" && builder}
       {tab === "plans" && plansView}
-      {tab === "execution" && execution}
       <div className="text-center"><a href="/plans" className="text-xs font-bold text-teal-700">متابعة التنفيذ يوم بيوم ← {isAdmin ? "خطط الفريق" : "خطتي الأسبوع ده"}</a></div>
 
       {detail && !inlineReview && <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 backdrop-blur-[2px] sm:items-center sm:p-4" onClick={() => setDetail(null)}>
