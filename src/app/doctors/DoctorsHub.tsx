@@ -4,16 +4,21 @@ import Link from "next/link";
 import { createPortal } from "react-dom";
 import { useToast } from "@/components/Toast";
 import DoctorRequestsClient from "../admin/requests/DoctorRequestsClient";
+import MergeTab from "./MergeTab";
+import { SmartTiles, SmartCard, PlanWeekCard, TeamCoverage, ClinicMini, last6 } from "./SmartDoctors";
+import { nextWorkDay, parseSmart, priority, type Prio, type Tag } from "@/lib/doctor-priority";
 import type { HubDoctor } from "@/lib/doctors-hub";
 import type { ClinicBalance } from "@/lib/clinic-balances";
 import type { Account } from "@/lib/clinic-account";
 
 type Opt = { id: string; name: string };
-type Tab = "doctors" | "clinics" | "insights" | "requests";
+type Tab = "doctors" | "clinics" | "insights" | "requests" | "merge";
 type Seg = "all" | "overdue" | "never" | "followup" | "interested" | "planned" | "favorites" | "paused";
 type Form = { name: string; clinic_name: string; city: string; specialty: string; classification: string; phone: string; email: string };
 const EMPTY: Form = { name: "", clinic_name: "", city: "", specialty: "", classification: "", phone: "", email: "" };
 const FAV = "elite_doctor_favorites";
+const VIEWS = "elite_doctor_views";
+type SavedView = { name: string; q: string; city: string; cls: string; tag: Tag | ""; seg: Seg };
 const L = "ar-EG-u-nu-latn";
 const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh" }).format(new Date());
 const addDays = (d: string, n: number) => { const t = new Date(`${d}T12:00:00Z`); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
@@ -53,7 +58,7 @@ export default function DoctorsHub({ isAdmin, canLink = false, reps, initialQ = 
   const [city, setCity] = useState(""); const [cls, setCls] = useState(""); const [clinic, setClinic] = useState("");
   const [sort, setSort] = useState<{ k: string; dir: 1 | -1 }>({ k: "priority", dir: 1 });
   const [fav, setFav] = useState<string[]>([]);
-  const [view, setView] = useState<"table" | "cards">("table");
+  const [view, setView] = useState<"table" | "cards">("cards");
   const [sel, setSel] = useState<HubDoctor | null>(null);
   const [checked, setChecked] = useState<string[]>([]);
   const [form, setForm] = useState<{ doc: HubDoctor | null; f: Form } | null>(null);
@@ -61,7 +66,13 @@ export default function DoctorsHub({ isAdmin, canLink = false, reps, initialQ = 
   const [showF, setShowF] = useState(false);
   const [bal, setBal] = useState<ClinicBalance[] | null>(null);
   const [openClinic, setOpenClinic] = useState<ClinicGroup | null>(null);
-  useEffect(() => { if (tab !== "clinics" || bal) return; fetch("/api/clinics/balances").then(r => r.ok ? r.json() : null).then(j => setBal(j?.clinics || [])).catch(() => setBal([])); }, [tab, bal]);
+  const [tag, setTag] = useState<Tag | "">("");
+  const [views, setViews] = useState<SavedView[]>([]);
+  const [naming, setNaming] = useState<string | null>(null);
+  const [added, setAdded] = useState<string[]>([]);
+  useEffect(() => { try { setViews(JSON.parse(localStorage.getItem(VIEWS) || "[]")); } catch { /* */ } }, []);
+  const saveViews = (v: SavedView[]) => { setViews(v); try { localStorage.setItem(VIEWS, JSON.stringify(v)); } catch { /* */ } };
+  useEffect(() => { if (bal) return; fetch("/api/clinics/balances").then(r => r.ok ? r.json() : null).then(j => setBal(j?.clinics || [])).catch(() => setBal([])); }, [bal]);
 
   useEffect(() => { try { setFav(JSON.parse(localStorage.getItem(FAV) || "[]")); } catch { /* */ } }, []);
   useEffect(() => {
@@ -76,23 +87,33 @@ export default function DoctorsHub({ isAdmin, canLink = false, reps, initialQ = 
   const all = rows || [];
   const cities = useMemo(() => [...new Set(all.map(d => d.city).filter(Boolean) as string[])].sort(), [all]);
   const clinics = useMemo(() => [...new Set(all.map(d => d.clinic_name).filter(Boolean) as string[])].sort(), [all]);
+  const todayStr = today();
+  const months = useMemo(() => last6(todayStr), [todayStr]);
+  const balOf = useMemo(() => {
+    const byId = new Map((bal || []).map(b => [b.id, b])), byName = new Map((bal || []).map(b => [b.name.trim().toLowerCase(), b]));
+    return (d: HubDoctor) => bal ? (d.clinic_id && byId.get(d.clinic_id)) || byName.get((d.clinic_name || "").trim().toLowerCase()) || null : undefined;
+  }, [bal]);
+  const prio = useMemo(() => new Map<string, Prio>(all.map(d => [d.id, priority(d, balOf(d), todayStr)])), [all, balOf, todayStr]);
+  const smart = useMemo(() => parseSmart(q, cities), [q, cities]);
+  const tileCounts = useMemo(() => { const c: Record<string, number> = {}; for (const d of all) if (!d.paused) for (const t of prio.get(d.id)?.tags || []) c[t] = (c[t] || 0) + 1; return c; }, [all, prio]);
   const counts = useMemo(() => ({
     all: all.length, overdue: all.filter(d => health(d) === "overdue").length, never: all.filter(d => health(d) === "never").length,
     followup: all.filter(d => d.next_follow_up).length, interested: all.filter(d => (interestPct(d) ?? 0) >= 50).length, planned: all.filter(d => d.in_plan_next).length, favorites: all.filter(d => fav.includes(d.id)).length, paused: all.filter(d => d.paused).length,
   }), [all, fav]);
   const list = useMemo(() => {
-    const t = q.trim().toLowerCase();
-    const xs = all.filter(d => (!t || `${d.name} ${d.clinic_name} ${d.city} ${d.specialty} ${d.phone}`.toLowerCase().includes(t)) && (!city || d.city === city) && (!cls || d.classification === cls) && (!clinic || d.clinic_name === clinic)
+    const t = smart.text.trim().toLowerCase(); const fc = smart.cls || cls, fcity = smart.city || city; const tags = [...smart.tags, ...(tag ? [tag] : [])];
+    const xs = all.filter(d => (!t || `${d.name} ${d.clinic_name} ${d.city} ${d.specialty} ${d.phone}`.toLowerCase().includes(t)) && (!fcity || d.city === fcity) && (!fc || d.classification === fc) && (!clinic || d.clinic_name === clinic)
+      && (!tags.length || (!d.paused && tags.every(x => prio.get(d.id)?.tags.includes(x))))
       && (seg === "all" || (seg === "overdue" && health(d) === "overdue") || (seg === "never" && health(d) === "never") || (seg === "followup" && !!d.next_follow_up)
         || (seg === "interested" && (interestPct(d) ?? 0) >= 50) || (seg === "planned" && !!d.in_plan_next) || (seg === "favorites" && fav.includes(d.id)) || (seg === "paused" && d.paused)));
     const pri = (d: HubDoctor) => { const h = health(d); const c = d.classification === "A" ? 0 : d.classification === "B" ? 1 : 2; return (h === "overdue" ? 0 : h === "never" ? 1 : h === "soon" ? 2 : 3) * 10 + c; };
-    const val = (d: HubDoctor): number | string => sort.k === "priority" ? pri(d) * 10000 - (d.days_since ?? 9999) : sort.k === "name" ? d.name : sort.k === "visits" ? d.visits : sort.k === "interest" ? (interestPct(d) ?? -1) : sort.k === "last" ? (d.days_since ?? 99999) : sort.k === "samples" ? d.samples : d.name;
+    const val = (d: HubDoctor): number | string => sort.k === "priority" ? -(prio.get(d.id)?.score ?? 0) * 100000 + pri(d) * 100 - Math.min(d.days_since ?? 999, 999) / 10 : sort.k === "name" ? d.name : sort.k === "visits" ? d.visits : sort.k === "interest" ? (interestPct(d) ?? -1) : sort.k === "last" ? (d.days_since ?? 99999) : sort.k === "samples" ? d.samples : d.name;
     return [...xs].sort((a, b) => { const x = val(a), y = val(b); return (typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y))) * sort.dir; });
-  }, [all, q, city, cls, clinic, seg, fav, sort]);
+  }, [all, smart, city, cls, clinic, seg, fav, sort, tag, prio]);
   // cards: render a page at a time (174 cards = ~35,000px on a phone); more load as you scroll
   const PAGE = 24;
   const [limit, setLimit] = useState(PAGE);
-  useEffect(() => { setLimit(PAGE); }, [q, city, cls, clinic, seg, sort]);
+  useEffect(() => { setLimit(PAGE); }, [q, city, cls, clinic, seg, sort, tag]);
   const more = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const el = more.current; if (!el || typeof IntersectionObserver === "undefined") return;
@@ -111,6 +132,15 @@ export default function DoctorsHub({ isAdmin, canLink = false, reps, initialQ = 
     setChecked([]); setReload(n => n + 1);
   }
   const canPause = !isAdmin || !!repId;
+  async function tomorrow(d: HubDoctor) {
+    if (isAdmin && !repId) { toast("اختار المندوب من فوق الأول", "info"); return; }
+    const date = nextWorkDay(todayStr);
+    const r = await fetch("/api/agenda/plan-items", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ date, doctorId: d.id, repId: isAdmin ? repId : undefined }) });
+    const j = await r.json().catch(() => null);
+    if (!r.ok && r.status !== 202) { toast(j?.error || "تعذر الإضافة", "error"); return; }
+    setAdded(a => [...a, d.id]); setRows(rs => rs && rs.map(x => x.id === d.id ? { ...x, in_plan_next: x.in_plan_next && x.in_plan_next < date ? x.in_plan_next : date } : x));
+    toast(r.status === 202 ? "اتبعت كطلب للمدير يضيفه لخطتك" : `اتضاف لخطة ${new Intl.DateTimeFormat("ar-EG", { weekday: "long", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`))}`, "success");
+  }
   const monthName = new Intl.DateTimeFormat("ar-EG-u-nu-latn", { month: "long", timeZone: "Asia/Riyadh" }).format(new Date());
   async function setPaused(ids: string[], paused: boolean) {
     if (!canPause) { toast("اختار المندوب من فوق الأول", "info"); return; }
@@ -137,7 +167,7 @@ export default function DoctorsHub({ isAdmin, canLink = false, reps, initialQ = 
   const effView = mode === "desktop" ? view : "cards";
 
   const SEGS: Array<[Seg, string, string]> = [["all", "الكل", ""], ["overdue", "متأخرين", "text-red-700"], ["never", "ما اتزاروش", ""], ["followup", "متابعات", "text-amber-700"], ["interested", "مهتمين", "text-emerald-700"], ["planned", "في الخطة", ""], ["favorites", "★ المفضلة", ""], ...(canPause ? [["paused", "⏸ Inactive الشهر ده", "text-slate-600"] as [Seg, string, string]] : [])];
-  const TABS: Array<[Tab, string]> = [["doctors", "الأطباء"], ["clinics", "العيادات"], ["insights", "الأداء والتحليل"], ["requests", isAdmin ? `طلبات التعديل${pending ? ` (${pending})` : ""}` : `طلباتي${pending ? ` (${pending})` : ""}`]];
+  const TABS: Array<[Tab, string]> = [["doctors", "الأطباء"], ["clinics", "العيادات"], ["insights", "الأداء والتحليل"], ["requests", isAdmin ? `طلبات التعديل${pending ? ` (${pending})` : ""}` : `طلباتي${pending ? ` (${pending})` : ""}`], ...(canLink ? [["merge", "دمج المكرر"] as [Tab, string]] : [])];
 
   return (
     <div className="mt-4 space-y-3 pb-20 lg:pb-0">
@@ -154,7 +184,7 @@ export default function DoctorsHub({ isAdmin, canLink = false, reps, initialQ = 
         </div>
         {(tab === "doctors" || tab === "clinics") && <>
           <div className="flex flex-wrap gap-2">
-            <input value={q} onChange={e => setQ(e.target.value)} placeholder="🔍 اسم، عيادة، مدينة، تخصص، تليفون…" className="flex-1 min-w-[200px] h-10 rounded-xl border border-[var(--border)] px-3 text-sm" />
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder={tab === "doctors" ? "🔍 جرّب: A متأخر الخبر — أو اسم، عيادة، تليفون" : "🔍 اسم، عيادة، مدينة…"} className="flex-1 min-w-[200px] h-10 rounded-xl border border-[var(--border)] px-3 text-sm" />
             {mode === "phone" && <button onClick={() => setShowF(x => !x)} className={`h-10 rounded-xl border px-3 text-sm font-bold ${showF || city || cls || clinic ? "border-[var(--navy)] text-[var(--navy)]" : "border-[var(--border)]"}`}>فلاتر{city || cls || clinic ? " •" : ""}</button>}
             {(mode !== "phone" || showF) && <>
             <select value={city} onChange={e => setCity(e.target.value)} className="h-10 rounded-xl border border-[var(--border)] px-2 text-sm"><option value="">كل المدن</option>{cities.map(c => <option key={c}>{c}</option>)}</select>
@@ -165,25 +195,48 @@ export default function DoctorsHub({ isAdmin, canLink = false, reps, initialQ = 
             </>}
             {tab === "doctors" && mode === "desktop" && <div className="flex rounded-xl bg-[var(--bg)] p-1">{([["table", "☰"], ["cards", "▦"]] as const).map(([v, l]) => <button key={v} onClick={() => setView(v)} className={`w-9 rounded-lg text-sm ${view === v ? "bg-white shadow" : ""}`}>{l}</button>)}</div>}
           </div>
-          {tab === "doctors" && <div className="flex gap-1.5 overflow-x-auto -mx-1 px-1">{SEGS.map(([k, l, c]) => <button key={k} onClick={() => setSeg(k)} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-bold border ${seg === k ? "bg-[var(--navy)] text-white border-[var(--navy)]" : `bg-white border-[var(--border)] ${c}`}`}>{l} <span className="opacity-70">{rows ? counts[k] : "…"}</span></button>)}</div>}
+          {tab === "doctors" && (smart.cls || smart.city || smart.tags.length > 0) && <div className="text-[11px] font-bold text-teal-700">🧠 فهمت: {[smart.cls && `فئة ${smart.cls}`, ...smart.tags.map(x => ({ late: "متأخرين", a_late: "A متأخرين", followup: "متابعات", hot: "مهتمين وما اشتروش", reorder: "ميعاد طلب", never: "ما اتزاروش", debt: "عليهم متأخرات", planned: "في الخطة" })[x]), smart.city, smart.text && `«${smart.text}»`].filter(Boolean).join(" · ")}</div>}
+          {tab === "doctors" && <div className="-mx-1 flex items-center gap-1.5 overflow-x-auto px-1">
+            {SEGS.filter(([k]) => ["all", "favorites", "planned", "paused"].includes(k) || k === seg).map(([k, l, c]) => <button key={k} onClick={() => setSeg(k)} className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-bold border ${seg === k ? "bg-[var(--navy)] text-white border-[var(--navy)]" : `bg-white border-[var(--border)] ${c}`}`}>{l} <span className="opacity-70">{rows ? counts[k] : "…"}</span></button>)}
+            {views.map(v => <span key={v.name} className="inline-flex shrink-0 items-center rounded-full border border-amber-200 bg-amber-50 text-xs font-bold text-amber-900"><button type="button" onClick={() => { setQ(v.q); setCity(v.city); setCls(v.cls); setTag(v.tag); setSeg(v.seg); }} className="py-1.5 pr-3 pl-1">⭐ {v.name}</button><button type="button" aria-label={`حذف ${v.name}`} onClick={() => saveViews(views.filter(x => x.name !== v.name))} className="px-2 py-1.5 opacity-60 hover:opacity-100">✕</button></span>)}
+            {naming === null ? <button type="button" onClick={() => setNaming("")} className="shrink-0 rounded-full border border-dashed border-[var(--border-strong)] px-3 py-1.5 text-xs font-bold text-[var(--muted)]">＋ حفظ العرض ده</button>
+              : <form onSubmit={e => { e.preventDefault(); const n = (naming || "").trim(); if (!n) return; saveViews([...views.filter(x => x.name !== n), { name: n.slice(0, 30), q, city, cls, tag, seg }]); setNaming(null); toast("اتحفظ العرض", "success"); }} className="flex shrink-0 items-center gap-1">
+                <input autoFocus value={naming} onChange={e => setNaming(e.target.value)} placeholder="اسم العرض" className="h-8 w-32 rounded-full border border-[var(--border)] px-3 text-xs" /><button className="h-8 rounded-full bg-[var(--navy)] px-3 text-xs font-bold text-white">حفظ</button><button type="button" onClick={() => setNaming(null)} className="h-8 px-2 text-xs">✕</button></form>}
+          </div>}
         </>}
       </div>
 
-      {!rows && tab !== "requests" && <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">{[0, 1, 2, 3, 4, 5].map(i => <div key={i} className="h-32 rounded-3xl bg-white animate-pulse" />)}</div>}
+      {!rows && tab !== "requests" && tab !== "merge" && <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">{[0, 1, 2, 3, 4, 5].map(i => <div key={i} className="h-32 rounded-3xl bg-white animate-pulse" />)}</div>}
 
       {rows && tab === "doctors" && <>
         {canPause && mode !== "phone" && Number(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh", day: "numeric" }).format(new Date())) <= 7 && !counts.paused && <div className="dz-in flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--sky-border)] bg-[var(--sky-light)] px-4 py-3 text-sm"><span className="text-lg">🗓️</span><span className="flex-1"><b className="text-[var(--navy)]">بداية شهر {monthName}:</b> حدد الأطباء اللي مش هتزورهم الشهر ده واعملهم <b>Inactive</b> — كده التغطية تتحسب على الأطباء الحقيقيين بس.</span><span className="text-[11px] text-[var(--muted)]">علّم عليهم من الجدول ← «Inactive الشهر ده»</span></div>}
         {checked.length > 0 && <BulkBar n={checked.length} onPlan={d => void addToPlan(checked, d)} exportHref={exportUrl(checked)} onClear={() => setChecked([])} needRep={isAdmin && !repId} onPause={canPause ? (p => void setPaused(checked, p)) : undefined} />}
+        <SmartTiles counts={tileCounts} active={tag} onPick={t => { setTag(t); if (t) setSeg("all"); }} loading={!bal} />
         {effView === "table" ? <Table list={list} checked={checked} setChecked={setChecked} fav={fav} toggleFav={toggleFav} onOpen={setSel} sort={sort} setSort={setSort} />
-          : <div className={`grid gap-3 ${mode === "phone" ? "" : "sm:grid-cols-2 xl:grid-cols-3"}`}>{list.slice(0, limit).map(d => <DocCard key={d.id} d={d} fav={fav.includes(d.id)} toggleFav={() => toggleFav(d.id)} onOpen={() => setSel(d)} isAdmin={isAdmin} />)}</div>}
+          : <div className={mode === "desktop" ? "grid grid-cols-[minmax(0,1fr)_380px] items-start gap-4" : "space-y-3"}>
+            <div className="min-w-0 space-y-3">
+              {mode !== "desktop" && !isAdmin && <PlanWeekCard list={all} prio={prio} />}
+              {list.length > 0 && <div className="flex items-baseline gap-2 px-1"><h2 className="text-base font-extrabold text-[var(--navy)]">{sort.k === "priority" ? "الأولوية للزيارة" : "الأطباء"}</h2><span className="rounded-full bg-[var(--bg)] px-2 py-0.5 text-[11px] font-bold">{list.length} من {all.length}</span>{sort.k === "priority" && <span className="text-[11px] text-[var(--muted)]">مرتبين حسب المتابعات والتأخير وفرص الطلب</span>}</div>}
+              {list.slice(0, limit).map((d, i) => <div key={d.id} className="es-card-in" style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}><SmartCard d={d} p={prio.get(d.id)!} b={balOf(d)} months={months} today={todayStr} fav={fav.includes(d.id)} toggleFav={() => toggleFav(d.id)}
+                onOpen={() => setSel(d)} selected={mode === "desktop" && sel?.id === d.id} isAdmin={isAdmin} checked={checked.includes(d.id)} onCheck={() => setChecked(x => x.includes(d.id) ? x.filter(y => y !== d.id) : [...x, d.id])}
+                onTomorrow={() => void tomorrow(d)} added={added.includes(d.id)} onPause={canPause ? (p => void setPaused([d.id], p)) : undefined} onEdit={() => openForm(d)} monthName={monthName} /></div>)}
+            </div>
+            {mode === "desktop" && <aside className="sticky top-[9.5rem] space-y-3">
+              {sel ? <QuickView key={sel.id} inline d={sel} isAdmin={isAdmin} onClose={() => setSel(null)} onPlan={date => { void addToPlan([sel.id], date); }} onEdit={() => openForm(sel)} fav={fav.includes(sel.id)} toggleFav={() => toggleFav(sel.id)} sheet={false} onPause={canPause ? (p => { void setPaused([sel.id], p); setSel({ ...sel, paused: p }); }) : undefined} monthName={monthName} />
+                : <div className="rounded-[26px] border border-dashed border-[var(--border-strong)] bg-white p-5 text-center text-sm text-[var(--muted)]">دوس على أي طبيب تشوف ملخصه هنا: آخر الزيارات وحساب العيادة وإضافته للخطة</div>}
+              {!isAdmin && <PlanWeekCard list={all} prio={prio} />}
+              {isAdmin && !repId && <TeamCoverage rows={all} reps={reps} />}
+            </aside>}
+          </div>}
         {effView !== "table" && list.length > limit && <div ref={more} className="flex justify-center"><button type="button" onClick={() => setLimit(l => l + PAGE)} className="min-h-11 rounded-2xl border border-[var(--border)] bg-white px-5 text-sm font-bold text-[var(--navy)]">عرض المزيد ({list.length - limit} باقي)</button></div>}
         {!list.length && <div className="rounded-3xl border border-dashed border-[var(--border-strong)] bg-white p-10 text-center text-[var(--muted)]">لا يوجد أطباء مطابقين</div>}
       </>}
       {rows && tab === "clinics" && <Clinics rows={all.filter(d => (!city || d.city === city) && (!cls || d.classification === cls) && (!q.trim() || `${d.clinic_name} ${d.city}`.toLowerCase().includes(q.trim().toLowerCase())))} bal={bal} onOpen={setOpenClinic} />}
       {rows && tab === "insights" && <Insights rows={all} days={days} onSeg={(s, c) => { setSeg(s); if (c !== undefined) setCls(c); setTab("doctors"); }} onOpen={setSel} />}
+      {tab === "merge" && canLink && <MergeTab onChanged={() => { setReload(n => n + 1); setBal(null); }} />}
       {tab === "requests" && (isAdmin ? <div className="rounded-3xl border border-[var(--border)] bg-white p-3"><DoctorRequestsClient /></div> : <MyRequests />)}
 
-      {sel && <QuickView d={sel} isAdmin={isAdmin} onClose={() => setSel(null)} onPlan={date => { void addToPlan([sel.id], date); setSel(null); }} onEdit={() => { openForm(sel); setSel(null); }} fav={fav.includes(sel.id)} toggleFav={() => toggleFav(sel.id)} sheet={mode === "phone"} onPause={canPause ? (p => { void setPaused([sel.id], p); setSel({ ...sel, paused: p }); }) : undefined} monthName={monthName} />}
+      {sel && !(mode === "desktop" && effView === "cards" && tab === "doctors") && <QuickView d={sel} isAdmin={isAdmin} onClose={() => setSel(null)} onPlan={date => { void addToPlan([sel.id], date); setSel(null); }} onEdit={() => { openForm(sel); setSel(null); }} fav={fav.includes(sel.id)} toggleFav={() => toggleFav(sel.id)} sheet={mode === "phone"} onPause={canPause ? (p => { void setPaused([sel.id], p); setSel({ ...sel, paused: p }); }) : undefined} monthName={monthName} />}
       {openClinic && <ClinicPanel g={openClinic} canLink={canLink} sheet={mode === "phone"} onClose={() => setOpenClinic(null)}
         onDoctor={d => { setOpenClinic(null); setSel(d); }} onFilter={() => { setClinic(openClinic.name); setTab("doctors"); setSeg("all"); setOpenClinic(null); }} />}
       {form && <DoctorForm form={form} setForm={setForm} isAdmin={isAdmin} cities={cities} clinics={clinics} onSave={() => void saveForm()} />}
@@ -199,31 +252,6 @@ function HealthPill({ d }: { d: HubDoctor }) {
 }
 const ClassBadge = ({ c }: { c: string | null }) => <span className={`h-9 w-9 shrink-0 rounded-xl grid place-items-center text-sm font-extrabold ${c === "A" ? "bg-[var(--navy)] text-white" : c === "B" ? "bg-[var(--sky-soft)] text-[var(--navy)]" : "bg-slate-100 text-slate-600"}`}>{c || "—"}</span>;
 
-function DocCard({ d, fav, toggleFav, onOpen, isAdmin }: { d: HubDoctor; fav: boolean; toggleFav: () => void; onOpen: () => void; isAdmin: boolean }) {
-  const ip = interestPct(d); const phone = (d.phone || "").replace(/\s/g, "");
-  return (
-    <div className={`rounded-3xl border border-[var(--border)] bg-white overflow-hidden transition hover:-translate-y-0.5 hover:shadow-md ${d.paused ? "opacity-60" : ""}`}>
-      <button onClick={onOpen} className="w-full text-right p-3.5 flex gap-3">
-        <ClassBadge c={d.classification} />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start gap-1"><div className="font-extrabold text-[var(--navy)] truncate flex-1">{d.name}</div></div>
-          <div className="text-xs text-[var(--muted)] truncate">{[d.specialty, d.clinic_name, d.city].filter(Boolean).join(" · ")}</div>
-          <div className="flex flex-wrap gap-1 mt-1.5">{d.paused && <PausedPill />}<HealthPill d={d} />{d.next_follow_up && <span className="rounded-full bg-amber-50 text-amber-800 px-2 py-0.5 text-[11px] font-bold">↻ {fmtD(d.next_follow_up)}</span>}{d.in_plan_next && <span className="rounded-full bg-[var(--sky-soft)] text-[var(--navy)] px-2 py-0.5 text-[11px] font-bold">🗓 {fmtD(d.in_plan_next)}</span>}</div>
-        </div>
-      </button>
-      <div className="grid grid-cols-4 border-t border-[var(--border)] text-center text-xs">
-        <Stat l="زيارات" v={d.visits} /><Stat l="اهتمام" v={ip === null ? "—" : `${ip}%`} c={ip === null ? "" : ip >= 50 ? "text-emerald-700" : ip < 25 ? "text-red-700" : ""} /><Stat l="عينات" v={d.samples} /><Stat l="أوردر" v={d.orders} />
-      </div>
-      {d.last_note && <div className="px-3.5 py-2 text-[11px] text-[var(--muted)] border-t border-[var(--border)] line-clamp-2">«{d.last_note}»{isAdmin && d.last_rep ? ` — ${d.last_rep}` : ""}</div>}
-      <div className="flex border-t border-[var(--border)] text-xs font-bold">
-        {!isAdmin && <Link href={`/visits/new?doctorId=${d.id}`} className="flex-1 py-2.5 text-center bg-[var(--navy)] text-white">▶ زيارة</Link>}
-        {phone ? <a href={`tel:${phone}`} className="flex-1 py-2.5 text-center">📞</a> : null}
-        <Link href={`/doctors/${d.id}`} className="flex-1 py-2.5 text-center border-r border-[var(--border)]">الملف</Link>
-        <button onClick={toggleFav} className={`w-12 border-r border-[var(--border)] ${fav ? "text-amber-500" : "text-slate-300"}`}>★</button>
-      </div>
-    </div>
-  );
-}
 const Stat = ({ l, v, c = "" }: { l: string; v: string | number; c?: string }) => <div className="py-2 border-l last:border-l-0 border-[var(--border)]"><div className={`font-extrabold text-sm ${c}`}>{v}</div><div className="text-[10px] text-[var(--muted)]">{l}</div></div>;
 
 function Table({ list, checked, setChecked, fav, toggleFav, onOpen, sort, setSort }: { list: HubDoctor[]; checked: string[]; setChecked: (f: (x: string[]) => string[]) => void; fav: string[]; toggleFav: (id: string) => void; onOpen: (d: HubDoctor) => void; sort: { k: string; dir: 1 | -1 }; setSort: (s: { k: string; dir: 1 | -1 }) => void }) {
@@ -277,15 +305,15 @@ function BulkBar({ n, onPlan, exportHref, onClear, needRep, onPause }: { n: numb
 
 type Ctx = { history: Array<{ id: string; visited_at: string; status: string; notes: string; rep_name: string; presented: Array<{ product_id: string; name: string; reaction: string }> }>; followups: Array<{ due: string; note: string }>; plan: { product_name: string | null } | null };
 const RX: Record<string, string> = { interested: "👍", neutral: "😐", not_interested: "👎" };
-function QuickView({ d, isAdmin, onClose, onPlan, onEdit, fav, toggleFav, sheet, onPause, monthName }: { d: HubDoctor; isAdmin: boolean; onClose: () => void; onPlan: (date: string) => void; onEdit: () => void; fav: boolean; toggleFav: () => void; sheet: boolean; onPause?: (paused: boolean) => void; monthName: string }) {
+function QuickView({ d, isAdmin, onClose, onPlan, onEdit, fav, toggleFav, sheet, onPause, monthName, inline = false }: { inline?: boolean; d: HubDoctor; isAdmin: boolean; onClose: () => void; onPlan: (date: string) => void; onEdit: () => void; fav: boolean; toggleFav: () => void; sheet: boolean; onPause?: (paused: boolean) => void; monthName: string }) {
   const [ctx, setCtx] = useState<Ctx | null>(null);
   const [date, setDate] = useState(addDays(today(), 1));
   useEffect(() => { fetch(`/api/visits/context?doctorId=${d.id}`).then(r => r.ok ? r.json() : null).then(setCtx).catch(() => {}); }, [d.id]);
-  useEffect(() => { const k = (e: KeyboardEvent) => e.key === "Escape" && onClose(); window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k); }, [onClose]);
+  useEffect(() => { if (inline) return; const k = (e: KeyboardEvent) => e.key === "Escape" && onClose(); window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k); }, [onClose, inline]);
   const ip = interestPct(d); const phone = (d.phone || "").replace(/\s/g, "");
   return (
-    <div className="fixed inset-0 z-50 bg-black/30" onClick={onClose}>
-      <div dir="rtl" onClick={e => e.stopPropagation()} className={sheet ? "absolute inset-x-0 bottom-0 max-h-[88vh] overflow-y-auto rounded-t-3xl bg-white p-4 space-y-3" : "absolute top-0 bottom-0 right-0 w-[min(440px,95vw)] overflow-y-auto bg-white p-5 space-y-4 shadow-2xl"}>
+    <div className={inline ? "" : "fixed inset-0 z-50 bg-black/30"} onClick={inline ? undefined : onClose}>
+      <div dir="rtl" onClick={e => e.stopPropagation()} className={inline ? "es-card-in max-h-[calc(100vh-11rem)] space-y-4 overflow-y-auto rounded-[26px] border border-[var(--border)] bg-white p-5 shadow-sm" : sheet ? "absolute inset-x-0 bottom-0 max-h-[88vh] overflow-y-auto rounded-t-3xl bg-white p-4 space-y-3" : "absolute top-0 bottom-0 right-0 w-[min(440px,95vw)] overflow-y-auto bg-white p-5 space-y-4 shadow-2xl"}>
         {sheet && <div className="mx-auto h-1.5 w-12 rounded-full bg-slate-200" />}
         <div className="flex items-start gap-3">
           <ClassBadge c={d.classification} />
@@ -308,6 +336,7 @@ function QuickView({ d, isAdmin, onClose, onPlan, onEdit, fav, toggleFav, sheet,
           <div className="flex gap-2"><input type="date" value={date} min={today()} onChange={e => setDate(e.target.value)} className="flex-1 rounded-lg border border-[var(--border)] px-2 py-1.5 text-sm bg-white" /><button onClick={() => onPlan(date)} className="rounded-lg bg-[var(--navy)] text-white px-4 text-sm font-bold">إضافة</button></div>
           {d.in_plan_next && <div className="text-[11px] text-[var(--navy)] mt-1">موجود في الخطة يوم {fmtD(d.in_plan_next)}</div>}
         </div>
+        <ClinicMini clinicId={d.clinic_id} clinicName={d.clinic_name} />
         {ctx?.followups?.length ? <div className="rounded-2xl bg-amber-50 border border-amber-200 p-3 text-sm space-y-1">{ctx.followups.map((f, i) => <div key={i}>↻ <b>{fmtD(f.due)}</b>{f.note ? ` — ${f.note}` : ""}</div>)}</div> : null}
         <div>
           <div className="font-bold text-sm mb-2">آخر الزيارات</div>

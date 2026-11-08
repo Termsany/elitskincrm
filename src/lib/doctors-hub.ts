@@ -1,6 +1,7 @@
 import { query } from "@/lib/db";
 import { gapSql } from "@/lib/my-alerts";
 import { pausedSql } from "@/lib/doctor-pauses";
+import { clientOfClinicSql } from "@/lib/clinic-groups";
 
 export type HubDoctor = {
   id: string; name: string; clinic_name: string | null; clinic_id: string | null; city: string | null; specialty: string | null; classification: string | null;
@@ -8,6 +9,13 @@ export type HubDoctor = {
   visits: number; completed: number; total_visits: number; last_visit: string | null; last_rep: string | null; last_note: string | null;
   days_since: number | null; next_follow_up: string | null; samples: number; orders: number; presented: number; interested: number; not_interested: number;
   reps: string | null; in_plan_next: string | null;
+  /** months (YYYY-MM) with a completed visit in the last 6 months */
+  months6: string[];
+  /** latest reaction per product (last 180 days), most recent first */
+  reactions: Array<{ name: string; reaction: string }>;
+  /** a product the doctor was interested in (last 90 days) that the clinic hasn't bought since — only for clinics linked to Daftra */
+  hot_product: string | null;
+  follow_up_note: string | null;
   /** rep marked this doctor "inactive" for the current month (only when a single rep is in scope) */
   paused: boolean;
 };
@@ -31,23 +39,35 @@ export async function hubDoctors(u: { id: string; role: string }, days: number, 
       FROM v JOIN visit_items vi ON vi.visit_id=v.id WHERE v.visited_at > now() - make_interval(days => $1::int) GROUP BY v.doctor_id),
     pres AS (SELECT v.doctor_id, count(*)::int presented, count(*) FILTER (WHERE pp.reaction='interested')::int interested, count(*) FILTER (WHERE pp.reaction='not_interested')::int not_interested
       FROM v JOIN visit_presented_products pp ON pp.visit_id=v.id WHERE v.visited_at > now() - make_interval(days => $1::int) GROUP BY v.doctor_id),
-    fu AS (SELECT doctor_id, min(due)::text next_follow_up FROM (
-        SELECT v.doctor_id, v.follow_up_at due FROM v WHERE v.follow_up_at >= (now() AT TIME ZONE 'Asia/Riyadh')::date - 30
+    fu AS (SELECT DISTINCT ON (doctor_id) doctor_id, due::text next_follow_up, NULLIF(btrim(note),'') follow_up_note FROM (
+        SELECT v.doctor_id, v.follow_up_at due, v.follow_up_note note FROM v WHERE v.follow_up_at >= (now() AT TIME ZONE 'Asia/Riyadh')::date - 30
           AND NOT EXISTS (SELECT 1 FROM visits v2 WHERE v2.doctor_id=v.doctor_id AND v2.sales_rep_id=v.sales_rep_id AND v2.visited_at>v.visited_at AND v2.status='completed')
-        UNION ALL SELECT f.doctor_id, f.due_at FROM doctor_followups f WHERE f.completed_at IS NULL AND COALESCE(f.status,'') NOT IN ('done','completed','closed') ${scope ? `AND f.sales_rep_id=$${vals.length}` : ""}
-      ) x GROUP BY doctor_id),
+        UNION ALL SELECT f.doctor_id, f.due_at, COALESCE(NULLIF(btrim(f.note),''), f.title) FROM doctor_followups f WHERE f.completed_at IS NULL AND COALESCE(f.status,'') NOT IN ('done','completed','closed') ${scope ? `AND f.sales_rep_id=$${vals.length}` : ""}
+      ) x ORDER BY doctor_id, due),
+    m6 AS (SELECT v.doctor_id, array_agg(DISTINCT to_char(v.visited_at AT TIME ZONE 'Asia/Riyadh', 'YYYY-MM')) months6 FROM v
+      WHERE v.status='completed' AND v.visited_at > now() - interval '6 months' GROUP BY v.doctor_id),
+    rx AS (SELECT doctor_id, json_agg(json_build_object('name', name, 'reaction', reaction) ORDER BY at DESC) reactions FROM (
+        SELECT DISTINCT ON (v.doctor_id, pp.product_id) v.doctor_id, p.name, pp.reaction, v.visited_at at
+        FROM v JOIN visit_presented_products pp ON pp.visit_id=v.id JOIN products p ON p.id=pp.product_id
+        WHERE v.visited_at > now() - interval '180 days' ORDER BY v.doctor_id, pp.product_id, v.visited_at DESC) r GROUP BY doctor_id),
+    hot AS (SELECT DISTINCT ON (v.doctor_id) v.doctor_id, p.name hot_product FROM v JOIN visit_presented_products pp ON pp.visit_id=v.id AND pp.reaction='interested'
+        JOIN products p ON p.id=pp.product_id JOIN doctors dd ON dd.id=v.doctor_id
+        WHERE v.visited_at > now() - interval '90 days' AND ${clientOfClinicSql("dd.clinic_id")} IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM daftra_sales_v s WHERE s.client_id = ${clientOfClinicSql("dd.clinic_id")} AND s.product_id=pp.product_id AND s.invoice_date >= (v.visited_at AT TIME ZONE 'Asia/Riyadh')::date)
+        ORDER BY v.doctor_id, v.visited_at DESC),
     nextplan AS (SELECT pi.doctor_id, min(pi.planned_date)::text in_plan_next FROM plan_items pi JOIN plans p ON p.id=pi.plan_id
       WHERE p.status::text<>'rejected' AND pi.planned_date >= (now() AT TIME ZONE 'Asia/Riyadh')::date ${planRep} GROUP BY pi.doctor_id)
     SELECT d.id, d.name, d.clinic_name, d.clinic_id, d.city, d.specialty, d.classification, d.phone, d.email, d.status,
       ${gapSql()} gap_days,
       COALESCE(a.visits,0) visits, COALESCE(a.completed,0) completed, COALESCE(a.total_visits,0) total_visits, a.last_visit, l.last_rep, l.last_note,
       CASE WHEN a.last_visit IS NULL THEN NULL ELSE ((now() AT TIME ZONE 'Asia/Riyadh')::date - (a.last_visit AT TIME ZONE 'Asia/Riyadh')::date) END days_since,
-      fu.next_follow_up, COALESCE(i.samples,0) samples, COALESCE(i.orders,0) orders, COALESCE(pr.presented,0) presented, COALESCE(pr.interested,0) interested,
+      fu.next_follow_up, fu.follow_up_note, COALESCE(m6.months6, '{}') months6, COALESCE(rx.reactions, '[]'::json) reactions, hot.hot_product, COALESCE(i.samples,0) samples, COALESCE(i.orders,0) orders, COALESCE(pr.presented,0) presented, COALESCE(pr.interested,0) interested,
       COALESCE(pr.not_interested,0) not_interested, a.reps, np.in_plan_next,
       ${scope ? pausedSql("$2", "d.id", "(now() AT TIME ZONE 'Asia/Riyadh')::date") : "false"} AS paused
     FROM doctors d LEFT JOIN plan_frequencies pf ON pf.classification=d.classification
       LEFT JOIN agg a ON a.doctor_id=d.id LEFT JOIN lastv l ON l.doctor_id=d.id LEFT JOIN items i ON i.doctor_id=d.id
       LEFT JOIN pres pr ON pr.doctor_id=d.id LEFT JOIN fu ON fu.doctor_id=d.id LEFT JOIN nextplan np ON np.doctor_id=d.id
+      LEFT JOIN m6 ON m6.doctor_id=d.id LEFT JOIN rx ON rx.doctor_id=d.id LEFT JOIN hot ON hot.doctor_id=d.id
     WHERE COALESCE(d.status,'active')='active'
     ORDER BY d.name`, vals);
   return r.rows;

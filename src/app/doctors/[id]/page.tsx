@@ -16,6 +16,9 @@ export default async function DoctorProfilePage({ params }: { params: Promise<{ 
   const { id } = await params;
   // Reject malformed route IDs before PostgreSQL's UUID cast.
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) notFound();
+  // a doctor merged into another opens the one that was kept
+  const merged = (await query<{ merged_into: string | null }>('SELECT merged_into FROM doctors WHERE id=$1', [id])).rows[0]?.merged_into;
+  if (merged) redirect(`/doctors/${merged}`);
   const sql = doctorProfileQueries(user, id);
   const doctor = (await query<Doctor>(sql.doctor.text, sql.doctor.values)).rows[0];
   if (!doctor) notFound();
