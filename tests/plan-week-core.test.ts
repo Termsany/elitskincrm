@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { currentWeekStart, pace, planChecks, suggestDay, weekDays } from "@/lib/plan-week-core";
+import { currentWeekStart, excusedIds, pace, planChecks, suggestDay, weekDays } from "@/lib/plan-week-core";
 
 describe("plan week", () => {
   it("week starts Sunday; Fri/Sat show the coming week", () => {
@@ -22,5 +22,13 @@ describe("plan week", () => {
     const days = ["2026-11-08", "2026-11-09"];
     const c = planChecks([{ doctor_id: "a", date: "2026-11-08", cls: "A" }, { doctor_id: "c", date: "2026-11-08", cls: "C" }, { doctor_id: "c", date: "2026-11-08", cls: "C" }], days, 3);
     expect(c.map(x => `${x.ok ? "✓" : "!"}${x.text}`)).toEqual(["!دكاترة A 1/3", "!1 أطباء C متكررين", "!الاثنين فاضي", "!طبيب متكرر في نفس اليوم"]);
+  });
+  it("office time excuses its share of the day's plan and drops it from pace", () => {
+    const items = ["a", "b", "c", "d"].map((id, i) => ({ id, date: "2026-11-08", done: i === 0 }));
+    expect([...excusedIds(items, { "2026-11-08": 240 }, "2026-11-10")]).toEqual(["b", "c"]); // half day → 2 of 4
+    expect(excusedIds(items, { "2026-11-08": 480 }, "2026-11-10").size).toBe(3);             // full day → every not-done one
+    expect(excusedIds(items, { "2026-11-12": 480 }, "2026-11-10").size).toBe(0);             // future days untouched
+    const p = pace(items.map(i => ({ ...i, excused: i.id === "b" || i.id === "c" })), "2026-11-10");
+    expect(p).toMatchObject({ done: 1, missed: 1, planned: 2, excused: 2 });
   });
 });

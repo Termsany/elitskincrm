@@ -1,6 +1,7 @@
 "use client";
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useToast } from "@/components/Toast";
 import DetailingPresenter from "@/components/detailing/DetailingPresenter";
@@ -237,12 +238,12 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
     setErr(null);
     if (savedVisitId) { setLoading(true); try { await uploadPending(savedVisitId); } finally { setLoading(false); } return; }
     if (!doctorId) { setErr("اختر الطبيب والعيادة أولا"); return; }
-    if (notes.trim().length < 10) { setErr("الملاحظات مطلوبة (10 أحرف على الأقل) — اكتب نتيجة الزيارة"); return; }
+    if (effNotes.trim().length < 10) { setErr("الملاحظات مطلوبة (10 أحرف على الأقل) — اكتب نتيجة الزيارة"); return; }
     const collected = collectSampleItems(sampleMode, sampleRows);
     if (collected.error) { setErr(collected.error); return; }
     setLoading(true);
     let payload: Record<string,unknown> = {
-      doctorId, notes, status,
+      doctorId, notes: effNotes, status,
       idempotencyKey,
       presentedProducts: presented,
       sampleItems: collected.items,
@@ -281,7 +282,9 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
   // ───────────── smart context, today's plan, catalog ─────────────
   const [mode, setMode] = useState<"phone" | "tablet" | "desktop">("desktop");
   useEffect(() => { const f = () => setMode(window.innerWidth < 768 ? "phone" : window.innerWidth < 1200 ? "tablet" : "desktop"); f(); window.addEventListener("resize", f); return () => window.removeEventListener("resize", f); }, []);
-  const [wiz, setWiz] = useState(0);
+  const [wiz, setWiz] = useState(initialDoctor ? 1 : 0);
+  const [outcome, setOutcome] = useState(""); const [fuLabel, setFuLabel] = useState(""); const [fuCustom, setFuCustom] = useState(false);
+  const [notesTouched, setNotesTouched] = useState(false); const [samplesYes, setSamplesYes] = useState(false);
   const [ctx, setCtx] = useState<VisitContext | null>(null);
   const [ctxLoading, setCtxLoading] = useState(false);
   const [todayPlan, setTodayPlan] = useState<TodayItem[]>([]);
@@ -301,6 +304,7 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
   function pickDoctor(id: string, productId?: string | null) {
     const d = doctors.find(x => x.id === id); if (!d) return;
     setDoctorId(id); setQ(`${d.name} · ${d.clinic_name}`);
+    if (mode === "phone") window.setTimeout(() => setWiz(1), 320);
     if (productId && !presented.some(x => x.productId === productId) && products.some(p => p.id === productId)) setPresented(p => [...p, { productId, reaction: "neutral" }]);
   }
   async function presentFrom(productId?: string) {
@@ -316,7 +320,17 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
   const addNote = (t: string) => setNotes(n => (n.trim() ? `${n.trim()}${/[.!؟?،,]$/.test(n.trim()) ? "" : "."} ` : "") + t);
 
   const selectedDoctor = doctors.find(d => d.id === doctorId);
-  const notesLen = notes.trim().length;
+  // phone flow: the notes write themselves from the answers until the rep edits them
+  const autoText = (() => {
+    const parts: string[] = [];
+    if (presented.length) parts.push(`شرحت ${presented.map(x => `${products.find(p => p.id === x.productId)?.name || ""} (${REACTION_LABELS[x.reaction]})`).join("، ")}`);
+    const o = OUTCOMES.find(x => x.id === outcome); if (o) parts.push(o.note);
+    const sq = sampleRows.reduce((a, x) => a + (x.quantity > 0 ? x.quantity : 0), 0); if (sq) parts.push(`سبت ${sq} عينة`);
+    if (followUpAt) parts.push(`متابعة ${fuLabel || followUpAt}`);
+    return parts.length ? `${parts.join(". ")}.` : "";
+  })();
+  const effNotes = mode === "phone" && !notesTouched ? autoText : notes;
+  const notesLen = effNotes.trim().length;
   const notesOk = notesLen >= 10;
   const sampleState = collectSampleItems(sampleRows.some(r => r.quantity > 0) ? "yes" : "no", sampleRows);
   const sampleInvalid = !!sampleState.error;
@@ -350,7 +364,7 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
   if (done) return <SuccessScreen doctor={selectedDoctor?.name || ""} presented={presented.length} samples={sampleTotal} followUp={followUpAt} next={nextPlan} onNew={() => { window.location.href = "/visits/new"; }} />;
 
   const phone = mode === "phone";
-  const eyebrow = (n: number) => phone ? `الخطوة ${n} من 4` : undefined;
+  const eyebrow = (n: number) => phone && n === 1 ? "الخطوة 1" : undefined;
 
   // ───────────── 1 · doctor ─────────────
   const doctorSection = selectedDoctor ? (
@@ -485,7 +499,7 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
   // ───────────── 4 · send ─────────────
   const extrasSection = (<>
     <Card>
-      <Title eyebrow={eyebrow(4)} title={phone ? "نقفل الزيارة؟" : "الموقع والمرفقات"} icon="📍" />
+      <Title eyebrow={eyebrow(4)} title="الموقع والمرفقات" icon="📍" />
       <div className={`flex min-h-16 items-center gap-3 rounded-2xl p-3 ${!online ? "bg-amber-50 text-amber-800" : gps ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}>
         <span className="text-xl">{!online ? "📴" : gps ? "✓" : "📍"}</span>
         <span className="flex-1 text-sm font-bold">{!online ? "مفيش نت — الزيارة هتتحفظ على الموبايل وتتبعت لوحدها أول ما النت يرجع" : gpsLoading ? "جاري تحديد الموقع…" : gps ? `موقعك اتسجل · دقة ${Math.round(gps.accuracy_m)}م` : gpsStatus}</span>
@@ -531,42 +545,140 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
     {locked && <div role="status" className="rounded-2xl border border-emerald-300 bg-emerald-50 p-3 text-sm font-bold text-emerald-900">✓ الزيارة اتحفظت — فاضل رفع الملفات بس</div>}
   </>;
 
-  const steps = ["الطبيب", "العرض", "النتيجة", "الإرسال"];
   const header = (
     <div className="mb-3">
+      {role === "sales_rep" && <div className="mb-3 grid grid-cols-2 gap-1 rounded-2xl border border-[var(--border)] bg-white p-1 shadow-sm">
+        <span className="flex min-h-11 items-center justify-center rounded-xl bg-[var(--navy)] text-sm font-extrabold text-white shadow">🩺 زيارة</span>
+        <Link href="/my/office-time" className="flex min-h-11 items-center justify-center rounded-xl text-sm font-extrabold text-[var(--muted)] transition hover:text-[var(--navy)]">💼 وقت مكتبي / اجتماع</Link></div>}
       <div className="flex items-end justify-between gap-3"><div>
         {todayPlan.length > 0 && <p className="text-xs font-bold text-teal-600">زيارات اليوم · {planDone} من {todayPlan.length}</p>}
         <h1 className="text-2xl font-extrabold text-[var(--navy)]">تسجيل زيارة</h1>
         {!phone && <p className="mt-0.5 text-sm text-[var(--muted)]">اختار الطبيب، اعرض البروشور، وسجّل النتيجة — الوقت والموقع بيتسجلوا لوحدهم</p>}</div></div>
-      {phone && <div className="mt-3">
-        <div className="mb-1.5 h-1.5 overflow-hidden rounded-full bg-[var(--border)]"><div className="h-full rounded-full bg-teal-500 transition-all duration-500" style={{ width: `${((wiz + 1) / 4) * 100}%` }} /></div>
-        <div className="grid grid-cols-4 gap-1 text-center text-[11px] font-bold">{steps.map((s, i) => <button key={s} type="button" onClick={() => (i <= wiz || (i === 1 && doctorId)) && setWiz(i)} className={`py-1 ${i === wiz ? "text-[var(--navy)]" : "text-[var(--muted)]"}`}>{i < wiz ? "✓ " : ""}{s}</button>)}</div>
-      </div>}
     </div>
   );
 
   // ───────────── layouts ─────────────
   if (phone) {
-    const canNext = wiz === 0 ? !!doctorId : wiz === 1 ? !sampleInvalid : wiz === 2 ? notesOk && !sampleInvalid : canSave;
-    const nextLabel = wiz === 0 ? (doctorId ? "التالي: العرض" : "اختار الطبيب الأول") : wiz === 1 ? "التالي: النتيجة" : wiz === 2 ? (notesOk ? "التالي: الإرسال" : "اكتب الملاحظات") : saveLabel;
+    const adv = (n: number) => window.setTimeout(() => setWiz(n), 320);
+    const oc = OUTCOMES.find(o => o.id === outcome);
+    const sampleStepOn = status === "completed" && presented.length > 0;
+    const afterOutcome = (o: Outcome) => { setOutcome(o.id); setStatus(o.status); if (o.status !== "completed") setSampleRows([]); adv(o.status === "completed" && presented.length ? 3 : 4); };
+    const react = (pid: string, r: Reaction) => { const cur = presented.find(x => x.productId === pid); if (cur && cur.reaction === r) togglePresented(pid); else if (cur) setReaction(pid, r); else setPresented(p => [...p, { productId: pid, reaction: r }]); };
+    const pname = (id: string) => products.find(p => p.id === id)?.name || "";
+    const fuText = fuLabel || (followUpAt ? followUpAt.slice(5).split("-").reverse().join("/") : "");
+    const chips: Array<[string, number]> = [];
+    if (selectedDoctor) chips.push([selectedDoctor.name, 0]);
+    if (wiz > 1) chips.push([presented.length ? presented.map(x => `${pname(x.productId)} ${REACTION_ICONS[x.reaction]}`).join("، ") : "من غير منتجات", 1]);
+    if (oc && wiz > 2) chips.push([`${oc.icon} ${oc.label}`, 2]);
+    if (wiz > 3 && sampleStepOn) chips.push([sampleTotal ? `🧪 ${sampleTotal} عينة` : "من غير عينات", 3]);
+    if (wiz > 4) chips.push([followUpAt ? `↻ ${fuText}` : "من غير متابعة", 4]);
+    const back = () => setWiz(Math.max(0, wiz === 4 && !sampleStepOn ? 2 : wiz - 1));
+    const appendNote = (t: string) => { const b = effNotes.trim(); setNotesTouched(true); setNotes((b ? `${b}${/[.!؟?،,]$/.test(b) ? "" : "."} ` : "") + t); };
+    const showSamples = samplesYes || sampleTotal > 0;
+    const q = (e: string, t: string, s: string) => <div className="mb-4"><p className="text-xs font-extrabold text-teal-600">{e}</p><h2 className="mt-1 text-[26px] font-extrabold leading-tight text-[var(--navy)]">{t}</h2><p className="mt-1 text-sm text-[var(--muted)]">{s}</p></div>;
+    const review: Array<[string, string, number]> = [["الطبيب", selectedDoctor?.name || "—", 0], ["المنتجات", presented.length ? presented.map(x => `${pname(x.productId)} ${REACTION_ICONS[x.reaction]}`).join("، ") : "مفيش", 1], ["النتيجة", oc ? `${oc.icon} ${oc.label}` : status === "completed" ? "✓ تمت" : "—", 2],
+      ...(sampleStepOn ? [["العينات", sampleTotal ? sampleState.items.map(i => `${pname(i.productId)} ×${i.quantity}`).join("، ") : "مفيش", 3] as [string, string, number]] : []), ["المتابعة", followUpAt ? fuText : "مفيش", 4]];
     return (
-      <form onSubmit={submit} className="mt-1 space-y-3 pb-44">
+      <form id="nv-form" onSubmit={submit} className="mt-1 space-y-3 pb-28">
         {header}
-        {banners}
-        <fieldset disabled={locked} className="m-0 min-w-0 space-y-3 border-0 p-0">
-          {wiz === 0 && <>{doctorSection}{contextCard}</>}
-          {wiz === 1 && <>{selectedDoctor && <ClinicHint doctorId={selectedDoctor.id} />}{productsSection}</>}
-          {wiz === 2 && resultSection}
-        </fieldset>
-        {wiz === 3 && <>{extrasSection}{summary(false)}{errBox}{locked && <button type="button" onClick={() => setDone(true)} className="w-full rounded-2xl border border-[var(--border)] py-2.5 text-sm font-bold">متابعة من غير الملفات</button>}</>}
-        <div className="fixed inset-x-0 bottom-[4.75rem] z-30 px-3">
-          <div className="mx-auto flex max-w-lg gap-2 rounded-2xl border border-[var(--border)] bg-white/95 p-2 shadow-xl backdrop-blur">
-            <button type="button" disabled={wiz === 0} onClick={() => setWiz(wiz - 1)} className="flex min-h-12 flex-1 items-center justify-center gap-1 rounded-xl border border-[var(--border)] font-bold text-[var(--navy)] disabled:opacity-30">→ رجوع</button>
-            {wiz < 3
-              ? <button key="next" type="button" disabled={!canNext} onClick={() => setWiz(wiz + 1)} className="flex min-h-12 flex-[1.6] items-center justify-center gap-1 rounded-xl bg-[var(--navy)] font-extrabold text-white shadow-lg shadow-[var(--navy)]/20 disabled:opacity-40">{nextLabel} ←</button>
-              : <button key="save" type="submit" disabled={!canSave} className="flex min-h-12 flex-[1.6] items-center justify-center rounded-xl bg-[var(--navy)] font-extrabold text-white shadow-lg shadow-[var(--navy)]/20 disabled:opacity-40">{saveLabel}</button>}
+        <div>
+          <div className="flex items-center gap-2">
+            <button type="button" aria-label="رجوع" disabled={wiz === 0 || locked} onClick={back} className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[var(--border)] bg-white text-lg font-bold text-[var(--navy)] shadow-sm disabled:opacity-30">›</button>
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--border)]"><div className="h-full rounded-full bg-teal-500 transition-all duration-500" style={{ width: `${(wiz + 1) / 6 * 100}%` }} /></div>
+            <span className="shrink-0 text-xs font-bold text-[var(--muted)]">{wiz + 1}/6</span>
           </div>
+          {chips.length > 0 && <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1">{chips.map(([t, s], i) => <button key={i} type="button" onClick={() => !locked && setWiz(s)} className={`max-w-[70%] shrink-0 truncate rounded-full px-3 py-1.5 text-[11.5px] font-bold transition ${s === wiz ? "bg-[var(--navy)] text-white" : "bg-teal-50 text-teal-800"}`} dir="auto">{t} ✎</button>)}</div>}
         </div>
+        {banners}
+        <div key={wiz} className="nv-step">
+        <fieldset disabled={locked} className="m-0 min-w-0 space-y-3 border-0 p-0">
+          {wiz === 0 && <>{doctorSection}{selectedDoctor && <button type="button" onClick={() => setWiz(1)} className="nv-glow flex min-h-14 w-full items-center justify-center rounded-2xl bg-[#c9a24a] text-base font-extrabold text-[#0b2a2f]">كمّل مع {selectedDoctor.name.split(" ").slice(0, 2).join(" ")} ‹</button>}</>}
+
+          {wiz === 1 && <section className="space-y-3 pb-36">
+            {q("الخطوة 2", "شرحت إيه للدكتور؟", "دوس على رد فعل الدكتور لكل منتج شرحته")}
+            {ctx?.brief && <div className="rounded-2xl bg-[var(--navy)] px-3 py-3 text-[13px] font-bold leading-6 text-white">💡 {ctx.brief}</div>}
+            {contextCard && <details className="rounded-[22px] border border-teal-200 bg-white px-4 py-3"><summary className="cursor-pointer text-sm font-extrabold text-[var(--navy)]">✨ قبل ما تدخل — آخر زيارة والمتابعات</summary><div className="mt-3">{contextCard}</div></details>}
+            <button type="button" onClick={() => void presentFrom()} className="nv-tap flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-[var(--navy)] to-[#156067] text-base font-extrabold text-white shadow-lg">▶ اعرض البروشور للدكتور</button>
+            {productsView.map((p, i) => { const sel = presented.find(x => x.productId === p.id); const b = p.cat?.brochures?.[0];
+              return <div key={p.id} className={`nv-pop rounded-[22px] border p-3 transition-all ${sel ? "border-teal-500 bg-teal-50/70 shadow-sm" : "border-[var(--border)] bg-white"}`} style={{ animationDelay: `${i * 40}ms` }}>
+                <div className="flex items-center gap-3">
+                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl" style={{ background: p.cat?.color || "var(--navy)" }}>
+                    {b ? <BrochureCover url={brochureUrl(b.id)} mime={b.mime} className="h-full w-full bg-white" /> : !p.cat?.image_available ? <div className="grid h-full w-full place-items-center text-sm font-extrabold text-white">{p.name.slice(0, 2).toUpperCase()}</div> : <ProductThumb id={p.id} name={p.name} />}
+                    {sel && <span className="absolute inset-0 grid place-items-center bg-[var(--navy)]/60 text-lg text-white">✓</span>}
+                  </div>
+                  <div className="min-w-0 flex-1"><div className="flex items-center gap-1.5"><b className="truncate text-base" dir="auto">{p.name}</b>{p.suggested && <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-700">مقترح ⭐</span>}</div>
+                    <div className="truncate text-[11px] text-[var(--muted)]">{p.cat?.tagline || PRODUCT_DESC[p.name] || ""}</div></div>
+                  {p.cat && <button type="button" onClick={() => void presentFrom(p.id)} className="shrink-0 rounded-xl bg-[var(--bg)] px-3 py-2 text-xs font-bold text-[var(--navy)]">▶ عرض</button>}
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-2">{(Object.keys(REACTION_LABELS) as Reaction[]).map(v => { const on = sel?.reaction === v;
+                  return <button key={v} type="button" onClick={() => react(p.id, v)} aria-pressed={on} className={`nv-tap min-h-12 rounded-2xl text-[13px] font-extrabold transition ${on ? RX_ON[v] : "bg-[var(--bg)] text-[var(--ink-soft)]"}`}>{REACTION_ICONS[v]} {REACTION_LABELS[v]}</button>; })}</div>
+              </div>; })}
+            <button type="button" onClick={() => { setPresented([]); setSampleRows([]); setWiz(2); }} className="w-full py-2 text-center text-sm font-bold text-[var(--muted)] underline underline-offset-4">ماشرحتش منتجات</button>
+            {presented.length > 0 && createPortal(<div className="nv-sheet fixed inset-x-0 bottom-[4.75rem] z-40 px-3" dir="rtl"><div className="mx-auto max-w-lg rounded-[24px] bg-[var(--navy)] p-3 text-white shadow-2xl">
+              <p className="mb-2 text-center text-sm font-extrabold">✓ اتسجل {presented.length} منتج — منتج تاني؟</p>
+              <div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} className="nv-tap min-h-12 rounded-2xl bg-white/10 font-extrabold">＋ منتج تاني</button>
+                <button type="button" onClick={() => setWiz(2)} className="nv-tap nv-glow min-h-12 rounded-2xl bg-[#c9a24a] font-extrabold text-[#0b2a2f]">كده تمام ✓</button></div></div></div>, document.body)}
+            {presenting && catalog && <DetailingPresenter products={catalog} startId={presenting} doctor={selectedDoctor ? { id: selectedDoctor.id, name: selectedDoctor.name } : null} initialReactions={Object.fromEntries(presented.map(x => [x.productId, x.reaction]))} onClose={presenterClosed} />}
+          </section>}
+
+          {wiz === 2 && <section>
+            {q("الخطوة 3", "نتيجة الزيارة؟", "اختار اللي حصل — وهننقلك للي بعده لوحدنا")}
+            <div className="grid grid-cols-2 gap-2.5">{OUTCOMES.map((o, i) => <button key={o.id} type="button" onClick={() => afterOutcome(o)} aria-pressed={outcome === o.id}
+              className={`nv-tap nv-pop flex min-h-[76px] flex-col items-center justify-center gap-1 rounded-[20px] border px-2 text-[13.5px] font-extrabold shadow-sm transition ${outcome === o.id ? "border-[var(--navy)] bg-[var(--navy)] text-white" : o.tone}`} style={{ animationDelay: `${i * 30}ms` }}><span className="text-xl">{o.icon}</span>{o.label}</button>)}</div>
+          </section>}
+
+          {wiz === 3 && <section>
+            {q("الخطوة 4", "سبت عينات؟", "العينة بتكون من المنتجات اللي شرحتها")}
+            {!showSamples ? <div className="grid grid-cols-2 gap-3">
+              <button type="button" onClick={() => { setSampleRows([]); adv(4); }} className="nv-tap min-h-32 rounded-[24px] border border-[var(--border)] bg-white text-2xl font-extrabold text-[var(--navy)] shadow-sm">لا</button>
+              <button type="button" onClick={() => setSamplesYes(true)} className="nv-tap min-h-32 rounded-[24px] border border-teal-200 bg-teal-50 text-2xl font-extrabold text-teal-800 shadow-sm">أيوه 🧪</button></div>
+            : <div className="space-y-3">{presented.map(x => { const row = sampleRows.find(r => r.productId === x.productId); const qty = row?.quantity || 0;
+                return <div key={x.productId} className={`rounded-[22px] border p-3 transition ${qty ? "border-teal-400 bg-teal-50/60" : "border-[var(--border)] bg-white"}`}>
+                  <div className="flex items-center justify-between gap-2"><b className="truncate" dir="auto">{pname(x.productId)}</b>
+                    <span className="flex items-center gap-2"><button type="button" aria-label="تقليل" onClick={() => updateSample(x.productId, { quantity: Math.max(0, qty - 1) })} disabled={!qty} className="grid h-11 w-11 place-items-center rounded-xl border border-[var(--border)] bg-white text-lg font-bold disabled:opacity-30">−</button>
+                      <b className="w-7 text-center text-lg">{qty}</b>
+                      <button type="button" aria-label="زيادة" onClick={() => updateSample(x.productId, { quantity: Math.min(10000, qty + 1) })} className="grid h-11 w-11 place-items-center rounded-xl bg-[var(--navy)] text-lg font-bold text-white">+</button></span></div>
+                  {qty > 0 && <div className="mt-2.5 flex flex-wrap gap-1.5">{(Object.keys(PURPOSE_LABELS) as SamplePurpose[]).map(v => <button key={v} type="button" onClick={() => updateSample(x.productId, { purpose: v })} aria-pressed={row?.purpose === v}
+                    className={`min-h-10 rounded-full px-3 text-xs font-bold transition ${row?.purpose === v ? "bg-[#c9a24a] text-[#0b2a2f]" : row?.purpose ? "bg-white text-[var(--muted)]" : "bg-amber-50 text-amber-800 ring-1 ring-amber-300"}`}>{PURPOSE_LABELS[v]}</button>)}</div>}
+                </div>; })}
+              {sampleInvalid && <div className="rounded-xl border border-amber-200 bg-amber-50 p-2 text-xs font-bold text-amber-800">{sampleState.error}</div>}
+              <button type="button" disabled={sampleInvalid} onClick={() => setWiz(4)} className="nv-tap min-h-14 w-full rounded-2xl bg-[var(--navy)] text-base font-extrabold text-white disabled:opacity-40">تمام ✓</button></div>}
+          </section>}
+
+          {wiz === 4 && <section>
+            {q("الخطوة 5", "نتابع إمتى؟", "المتابعة بتظهرلك في مخطط العمل")}
+            <div className="grid grid-cols-2 gap-2.5">{FU.map(([l, dd], i) => { const v = fuDate(dd); return <button key={l} type="button" onClick={() => { setFollowUpAt(v); setFuLabel(l); setFuCustom(false); adv(5); }} aria-pressed={followUpAt === v}
+              className={`nv-tap nv-pop min-h-[70px] rounded-[20px] border text-base font-extrabold shadow-sm transition ${followUpAt === v ? "border-[var(--navy)] bg-[var(--navy)] text-white" : "border-[var(--border)] bg-white text-[var(--navy)]"}`} style={{ animationDelay: `${i * 30}ms` }}>{l}</button>; })}
+              <button type="button" onClick={() => setFuCustom(true)} className={`nv-tap min-h-[70px] rounded-[20px] border text-base font-extrabold shadow-sm ${fuCustom ? "border-[var(--navy)] bg-teal-50 text-[var(--navy)]" : "border-amber-200 bg-amber-50 text-amber-800"}`}>📅 تاريخ تاني</button>
+              <button type="button" onClick={() => { setFollowUpAt(""); setFuLabel(""); setFollowUpNote(""); setFuCustom(false); adv(5); }} className="nv-tap min-h-[70px] rounded-[20px] border border-[var(--border)] bg-white text-base font-extrabold text-[var(--muted)] shadow-sm">مفيش متابعة</button></div>
+            {fuCustom && <div className="nv-pop mt-3 space-y-2 rounded-[22px] border border-[var(--border)] bg-white p-3 shadow-sm">
+              <input type="date" min={riyadhDay} value={followUpAt} onChange={e => { setFollowUpAt(e.target.value); setFuLabel(""); }} aria-label="تاريخ المتابعة" className="min-h-12 w-full rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3 text-base" />
+              <input value={followUpNote} onChange={e => setFollowUpNote(e.target.value)} placeholder="المطلوب في المتابعة (اختياري)" className="min-h-12 w-full rounded-xl border border-[var(--border)] bg-[var(--bg)] px-3 text-sm" />
+              <button type="button" disabled={!followUpAt} onClick={() => setWiz(5)} className="min-h-12 w-full rounded-2xl bg-[var(--navy)] font-extrabold text-white disabled:opacity-40">تمام ✓</button></div>}
+          </section>}
+        </fieldset>
+
+          {wiz === 5 && <section className="space-y-3 pb-24">
+            {q("آخر خطوة", "ملخص الزيارة", "راجع بسرعة — أي سطر تقدر تعدّله")}
+            <div className="overflow-hidden rounded-[24px] border border-[var(--border)] bg-white shadow-sm">{review.map(([l, v, s]) => <div key={l} className="flex min-h-14 items-center gap-3 border-b border-[var(--border)] px-4 last:border-0">
+              <span className="w-16 shrink-0 text-xs font-bold text-[var(--muted)]">{l}</span><span className="min-w-0 flex-1 text-sm font-extrabold" dir="auto">{v}</span>
+              {!locked && <button type="button" aria-label={`تعديل ${l}`} onClick={() => setWiz(s)} className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[var(--bg)] text-teal-700">✎</button>}</div>)}</div>
+            <div className="rounded-[24px] bg-gradient-to-bl from-[#0b2a2f] to-[#156067] p-4 text-white shadow">
+              <div className="mb-2 flex items-center justify-between gap-2"><b>ملاحظات الزيارة</b>{!notesTouched && effNotes && <span className="text-[11px] text-teal-100">✨ اتكتبت لوحدها من إجاباتك</span>}</div>
+              <div className="relative"><textarea value={effNotes} disabled={locked} onChange={e => { setNotesTouched(true); setNotes(e.target.value); }} rows={4} placeholder="اكتب أو دوس المايك واتكلم…"
+                className="min-h-28 w-full resize-none rounded-2xl bg-white/10 p-3 pl-16 text-[15px] leading-7 text-white outline-none placeholder:text-white/50 focus:bg-white/15" dir="auto" />
+                {!locked && <div className="absolute bottom-3 left-3"><VoiceNote compact onText={t => appendNote(t)} /></div>}</div>
+              {!locked && <div className="mt-2 flex flex-wrap gap-1.5">{quick.slice(0, 4).map(t => <button key={t} type="button" onClick={() => appendNote(t)} className="min-h-9 rounded-full bg-white/10 px-3 text-xs font-bold transition active:scale-95">+ {t}</button>)}</div>}
+              {!notesOk && <p className="mt-2 text-xs font-bold text-amber-200">الملاحظات لازم تكون 10 حروف على الأقل</p>}
+            </div>
+            {extrasSection}
+            {errBox}
+            {locked && <button type="button" onClick={() => setDone(true)} className="w-full rounded-2xl border border-[var(--border)] py-2.5 text-sm font-bold">متابعة من غير الملفات</button>}
+            {createPortal(<div className="fixed inset-x-0 bottom-[4.75rem] z-40 px-3" dir="rtl"><div className="mx-auto max-w-lg">
+              <button type="submit" form="nv-form" disabled={!canSave} className="nv-glow flex min-h-14 w-full items-center justify-center rounded-2xl bg-[#c9a24a] text-lg font-extrabold text-[#0b2a2f] shadow-xl transition active:scale-[.98] disabled:opacity-50">{saveLabel}</button></div></div>, document.body)}
+          </section>}
+        </div>
+        <style>{NV_CSS}</style>
       </form>
     );
   }
@@ -598,6 +710,32 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
     </form>
   );
 }
+
+type Outcome = { id: string; label: string; icon: string; status: "completed" | "planned" | "cancelled"; note: string; tone: string };
+const POS = "border-emerald-200 bg-emerald-50 text-emerald-800", NEU = "border-[var(--border)] bg-white text-[var(--navy)]", NEG = "border-red-200 bg-red-50 text-red-700", LATER = "border-sky-200 bg-sky-50 text-sky-800";
+/** One tap = the visit's result: sets the status and a sentence for the auto-written notes. */
+const OUTCOMES: Outcome[] = [
+  { id: "interested", label: "مهتم", icon: "🔥", status: "completed", note: "الطبيب مهتم وطلب تفاصيل أكتر", tone: POS },
+  { id: "quote", label: "طلب عرض سعر", icon: "💰", status: "completed", note: "طلب عرض سعر", tone: POS },
+  { id: "samples", label: "طلب عينات", icon: "🧪", status: "completed", note: "طلب عينات إضافية", tone: POS },
+  { id: "order", label: "هيطلب قريب", icon: "🛒", status: "completed", note: "هيطلب قريب", tone: POS },
+  { id: "trial", label: "هيجرب مع المرضى", icon: "🧴", status: "completed", note: "هيبدأ يجرب المنتج مع المرضى", tone: NEU },
+  { id: "followup", label: "محتاج متابعة", icon: "↻", status: "completed", note: "محتاج متابعة قريبة", tone: NEU },
+  { id: "price", label: "متحفظ على السعر", icon: "💸", status: "completed", note: "عنده تحفظ على السعر", tone: NEG },
+  { id: "no", label: "مش مهتم", icon: "✋", status: "completed", note: "الطبيب مش مهتم حالياً", tone: NEG },
+  { id: "later", label: "اتأجلت", icon: "🕑", status: "planned", note: "اتأجلت الزيارة", tone: LATER },
+  { id: "absent", label: "الطبيب مش موجود", icon: "🚪", status: "cancelled", note: "الطبيب مش موجود", tone: LATER },
+];
+const FU: Array<[string, number]> = [["بكرة", 1], ["بعد أسبوع", 7], ["بعد أسبوعين", 14], ["بعد شهر", 30]];
+const RX_ON: Record<Reaction, string> = { interested: "bg-emerald-600 text-white shadow", neutral: "bg-slate-500 text-white shadow", not_interested: "bg-red-600 text-white shadow" };
+const NV_CSS = `
+@keyframes nv-step{from{opacity:0;transform:translateX(-16px)}to{opacity:1;transform:none}}
+@keyframes nv-pop{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes nv-sheet{from{transform:translateY(130%)}to{transform:none}}
+@keyframes nv-glow{0%,100%{box-shadow:0 8px 22px -8px rgba(201,162,74,.7)}50%{box-shadow:0 8px 30px -4px rgba(201,162,74,.95)}}
+.nv-step{animation:nv-step .35s cubic-bezier(.2,.8,.2,1) both}.nv-pop{animation:nv-pop .4s cubic-bezier(.2,.8,.2,1) both}.nv-sheet{animation:nv-sheet .35s cubic-bezier(.2,.8,.2,1) both}.nv-glow{animation:nv-glow 2.4s ease-in-out infinite}
+.nv-tap{transition:transform .12s}.nv-tap:active{transform:scale(.95)}
+@media (prefers-reduced-motion:reduce){.nv-step,.nv-pop,.nv-sheet,.nv-glow{animation:none}}`;
 
 // ───────────── helpers ─────────────
 type TodayItem = { id: string; doctor_id: string; doctor_name: string; clinic_name: string; product_id: string | null; product_name: string | null; done: boolean };

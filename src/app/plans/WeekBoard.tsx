@@ -74,8 +74,8 @@ export default function WeekBoard({ repId, isAdmin = false, embedded = false, in
   if (!w) return <div className="space-y-3">{[0, 1, 2].map(i => <div key={i} className="es-shimmer h-28 rounded-[26px]" />)}</div>;
   const k = w.kpi; const status = w.plans.find(p => p.status === "needs_revision")?.status || w.plans.find(p => p.status === "pending")?.status || w.plans.find(p => p.status === "approved")?.status || w.plans[0]?.status || "none";
   const [sl, sc] = PLAN_STATUS[status] || PLAN_STATUS.none;
-  const missed = w.items.filter(i => i.state === "missed");
-  const dayItems = w.items.filter(i => i.date === day && i.state !== "missed");
+  const missed = w.items.filter(i => i.state === "missed" && !i.excused);
+  const dayItems = w.items.filter(i => i.date === day && (i.state !== "missed" || i.excused));
   const cities = [...new Set(dayItems.map(i => i.city || "—"))];
   const todayIn = w.days.some(d => d.date === w.today);
   const futureDays = (from: string) => w.days.map(d => d.date).filter(d => d > from && d >= w.today);
@@ -83,7 +83,7 @@ export default function WeekBoard({ repId, isAdmin = false, embedded = false, in
 
   const row = (it: WeekItem) => {
     const isOpen = open?.id === it.id; const targets = futureDays(it.date < w.today ? addDays(w.today, -1) : it.date);
-    return <li key={it.id} className={`rounded-2xl border p-3 transition ${it.state === "done" ? "border-emerald-200 bg-emerald-50/40" : it.state === "missed" ? "border-red-200 bg-white" : "border-[var(--border)] bg-white"}`}>
+    return <li key={it.id} className={`rounded-2xl border p-3 transition ${it.state === "done" ? "border-emerald-200 bg-emerald-50/40" : it.excused ? "border-amber-200 bg-amber-50/40" : it.state === "missed" ? "border-red-200 bg-white" : "border-[var(--border)] bg-white"}`}>
       <div className="flex items-start gap-2.5">
         <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-xl text-xs font-extrabold ${it.cls === "A" ? "bg-[var(--navy)] text-white" : it.cls === "B" ? "bg-[var(--sky-soft)] text-[var(--navy)]" : "bg-slate-100 text-slate-600"}`}>{it.cls || "—"}</span>
         <div className="min-w-0 flex-1">
@@ -93,8 +93,8 @@ export default function WeekBoard({ repId, isAdmin = false, embedded = false, in
           <div className="truncate text-[11.5px] text-[var(--muted)]" dir="auto">{[it.clinic, it.city].filter(Boolean).join(" · ")}{it.state === "missed" ? ` · كانت يوم ${dayName(it.date)}` : ""}</div>
           {it.state !== "done" && it.reason && <span className={`mt-1.5 inline-block rounded-lg px-2 py-0.5 text-[11px] font-bold ${TONE[it.tone] || TONE.slate}`}>{it.icon} {it.reason}</span>}
         </div>
-        <span className={`shrink-0 text-[11px] font-bold ${it.state === "done" ? "text-emerald-700" : it.state === "missed" ? "text-red-600" : it.state === "today" ? "text-amber-700" : "text-[var(--muted)]"}`}>
-          {it.state === "done" ? (it.done_at ? `✓ اتعملت ${it.done_at}` : `✓ اتعملت ${it.done_on ? dayName(it.done_on) : ""}`) : it.state === "missed" ? "فاتت" : it.state === "today" ? "النهارده" : "لسه"}</span>
+        <span className={`shrink-0 text-[11px] font-bold ${it.excused ? "text-amber-700" : it.state === "done" ? "text-emerald-700" : it.state === "missed" ? "text-red-600" : it.state === "today" ? "text-amber-700" : "text-[var(--muted)]"}`}>
+          {it.excused ? "⏱ وقت مكتبي" : it.state === "done" ? (it.done_at ? `✓ اتعملت ${it.done_at}` : `✓ اتعملت ${it.done_on ? dayName(it.done_on) : ""}`) : it.state === "missed" ? "فاتت" : it.state === "today" ? "النهارده" : "لسه"}</span>
       </div>
       {it.state !== "done" && <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
         {!isAdmin && <Link href={`/visits/new?doctorId=${it.doctor_id}${it.product_id ? `&productId=${it.product_id}` : ""}`} className="flex min-h-9 items-center rounded-xl bg-[var(--navy)] px-3 text-xs font-bold text-white">▶ سجل زيارة</Link>}
@@ -145,7 +145,7 @@ export default function WeekBoard({ repId, isAdmin = false, embedded = false, in
       <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
         <Kpi label="التنفيذ" value={`${k.done}/${k.planned}`} sub={k.planned ? (k.label === "ok" ? "ماشي تمام" : k.label === "risk" ? "متأخر كتير" : "متأخر شوية") : "مفيش زيارات في الخطة"} ring={k.planned ? Math.round(k.done / k.planned * 100) : 0} />
         <Kpi label="تغطية A" value={`${k.aDone}/${k.aPlanned}`} sub={k.aDue ? `${k.aDue} دكاترة A محتاجين زيارة` : "دكاترة A في الخطة"} />
-        <Kpi label="زيارات فاتتك" value={String(k.missed)} sub={k.missed ? "رجّعها أو أجّلها" : "مفيش ✓"} tone={k.missed ? "text-red-600" : "text-emerald-700"} />
+        <Kpi label="زيارات فاتتك" value={String(k.missed)} sub={`${k.missed ? "رجّعها أو أجّلها" : "مفيش ✓"}${k.excused ? ` · ${k.excused} اتعذرت بوقت مكتبي` : ""}`} tone={k.missed ? "text-red-600" : "text-emerald-700"} />
         <Kpi label="متوقع تخلص" value={`${k.projected}/${k.planned}`} sub={`بمعدلك ده (${k.rate}%)`} />
       </div>
       <div className={embedded ? "space-y-4" : "grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_360px]"}>

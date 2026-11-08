@@ -17,7 +17,7 @@ type Home = {
   pace: { target: number; mtd: number; projected: number; pct: number | null; day: number; days: number } | null;
   trend: Array<{ month: string; value: number }>; byProduct: Array<{ name: string; value: number }>;
   tasks: { open: number; late: number };
-  nextBrief: { doctor_id: string; days: number | null; note: string | null; why: string | null } | null; taskList: TaskRow[]; recent: RecentRow[]; nextWeek: { start: string; plan: { id: string; status: string; visits: number } | null };
+  nextBrief: { doctor_id: string; days: number | null; note: string | null; why: string | null } | null; taskList: TaskRow[]; recent: RecentRow[]; office: number; nextWeek: { start: string; plan: { id: string; status: string; visits: number } | null };
 };
 const k = (n: number) => Math.round(n).toLocaleString("en-US");
 const L = "ar-EG-u-nu-latn";
@@ -105,6 +105,7 @@ export default function RepHome() {
           <div className="mt-2 flex flex-wrap gap-1.5">
             {d.followups > 0 && <span className="rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-bold">{d.followups} متابعة مستحقة</span>}
             {d.lateA > 0 && <a href="#late-doctors" className="rounded-full border border-amber-300/40 bg-amber-300/15 px-2.5 py-1 text-[11px] font-bold text-amber-100">{d.lateA} طبيب فئة A متأخر</a>}
+            <Link href="/my/office-time" className={`rounded-full border px-2.5 py-1 text-[11px] font-bold transition hover:bg-white/20 ${d.office ? "border-amber-300/40 bg-amber-300/15 text-amber-100" : "border-white/15 bg-white/5 text-white/80"}`}>{d.office ? `⏱ ${Math.round(d.office / 6) / 10} ساعة مكتبي` : "＋ وقت مكتبي / اجتماع"}</Link>
             {d.tasks.open > 0 && <Link href="/work" className="rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-bold">{d.tasks.open} مهمة{d.tasks.late ? ` · ${d.tasks.late} متأخرة` : ""}</Link>}
           </div>
         </div>

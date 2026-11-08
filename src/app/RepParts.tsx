@@ -66,6 +66,7 @@ export function WeekStrip({ week }: { week: RepWeek | null }) {
           <span className={`text-[10.5px] font-bold ${today ? "text-white/80" : "text-[var(--muted)]"}`}>{dayName(d.date)}</span>
           <b className="text-lg leading-none">{dnum(d.date)}</b>
           <span className={`text-[10.5px] font-bold ${today ? "text-white" : d.count ? "text-[var(--navy)]" : "text-[var(--muted)]"}`}>{d.count ? `${d.count} زيارة` : "فاضي"}</span>
+          {d.office > 0 && <span className={`text-[9.5px] font-bold ${today ? "text-amber-200" : "text-amber-700"}`}>⏱ {Math.round(d.office / 6) / 10}س</span>}
           <span className={`h-1 w-8 overflow-hidden rounded-full ${today ? "bg-white/25" : "bg-[var(--bg)]"}`}><span className="block h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, background: today ? "#c9a24a" : "#1aa865" }} /></span>
         </Link>; })}
     </div>

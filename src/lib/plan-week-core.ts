@@ -24,14 +24,28 @@ export function suggestDay(city: string | null, days: DayLoad[], today: string):
 }
 
 /** Rep's pace: share of the visits due so far that got done, and where the week lands at that rate. */
-export function pace(items: Array<{ date: string; done: boolean }>, today: string) {
+export function pace(all: Array<{ date: string; done: boolean; excused?: boolean }>, today: string) {
+  // visits covered by logged office time aren't expected any more
+  const items = all.filter(i => !i.excused), excused = all.length - items.length;
   const dueSoFar = items.filter(i => i.date < today || (i.date === today && i.done));
   const done = items.filter(i => i.done).length, missed = items.filter(i => !i.done && i.date < today).length;
   const rate = dueSoFar.length ? dueSoFar.filter(i => i.done).length / dueSoFar.length : 1;
   const remaining = items.filter(i => !i.done && i.date >= today).length;
   const projected = Math.min(items.length, done + Math.round(remaining * rate));
   const label = !items.length ? "none" : missed === 0 ? "ok" : missed / Math.max(1, dueSoFar.length) > 0.4 ? "risk" : "behind";
-  return { done, missed, planned: items.length, projected, rate: Math.round(rate * 100), label: label as "ok" | "behind" | "risk" | "none" };
+  return { done, missed, planned: items.length, projected, rate: Math.round(rate * 100), label: label as "ok" | "behind" | "risk" | "none", excused };
+}
+
+/** Which not-done visits on days with office time are excused: per day, the share of that day's plan the office time took (8h day). */
+export function excusedIds(items: Array<{ id: string; date: string; done: boolean }>, office: Record<string, number>, today: string, dayMin = 480): Set<string> {
+  const out = new Set<string>();
+  for (const [date, min] of Object.entries(office)) {
+    if (date > today || min <= 0) continue;
+    const day = items.filter(i => i.date === date);
+    const cap = Math.round(day.length * Math.min(dayMin, min) / dayMin);
+    for (const i of day.filter(x => !x.done).slice(0, cap)) out.add(i.id);
+  }
+  return out;
 }
 
 export type CheckItem = { doctor_id: string; date: string; cls: string | null };

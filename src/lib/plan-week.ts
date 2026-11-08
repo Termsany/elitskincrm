@@ -1,9 +1,10 @@
+import { officeByDay } from "@/lib/office-time";
 import { query } from "@/lib/db";
 import type { HubDoctor } from "@/lib/doctors-hub";
 import { rankedDoctors } from "@/lib/doctor-suggest";
 import { clinicBalances, type ClinicBalance } from "@/lib/clinic-balances";
 import type { Prio } from "@/lib/doctor-priority";
-import { addDays, itemState, pace, planChecks, suggestDay, weekDays, type DayLoad, type ItemState } from "@/lib/plan-week-core";
+import { addDays, itemState, pace, planChecks, suggestDay, weekDays, type DayLoad, type ItemState, excusedIds } from "@/lib/plan-week-core";
 import { diffSummaryText } from "@/lib/plan-diff";
 import { opsCounts } from "@/lib/plan-changes";
 
@@ -12,7 +13,7 @@ import { opsCounts } from "@/lib/plan-changes";
  * and the admin's team board built from the same numbers.
  */
 export type WeekItem = { id: string; date: string; plan_id: string; plan_status: string; doctor_id: string; doctor: string; clinic: string; city: string; cls: string | null; phone: string;
-  product_id: string | null; product: string | null; done_at: string | null; done_on: string | null; pending_change: boolean; state: ItemState; reason: string; icon: string; tone: string };
+  product_id: string | null; product: string | null; done_at: string | null; done_on: string | null; pending_change: boolean; state: ItemState; reason: string; icon: string; tone: string; excused: boolean };
 export type Suggest = { doctor_id: string; name: string; clinic: string; city: string; cls: string | null; reason: string; icon: string; tone: string; day: string | null; score: number };
 
 type Ctx = { hub: Map<string, HubDoctor>; prio: Map<string, Prio> };
@@ -23,10 +24,10 @@ async function context(repId: string, today: string, balances?: ClinicBalance[])
 
 export async function repWeek(repId: string, start: string, today: string, opts: { balances?: ClinicBalance[]; ctx?: Ctx } = {}) {
   const days = weekDays(start), end = days[4], nStart = addDays(start, 7), nEnd = addDays(start, 11);
-  const [plans, items, visits, next, ctx] = await Promise.all([
+  const [plans, items, visits, next, ctx, office] = await Promise.all([
     query<{ id: string; status: string; period: string; ps: string; pe: string; admin_note: string | null }>(`SELECT id, status::text status, period::text period, period_start::text ps, period_end::text pe, admin_note
       FROM plans WHERE user_id=$1 AND status::text<>'rejected' AND period_start<=$3::date AND period_end>=$2::date ORDER BY period_start`, [repId, start, end]),
-    query<Omit<WeekItem, "state" | "reason" | "icon" | "tone">>(`SELECT pi.id, pi.planned_date::text date, pi.plan_id, p.status::text plan_status, d.id doctor_id, d.name doctor, COALESCE(d.clinic_name,'') clinic, COALESCE(d.city,'') city,
+    query<Omit<WeekItem, "state" | "reason" | "icon" | "tone" | "excused">>(`SELECT pi.id, pi.planned_date::text date, pi.plan_id, p.status::text plan_status, d.id doctor_id, d.name doctor, COALESCE(d.clinic_name,'') clinic, COALESCE(d.city,'') city,
         NULLIF(upper(d.classification),'') cls, COALESCE(d.phone,'') phone, pr.id product_id, pr.name product,
         (SELECT to_char(min(v.visited_at) AT TIME ZONE 'Asia/Riyadh', 'HH24:MI') FROM visits v WHERE v.doctor_id=pi.doctor_id AND v.sales_rep_id=p.user_id AND v.status::text IN ('completed','follow_up')
           AND (v.visited_at AT TIME ZONE 'Asia/Riyadh')::date=pi.planned_date) done_at,
@@ -42,17 +43,20 @@ export async function repWeek(repId: string, start: string, today: string, opts:
       FROM plans p LEFT JOIN plan_items pi ON pi.plan_id=p.id AND pi.planned_date BETWEEN $2::date AND $3::date LEFT JOIN doctors d ON d.id=pi.doctor_id
       WHERE p.user_id=$1 AND p.status::text<>'rejected' AND p.period_start<=$3::date AND p.period_end>=$2::date GROUP BY p.id ORDER BY p.created_at DESC LIMIT 1`, [repId, nStart, nEnd]),
     opts.ctx ? Promise.resolve(opts.ctx) : context(repId, today, opts.balances),
+    officeByDay(repId, start, end),
   ]);
   const list: WeekItem[] = items.rows.map(i => {
     const done = !!i.done_at || !!i.done_on;
     const p = ctx.prio.get(i.doctor_id);
-    return { ...i, state: itemState(i.date, today, done), reason: p?.reason || "", icon: p?.icon || "", tone: p?.tone || "slate" };
+    return { ...i, state: itemState(i.date, today, done), reason: p?.reason || "", icon: p?.icon || "", tone: p?.tone || "slate", excused: false };
   });
+  const exc = excusedIds(list.map(i => ({ id: i.id, date: i.date, done: i.state === "done" })), office, today);
+  for (const i of list) i.excused = exc.has(i.id);
   const planned = new Set(list.map(i => `${i.doctor_id}:${i.date}`)), inWeek = new Set(list.map(i => i.doctor_id));
   const completed = visits.rows.filter(v => v.status === "completed" || v.status === "follow_up");
   const unplanned = completed.filter(v => !planned.has(`${v.doctor_id}:${v.day}`) && !inWeek.has(v.doctor_id)).length;
   const cancelled = visits.rows.filter(v => v.status === "cancelled").length;
-  const sp = pace(list.map(i => ({ date: i.date, done: i.state === "done" })), today);
+  const sp = pace(list.map(i => ({ date: i.date, done: i.state === "done", excused: i.excused })), today);
   const aItems = list.filter(i => i.cls === "A"), aDocs = new Set(aItems.map(i => i.doctor_id));
   const aDone = new Set(aItems.filter(i => i.state === "done").map(i => i.doctor_id));
   const loads: DayLoad[] = days.map(d => ({ date: d, count: list.filter(i => i.date === d).length, cities: [...new Set(list.filter(i => i.date === d).map(i => i.city).filter(Boolean))] }));
@@ -69,9 +73,9 @@ export async function repWeek(repId: string, start: string, today: string, opts:
   const allDoctors = [...ctx.hub.values()];
   const aDue = allDoctors.filter(d => d.classification === "A" && !d.paused && (ctx.prio.get(d.id)?.tags.includes("late") || d.days_since === null)).length;
   return {
-    start, end, today, days: loads.map(l => ({ ...l, done: list.filter(i => i.date === l.date && i.state === "done").length })),
+    start, end, today, days: loads.map(l => ({ ...l, done: list.filter(i => i.date === l.date && i.state === "done").length, office: office[l.date] || 0 })),
     plans: plans.rows, items: list, suggestions: sugg, fill,
-    kpi: { ...sp, aPlanned: aDocs.size, aDone: aDone.size, aDue, unplanned, cancelled, cancelRate: visits.rows.length ? Math.round(cancelled / visits.rows.length * 100) : 0 },
+    kpi: { ...sp, officeMin: Object.values(office).reduce((a, b) => a + b, 0), aPlanned: aDocs.size, aDone: aDone.size, aDue, unplanned, cancelled, cancelRate: visits.rows.length ? Math.round(cancelled / visits.rows.length * 100) : 0 },
     next: next.rows[0] ? { ...next.rows[0], start: nStart, diffA: next.rows[0].a - aItems.length, diffC: next.rows[0].c - list.filter(i => i.cls === "C").length } : { id: null, status: "none", n: 0, a: 0, c: 0, start: nStart, diffA: 0, diffC: 0 },
   };
 }

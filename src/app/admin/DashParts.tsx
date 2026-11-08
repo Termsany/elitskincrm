@@ -115,7 +115,7 @@ export function QuickFab({ mgr = false, rep = false }: { mgr?: boolean; rep?: bo
   useEffect(() => { setMounted(true); }, []);
   if (!mounted) return null;
   const items: Array<[string, string, string, string]> = rep
-    ? [["/visits/new", "تسجيل زيارة", "#33b3a6", "visits"], ["/plans", "خطتي", "#e9a23b", "plans"], ["/work", "مهامي", "#3b82f6", "check"], ["/requests", "طلب جديد", "#8b5cf6", "send"]]
+    ? [["/visits/new", "تسجيل زيارة", "#33b3a6", "visits"], ["/plans", "خطتي", "#e9a23b", "plans"], ["/work", "مهامي", "#3b82f6", "check"], ["/my/office-time", "وقت مكتبي", "#c9a24a", "clock"], ["/requests", "طلب جديد", "#8b5cf6", "send"]]
     : mgr
     ? [["/plans", "خطة", "#e9a23b", "plans"], ["/tasks", "مهمة", "#3b82f6", "check"], ["/admin/reports", "تقرير", "#1aa865", "reports"], ["/doctors", "الأطباء", "#8b5cf6", "doctors"]]
     : [["/plans", "خطة", "#e9a23b", "plans"], ["/tasks", "مهمة", "#3b82f6", "check"], ["/library?view=signreq", "توقيع", "#8b5cf6", "signature"], ["/admin/reports", "تقرير", "#1aa865", "reports"]];

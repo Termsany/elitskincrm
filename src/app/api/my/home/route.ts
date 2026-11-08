@@ -6,6 +6,7 @@ import { rankedDoctors } from "@/lib/doctor-suggest";
 import { salesPace } from "@/lib/smart";
 import { nextWeekStart, workDays } from "@/lib/auto-plan";
 import { addDays } from "@/lib/fmt";
+import { officeByDay } from "@/lib/office-time";
 
 
 /** Everything the rep home needs in one call: today's plan, follow-ups, late doctors, month target + 6-month trend, open tasks, next week's plan. */
@@ -45,6 +46,7 @@ export async function GET() {
   const lastV = nextItem ? (await query<{ days: number; note: string | null }>(`SELECT ($3::date - (v.visited_at AT TIME ZONE 'Asia/Riyadh')::date)::int days, NULLIF(left(btrim(regexp_replace(COALESCE(v.notes,''), '\\s+', ' ', 'g')), 110),'') note
       FROM visits v WHERE v.sales_rep_id=$1 AND v.doctor_id=$2 AND v.status::text IN ('completed','follow_up') ORDER BY v.visited_at DESC LIMIT 1`, [u.id, nextItem.doctor_id, today]).catch(() => ({ rows: [] }))).rows[0] : undefined;
   const nextBrief = nextItem ? { doctor_id: nextItem.doctor_id, days: lastV?.days ?? null, note: lastV?.note ?? null, why: stale.find(s => s.id === nextItem.doctor_id)?.prio.reason || null } : null;
+  const office = await officeByDay(u.id, today, today);
   const inPlan = new Set(plan.rows.map(p => p.doctor_id));
   const late = stale.filter(s => !s.paused && s.prio.tags.includes("late") && !s.in_plan_next && !inPlan.has(s.id))
     .map(s => ({ ...s, classification: (s.classification || "").toUpperCase(), overdue_days: (s.days_since ?? 0) - (s.gap_days ?? 0) }));
@@ -63,5 +65,6 @@ export async function GET() {
     tasks: { open: tasks.rows[0]?.n || 0, late: tasks.rows[0]?.late || 0 },
     nextWeek: { start: ws, plan: next.rows[0] || null },
     nextBrief, taskList: taskList.rows, recent: recent.rows,
+    office: (office[today] || 0),
   });
 }
