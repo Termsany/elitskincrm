@@ -7,14 +7,17 @@ import RepSmartCard from "@/components/smart/RepSmartCard";
 import HrHomeCard from "@/components/hr/HrHomeCard";
 import CollectionsCard from "./CollectionsCard";
 import { QuickFab } from "./admin/DashParts";
+import type { RepWeek } from "@/lib/plan-week";
+import { RepStyles, SmartStrip, WeekStrip, TasksCard, RecentVisits, type TaskRow, type RecentRow } from "./RepParts";
 
-type PlanItem = { id: string; doctor_id: string; doctor_name: string; clinic_name: string | null; city: string | null; classification: string | null; note: string | null; done: boolean; done_at: string | null };
+type PlanItem = { id: string; doctor_id: string; doctor_name: string; clinic_name: string | null; city: string | null; phone: string | null; classification: string | null; note: string | null; done: boolean; done_at: string | null };
 type Home = {
   today: string; name: string; plan: PlanItem[]; followups: number; lateA: number; lateCount: number;
   late: Array<{ id: string; name: string; clinic: string; city: string; classification: string; overdue_days: number }>;
   pace: { target: number; mtd: number; projected: number; pct: number | null; day: number; days: number } | null;
   trend: Array<{ month: string; value: number }>; byProduct: Array<{ name: string; value: number }>;
-  tasks: { open: number; late: number }; nextWeek: { start: string; plan: { id: string; status: string; visits: number } | null };
+  tasks: { open: number; late: number };
+  nextBrief: { doctor_id: string; days: number | null; note: string | null; why: string | null } | null; taskList: TaskRow[]; recent: RecentRow[]; nextWeek: { start: string; plan: { id: string; status: string; visits: number } | null };
 };
 const k = (n: number) => Math.round(n).toLocaleString("en-US");
 const L = "ar-EG-u-nu-latn";
@@ -53,9 +56,10 @@ const Title = ({ icon, t, right }: { icon: string; t: string; right?: React.Reac
 export default function RepHome() {
   const toast = useToast();
   const [d, setD] = useState<Home | null>(null); const [err, setErr] = useState(false);
+  const [week, setWeek] = useState<RepWeek | null>(null);
   const [allPlan, setAllPlan] = useState(false); const [added, setAdded] = useState<string[]>([]); const [busy, setBusy] = useState("");
   const load = () => fetch("/api/my/home", { cache: "no-store" }).then(r => r.ok ? r.json() : Promise.reject()).then(setD).catch(() => setErr(true));
-  useEffect(() => { void load(); }, []);
+  useEffect(() => { void load(); fetch("/api/plans/week", { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(setWeek).catch(() => {}); }, []);
 
   const groups = useMemo(() => {
     const g = new Map<string, PlanItem[]>(); for (const p of d?.plan || []) { const c = p.city || "بدون مدينة"; g.set(c, [...(g.get(c) || []), p]); }
@@ -110,7 +114,14 @@ export default function RepHome() {
           <div className="text-[11px] font-bold text-white/60">الزيارة الجاية</div>
           <div className="mt-0.5 truncate text-lg font-extrabold" dir="auto">{next.doctor_name}</div>
           <div className="truncate text-[12px] text-white/70" dir="auto">{[next.clinic_name, next.city].filter(Boolean).join(" · ")}</div>
-          <Link href={`/visits/new?doctorId=${next.doctor_id}`} className="mt-3 flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#c9a24a] px-4 text-sm font-extrabold text-[#0b2a2f] shadow-md transition hover:-translate-y-0.5 hover:brightness-110">ابدأ الزيارة ‹</Link>
+          {d.nextBrief && d.nextBrief.doctor_id === next.doctor_id && (d.nextBrief.why || d.nextBrief.days !== null || d.nextBrief.note) && <div className="mt-2 rounded-xl bg-white/10 px-3 py-2 text-[11.5px] leading-5 text-white/85">
+            {d.nextBrief.days !== null && <div>آخر زيارة من <b>{d.nextBrief.days}</b> يوم</div>}
+            {d.nextBrief.why && <div className="font-bold text-amber-200">{d.nextBrief.why}</div>}
+            {d.nextBrief.note && <div className="line-clamp-2 text-white/70" dir="auto">«{d.nextBrief.note}»</div>}</div>}
+          <div className="mt-3 flex gap-2">
+            <Link href={`/visits/new?doctorId=${next.doctor_id}`} className="rp-glow flex min-h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-[#c9a24a] px-4 text-sm font-extrabold text-[#0b2a2f] transition hover:-translate-y-0.5 hover:brightness-110 active:scale-95">ابدأ الزيارة ‹</Link>
+            {next.phone && <a href={`tel:${next.phone}`} aria-label={`اتصل بـ ${next.doctor_name}`} className="flex min-h-12 w-12 items-center justify-center rounded-2xl border border-white/25 bg-white/10 transition hover:bg-white/20 active:scale-95"><Icon name="phone" size={19} /></a>}
+          </div>
         </> : <>
           <div className="text-[12px] text-white/70">{total ? "كل زيارات الخطة اتعملت" : "تقدر تسجّل زيارة أو تجهّز خطتك"}</div>
           <Link href="/visits/new" className="mt-3 flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-[#c9a24a] px-4 text-sm font-extrabold text-[#0b2a2f] shadow-md transition hover:-translate-y-0.5">＋ سجّل زيارة</Link>
@@ -181,6 +192,7 @@ export default function RepHome() {
   </section>;
 
   return <div className="space-y-4 pb-24 lg:pb-6">
+    <RepStyles />
     <div className="es-card-in flex items-end justify-between gap-3">
       <div><div className="text-[12px] font-bold text-[var(--muted)]">{dateLabel}</div><h1 className="mt-0.5 text-2xl font-extrabold text-[var(--navy)] sm:text-3xl">{hello}، {d.name} 👋</h1></div>
     </div>
@@ -188,6 +200,8 @@ export default function RepHome() {
       <div className="min-w-0 space-y-4">
         {hero}
         {plan}
+        <SmartStrip week={week} />
+        <WeekStrip week={week} />
         <RepSmartCard hidePace hidePlan />
         <div className="grid gap-4 xl:grid-cols-2 xl:[&>*:only-child]:col-span-2">{target}<CollectionsCard /></div>
         {late}
@@ -195,6 +209,8 @@ export default function RepHome() {
       <aside className="min-w-0 space-y-4">
         <HrHomeCard />
         {nwCard}
+        <TasksCard tasks={d.taskList} open={d.tasks.open} />
+        <RecentVisits rows={d.recent} />
       </aside>
     </div>
     <QuickFab rep />
