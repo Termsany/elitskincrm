@@ -5,7 +5,9 @@ import { GlyphIcon, Icon } from "@/components/Icon";
 import type { DaftraPulse } from "@/lib/dash-daftra";
 import type { Gap } from "@/lib/data-gaps";
 import type { Morning } from "@/lib/morning-summary";
-import { GapsCard, InboxList, MorningCard } from "./HomeExtras";
+import { GapsCard, InboxList } from "./HomeExtras";
+import { HealthHero, KpiTile, QuickFab, Spark, StartHere } from "./DashParts";
+import type { ActionIn, HealthIn } from "@/lib/dash-health";
 import AdminSmartBoard from "@/components/smart/AdminSmartBoard";
 
 type D = {
@@ -78,6 +80,8 @@ export default function CommandCenter() {
   useEffect(() => { if (known && !isMgr) void loadF(); }, [known, isMgr]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { void load(); const t = setInterval(() => { if (document.visibilityState === "visible") { void load(); if (!isMgrRef.current) void loadF(); } }, 120000); return () => clearInterval(t); }, []);
   useEffect(() => { if (d && (!grp || !d.inbox.some(g => g.key === grp))) setGrp(d.inbox[0]?.key || ""); }, [d]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [nx, setNx] = useState<number | null>(null);
+  useEffect(() => { if (known) fetch("/api/smart", { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(j => setNx(typeof j?.nextWeek?.withPlan === "number" ? j.nextWeek.withPlan : null)).catch(() => {}); }, [known]);
   const openPalette = () => window.dispatchEvent(new Event("open-command-palette"));
   if (err && !d) return <div className={`${card} mt-4 p-8 text-center`}><div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-500"><Icon name="warn" size={28} /></div><div className="mt-2 font-bold">تعذر تحميل لوحة القيادة</div><button onClick={() => void load()} className="mt-3 rounded-xl bg-[var(--navy)] px-4 py-2 text-sm font-bold text-white">إعادة المحاولة</button></div>;
   if (!d) return <div className="mt-4 space-y-4"><div className="h-28 animate-pulse rounded-[28px] bg-white" /><div className="grid grid-cols-2 gap-3 xl:grid-cols-4">{[0, 1, 2, 3].map(i => <div key={i} className="h-40 animate-pulse rounded-[28px] bg-white" />)}</div><div className="h-72 animate-pulse rounded-[28px] bg-white" /></div>;
@@ -93,43 +97,38 @@ export default function CommandCenter() {
     <style>{`@keyframes wave{0%,100%{transform:rotate(0)}20%{transform:rotate(-14deg)}40%{transform:rotate(10deg)}60%{transform:rotate(-8deg)}}`}</style>
   </section>;
 
+  const mgr0 = !!(d as { manager?: boolean }).manager;
+  const hIn: HealthIn = { salesPct: !mgr0 && f?.configured && f.plan?.target_revenue ? Math.round(f.mtd.sales / f.plan.target_revenue * 100) : null, expectedPct: f?.configured ? f.day / f.days_in_month * 100 : null, coverage: p.coverage, arOverdue: !mgr0 && f?.configured ? f.ar.overdue : 0, arTotal: !mgr0 && f?.configured ? f.ar.total : 0, quality: p.quality.visits ? p.quality.week : null };
+  const aIn: ActionIn = { manager: mgr0, arOverdue: !mgr0 && f?.configured ? f.ar.overdue : 0, arInvoices: d.morning?.overdue.invoices || 0, ar60: !mgr0 && f?.configured ? f.ar.old60 : 0, reps: p.today.reps, withPlan: nx, pendingTotal: d.pendingTotal, insights: d.insights, morning: d.morning || null };
+
   /* ───────── KPI row ───────── */
   const mgr = !!(d as { manager?: boolean } | null)?.manager;
   const salesDelta = f?.configured && f.prev.sales ? Math.round((f.mtd.sales - f.prev.sales) / f.prev.sales * 100) : null;
   const planPct = f?.configured && f.plan?.target_revenue ? Math.round(f.mtd.sales / f.plan.target_revenue * 100) : null;
+  const qSeries = d.daily.filter(x => x.quality !== null).map(x => x.quality as number);
+  const arPct = f?.configured && f.ar.total ? Math.round(f.ar.overdue / f.ar.total * 100) : 0;
   const pulse = <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-    <Link href={`/visits?tab=visits&day=${d.today}`} className={`${card} dz-card dz-in group p-4 sm:p-5`} style={{ "--d": "0ms" } as React.CSSProperties}>
-      <div className="flex items-start justify-between gap-2"><div><div className="text-xs font-bold text-[var(--muted)]">زيارات النهارده</div><div className="mt-2 flex items-end gap-1.5"><Num v={p.today.visits} className="text-4xl font-extrabold text-[var(--navy)]" /><span className="pb-1.5 text-sm text-[var(--muted)]">زيارة</span></div></div>
-        <AIco name="visits" color="#33b3a6" anim="bob" live={p.today.active > 0} /></div>
-      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[var(--bg)]"><div className="dz-grow-x h-full rounded-full bg-gradient-to-l from-[#33b3a6] to-[var(--navy)]" style={{ width: `${p.today.planned ? Math.min(100, p.today.done / p.today.planned * 100) : p.today.visits ? 100 : 0}%` }} /></div>
-      <div className="mt-1.5 flex justify-between text-[11px] text-[var(--muted)]"><span>{p.today.active > 0 ? <b className="text-emerald-700">{p.today.active} شغال دلوقتي</b> : p.today.planned ? `${p.today.done} من ${p.today.planned} في الخطة` : "مفيش خطة معتمدة"}</span>{p.today.red > 0 && <span className="flex items-center gap-1 font-bold text-red-600"><Icon name="flag" size={13} /> {p.today.red}</span>}</div>
-    </Link>
-    <Link href="/visits?tab=insights" className={`${card} dz-card dz-in group flex flex-col items-start gap-3 p-4 sm:flex-row sm:items-center sm:p-5`} style={{ "--d": "70ms" } as React.CSSProperties}>
-      <Ring pct={p.quality.week} color={qColor(p.quality.visits ? p.quality.week : null)}><Num v={p.quality.week} className="text-xl font-extrabold text-[var(--navy)]" /><span className="text-[9px] text-[var(--muted)]">من 100</span></Ring>
-      <div className="min-w-0"><div className="text-xs font-bold text-[var(--muted)]">جودة الزيارات</div><div className="text-[11px] text-[var(--muted)]">آخر 7 أيام · {p.quality.visits} زيارة</div>
-        {p.quality.lastWeek > 0 && <div className={`mt-1.5 inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold ${qDelta >= 0 ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>{qDelta >= 0 ? "▲" : "▼"} {Math.abs(qDelta)} عن الأسبوع اللي فات</div>}</div>
-    </Link>
-    {!mgr && <>
-    <Link href="/daftra-sales?tab=sales" className={`${card} dz-card dz-in group p-4 sm:p-5`} style={{ "--d": "140ms" } as React.CSSProperties}>
-      <div className="flex items-start justify-between gap-2"><div className="min-w-0"><div className="text-xs font-bold text-[var(--muted)]">مبيعات دفترة الشهر ده</div>
-        <div className="mt-2 text-2xl font-extrabold text-[var(--navy)] sm:text-3xl">{f?.configured ? <><Num v={Math.round(f.mtd.sales)} fmt /><span className="text-sm font-bold text-[var(--muted)]"> ر.س</span></> : "—"}</div></div>
-        <AIco name="receipt" color="#1aa865" anim="rise" /></div>
-      {f?.configured ? <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
-        {salesDelta !== null && <span className={`rounded-full px-2 py-0.5 font-bold ${salesDelta >= 0 ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>{salesDelta >= 0 ? "▲" : "▼"} {Math.abs(salesDelta)}% عن نفس الفترة</span>}
-        {planPct !== null ? <span className="text-[var(--muted)]">{planPct}% من خطة الشهر</span> : <span className="text-[var(--muted)]">{f.mtd.invoices} فاتورة · {f.mtd.clients} عميل</span>}
-      </div> : <div className="mt-2 text-[11px] text-[var(--muted)]">{f ? "دفترة مش مربوطة" : "بيحمّل…"}</div>}
-    </Link>
-    <Link href="/daftra-sales?tab=ar" className={`${card} dz-card dz-in group p-4 sm:p-5`} style={{ "--d": "210ms" } as React.CSSProperties}>
-      <div className="flex items-start justify-between gap-2"><div className="min-w-0"><div className="text-xs font-bold text-[var(--muted)]">ليك عند العملاء متأخر</div>
-        <div className={`mt-2 text-2xl font-extrabold sm:text-3xl ${f?.configured && f.ar.overdue > 0 ? "text-[#b4262c]" : "text-[var(--navy)]"}`}>{f?.configured ? <><Num v={Math.round(f.ar.overdue)} fmt /><span className="text-sm font-bold text-[var(--muted)]"> ر.س</span></> : "—"}</div></div>
-        <AIco name="wallet" color="#e16201" anim="wiggle" /></div>
-      {f?.configured && <div className="mt-2 text-[11px] text-[var(--muted)]">إجمالي ليك {short(f.ar.total)}{f.ar.old60 > 0 && <> · <b className="text-red-600">{short(f.ar.old60)} أكتر من 60 يوم</b></>}</div>}
-    </Link>
-    </>}
+    <KpiTile href={`/visits?tab=visits&day=${d.today}`} color="#1aa865" tint="#e9f8f0" label="زيارات النهارده" icon="visits" delay={0} live={p.today.active > 0}
+      value={<><Num v={p.today.visits} className="text-4xl font-extrabold text-[var(--navy)]" /><span className="pb-1.5 text-sm text-[var(--muted)]"> زيارة</span></>}
+      sub={p.today.active > 0 ? `${p.today.active} شغال دلوقتي` : p.today.planned ? `${p.today.done} من ${p.today.planned} في الخطة` : "مفيش خطة معتمدة"} chip={p.today.red > 0 ? { text: `${p.today.red} تنبيه`, tone: "red" } : undefined}
+      spark={<Spark data={d.daily.map(x => x.visits)} color="#1aa865" />} />
+    {!mgr && <KpiTile href="/daftra-sales?tab=sales" color="#165f66" tint="#e8f4f4" label="مبيعات الشهر" icon="receipt" delay={70}
+      value={f?.configured ? <><Num v={Math.round(f.mtd.sales)} fmt className="text-3xl font-extrabold text-[var(--navy)]" /><span className="pb-1 text-sm text-[var(--muted)]"> ر.س</span></> : <span className="text-3xl font-extrabold text-[var(--muted)]">—</span>}
+      sub={f?.configured ? (planPct !== null ? `${planPct}% من خطة الشهر` : `${f.mtd.invoices} فاتورة · ${f.mtd.clients} عميل`) : f ? "دفترة مش مربوطة" : "بيحمّل…"}
+      chip={salesDelta !== null ? { text: `${salesDelta >= 0 ? "▲" : "▼"} ${Math.abs(salesDelta)}%`, tone: salesDelta >= 0 ? "green" : "red" } : undefined}
+      spark={f?.configured ? <Spark data={f.series.map(x => x.sales)} color="#165f66" /> : undefined} />}
+    {!mgr && <KpiTile href="/daftra-sales?tab=ar" color="#d64545" tint="#fdecec" label="ليك عند العملاء متأخر" icon="wallet" delay={140} live={!!(f?.configured && f.ar.overdue > 0)}
+      value={f?.configured ? <><Num v={Math.round(f.ar.overdue)} fmt className={`text-3xl font-extrabold ${f.ar.overdue > 0 ? "text-[#b4262c]" : "text-[var(--navy)]"}`} /><span className="pb-1 text-sm text-[var(--muted)]"> ر.س</span></> : <span className="text-3xl font-extrabold text-[var(--muted)]">—</span>}
+      sub={f?.configured ? `إجمالي ليك ${short(f.ar.total)}${f.ar.old60 > 0 ? ` · ${short(f.ar.old60)} أكتر من 60 يوم` : ""}` : ""}
+      spark={f?.configured && f.ar.total > 0 ? <div className="mt-3"><div className="h-2.5 overflow-hidden rounded-full bg-white/80"><div className="dz-grow-x h-full rounded-full bg-gradient-to-l from-[#d64545] to-[#ef8a8a]" style={{ width: `${arPct}%` }} /></div><div className="mt-1 text-[10.5px] text-[var(--muted)]">{arPct}% من اللي ليك متأخر</div></div> : undefined} />}
+    <KpiTile href="/visits?tab=insights" color="#8b5cf6" tint="#f1ecfe" label="جودة الزيارات" icon="reports" delay={210}
+      value={<><Num v={p.quality.week} className="text-4xl font-extrabold text-[var(--navy)]" /><span className="pb-1.5 text-sm text-[var(--muted)]"> / 100</span></>}
+      sub={`آخر 7 أيام · ${p.quality.visits} زيارة`} chip={p.quality.lastWeek > 0 ? { text: `${qDelta >= 0 ? "▲" : "▼"} ${Math.abs(qDelta)}`, tone: qDelta >= 0 ? "green" : "red" } : undefined}
+      spark={<Spark data={qSeries} color="#8b5cf6" />} />
   </section>;
 
   /* ───────── Visits panel ───────── */
-  const visits = <section className={`${card} dz-in p-5`} style={{ "--d": "260ms" } as React.CSSProperties}>
+  const visits = <section id="dash-visits" className={`${card} dz-in scroll-mt-24 p-5`} style={{ "--d": "260ms" } as React.CSSProperties}>
     <div className="flex items-center justify-between gap-2"><div className="flex items-center gap-2.5"><AIco name="visits" color="#10484f" anim="bob" box={38} size={19} /><div><h2 className="text-lg font-extrabold text-[var(--navy)]">الزيارات</h2><div className="text-[11px] text-[var(--muted)]">النهارده وآخر 14 يوم</div></div></div><Link href="/visits" className="text-xs font-bold text-[var(--navy)] opacity-70 hover:opacity-100">لوحة المتابعة ‹</Link></div>
     <div className="mt-4 grid grid-cols-1 gap-5 md:grid-cols-[auto_1fr]">
       <div className="flex items-center gap-4 md:flex-col md:items-stretch">
@@ -154,14 +153,16 @@ export default function CommandCenter() {
 
   /* ───────── Daftra sales panel ───────── */
   const SER: Record<string, [string, string]> = { sales: ["المبيعات", "#1aa865"], gross: ["مجمل الربح", "#15646a"], collected: ["التحصيل", "#3b90e8"] };
-  const daftra = <section className={`${card} dz-in p-5`} style={{ "--d": "320ms" } as React.CSSProperties}>
+  const daftra = <section id="dash-money" className={`${card} dz-in scroll-mt-24 p-5`} style={{ "--d": "320ms" } as React.CSSProperties}>
     <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2.5"><AIco name="receipt" color="#1aa865" anim="rise" box={38} size={19} /><div><h2 className="text-lg font-extrabold text-[var(--navy)]">مبيعات دفترة</h2><div className="flex items-center gap-1.5 text-[11px] text-[var(--muted)]">{f?.configured && <><span className={`h-1.5 w-1.5 rounded-full ${f.sync.running ? "animate-pulse bg-amber-500" : f.sync.ok === false ? "bg-red-500" : "bg-emerald-500"}`} />{f.sync.running ? "بيتحدث من دفترة…" : f.sync.at ? `آخر تحديث ${rel(f.sync.at)}` : "لسه ما اتحدثش"}</>}</div></div></div>
       <Link href="/daftra-sales" className="text-xs font-bold text-[var(--navy)] opacity-70 hover:opacity-100">الحسابات كاملة ‹</Link></div>
     {!f ? <div className="mt-4 h-56 animate-pulse rounded-2xl bg-[var(--bg)]" /> : !f.configured ? <div className="mt-4 rounded-2xl bg-[var(--bg)] p-6 text-center text-sm text-[var(--muted)]">دفترة مش مربوطة على السيرفر.</div> : <>
       <div className="mt-3 flex gap-1 rounded-xl bg-[var(--bg)] p-1">{Object.entries(SER).map(([k, [l, c]]) => <button key={k} type="button" onClick={() => { setSer(k); setFh(null); }} className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-bold transition ${ser === k ? "bg-white text-[var(--navy)] shadow-sm" : "text-[var(--muted)] hover:text-[var(--navy)]"}`}><i className="h-2 w-2 rounded-full" style={{ background: c }} />{l}</button>)}</div>
       <div className="mt-3 flex items-end justify-between gap-2"><div><div className="text-[11px] text-[var(--muted)]">{fh !== null ? mFull(f.series[fh].m) : "آخر 12 شهر"}</div><div className="text-2xl font-extrabold text-[var(--navy)]">{(fh !== null ? f.series[fh][ser as "sales"] : f.series.reduce((s, x) => s + x[ser as "sales"], 0)).toLocaleString("en-US", { maximumFractionDigits: 0 })} <span className="text-sm text-[var(--muted)]">ر.س</span></div></div>
         {f.year.margin !== null && <div className="text-left text-[11px] text-[var(--muted)]">هامش مجمل الربح<div className="text-base font-extrabold text-[var(--navy)]">{f.year.margin}%</div></div>}</div>
-      <Area key={ser} data={f.series.map(x => x[ser as "sales"])} labels={f.series.map(x => x.m)} color={SER[ser][1]} hover={fh} setHover={setFh} />
+      {f.series.length >= 3 ? <Area key={ser} data={f.series.map(x => x[ser as "sales"])} labels={f.series.map(x => x.m)} color={SER[ser][1]} hover={fh} setHover={setFh} />
+        : <div className="mt-3 rounded-2xl bg-gradient-to-l from-[var(--bg)] to-white p-4"><div className="grid grid-cols-3 gap-2">{([["sales", "المبيعات"], ["gross", "مجمل الربح"], ["collected", "التحصيل"]] as const).map(([key, lbl]) => { const v = f.series.reduce((a, x) => a + x[key], 0); const mx = Math.max(1, ...f.series.map(x => Math.max(x.sales, x.gross, x.collected))); return <div key={key}><div className="text-[11px] text-[var(--muted)]">{lbl}</div><div className="text-base font-extrabold text-[var(--navy)]">{short(v)}</div><div className="mt-1.5 flex h-16 items-end rounded-xl bg-white p-1"><div className="dz-bar w-full rounded-lg" style={{ height: `${Math.max(8, v / mx * 100)}%`, background: SER[key][1] }} /></div></div>; })}</div>
+          <p className="mt-3 text-[11px] text-[var(--muted)]">الرسم الشهري هيظهر لما يتجمع 3 شهور من بداية الدفاتر ({f.series[0] ? mFull(f.series[0].m) : "الشهر ده"}).</p></div>}
       <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Link href="/daftra-sales?tab=plan" className="group rounded-2xl border border-[var(--border)] p-3 transition hover:border-[var(--sky-border)] hover:bg-[var(--sky-light)]/50">
           <div className="flex items-center justify-between text-[11px] font-bold text-[var(--muted)]"><span>الشهر ده لحد النهارده</span><span className="dz-ico dz-spin !h-6 !w-6 !rounded-lg" style={{ color: "#10484f" }}><Icon name="plans" size={14} /></span></div>
@@ -238,14 +239,24 @@ export default function CommandCenter() {
     <div className="grid grid-cols-1 gap-x-6 gap-y-1 md:grid-cols-2">{d.activity.map((a, k) => <Link key={k} href={a.href} className={`min-w-0 items-center gap-3 rounded-xl px-2 py-2 transition hover:bg-[var(--bg)] ${k >= 6 ? "hidden md:flex" : "flex"}`}>{actIcon(a.kind)}<div className="min-w-0 flex-1 truncate text-sm"><span className="font-bold">{a.who}</span> <span className="text-[var(--muted)]" dir="auto">{a.what}</span></div><span className="shrink-0 text-[10px] text-[var(--muted)]">{rel(a.at)}</span></Link>)}</div>
   </section>;
 
+  const gapsCard = d.gaps && d.gaps.length > 0 ? <GapsCard gaps={d.gaps} onDone={() => void load()} /> : null;
+  const decisions = d.inbox.length
+    ? <div className="grid gap-4 lg:gap-5 xl:grid-cols-[1.5fr_1fr]">{inbox}<div className="flex flex-col gap-4 lg:gap-5">{gapsCard}{insights}</div></div>
+    : <div className="flex flex-col gap-4 lg:gap-5">
+        <div id="inbox" className="flex scroll-mt-24 items-center gap-3 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-extrabold text-emerald-800 ring-1 ring-emerald-200"><Icon name="sparkle" size={18} />محتاج قرارك: كل حاجة متراجعة ✨<span className="mr-auto text-[11px] font-normal text-emerald-700/80">خطط وطلبات وتوقيعات</span></div>
+        <div className={`grid gap-4 lg:gap-5 ${gapsCard ? "xl:grid-cols-2" : ""}`}>{gapsCard}{insights}</div>
+      </div>;
+
   return <div className="mt-2 flex flex-col gap-4 pb-24 lg:gap-5 lg:pb-6">
     {header}
-    {d.morning && <MorningCard m={d.morning} mgr={mgr} />}
+    <HealthHero h={hIn} />
+    <StartHere input={aIn} today={d.today} onDone={() => void load()} />
     {pulse}
     <AdminSmartBoard />
     <div className={`grid gap-4 lg:gap-5 ${mgr ? "" : "xl:grid-cols-[1.25fr_1fr]"}`}>{visits}{!mgr && daftra}</div>
-    <div className="grid gap-4 lg:gap-5 xl:grid-cols-[1.5fr_1fr]">{inbox}<div className="flex flex-col gap-4 lg:gap-5">{d.gaps && d.gaps.length > 0 && <GapsCard gaps={d.gaps} onDone={() => void load()} />}{insights}</div></div>
+    {decisions}
     <div className="grid gap-4 lg:gap-5 xl:grid-cols-[1.5fr_1fr]">{team}{modules}</div>
     {activity}
+    <QuickFab mgr={mgr} />
   </div>;
 }

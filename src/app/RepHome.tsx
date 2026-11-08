@@ -6,6 +6,7 @@ import { useToast } from "@/components/Toast";
 import RepSmartCard from "@/components/smart/RepSmartCard";
 import HrHomeCard from "@/components/hr/HrHomeCard";
 import CollectionsCard from "./CollectionsCard";
+import { QuickFab } from "./admin/DashParts";
 
 type PlanItem = { id: string; doctor_id: string; doctor_name: string; clinic_name: string | null; city: string | null; classification: string | null; note: string | null; done: boolean; done_at: string | null };
 type Home = {
@@ -17,6 +18,11 @@ type Home = {
 };
 const k = (n: number) => Math.round(n).toLocaleString("en-US");
 const L = "ar-EG-u-nu-latn";
+const PRI: Record<string, { box: string; btn: string; bar: string }> = {
+  A: { box: "border-red-200 bg-gradient-to-l from-red-50 to-white", btn: "bg-[#d64545] shadow-[0_8px_18px_-8px_#d64545]", bar: "#d64545" },
+  B: { box: "border-amber-200 bg-gradient-to-l from-amber-50 to-white", btn: "bg-[#e9a23b] shadow-[0_8px_18px_-8px_#e9a23b]", bar: "#e9a23b" },
+};
+const PRI_DEFAULT = { box: "border-sky-200 bg-gradient-to-l from-sky-50 to-white", btn: "bg-[#3b82f6] shadow-[0_8px_18px_-8px_#3b82f6]", bar: "#3b82f6" };
 const CLS: Record<string, string> = { A: "bg-emerald-50 text-emerald-700", B: "bg-sky-50 text-sky-700", C: "bg-amber-50 text-amber-800" };
 const card = "es-card-in rounded-[28px] border border-[var(--border)] bg-white shadow-sm";
 
@@ -154,14 +160,14 @@ export default function RepHome() {
   /* ───── late doctors ───── */
   const late = d.late.length > 0 && <section id="late-doctors" className={`${card} scroll-mt-24 p-4 sm:p-5`} style={{ animationDelay: "180ms" }}>
     <Title icon="doctors" t="أطباء محتاجين زيارة" right={<Link href="/doctors?tag=late" className="text-[11.5px] font-bold text-[var(--sky-deep)]">الكل ({d.lateCount}) ‹</Link>} />
-    <ul className="grid gap-2 sm:grid-cols-2">{d.late.map(x => <li key={x.id} className="flex items-center gap-2.5 rounded-2xl border border-[var(--border)] p-2.5">
+    <ul className="grid gap-2.5 sm:grid-cols-2">{d.late.map(x => { const pr = PRI[x.classification] || PRI_DEFAULT; return <li key={x.id} className={`relative flex items-center gap-2.5 overflow-hidden rounded-2xl border p-2.5 pr-3.5 transition hover:-translate-y-0.5 hover:shadow-md ${pr.box}`}><span className="absolute inset-y-0 right-0 w-1.5" style={{ background: pr.bar }} />
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[var(--sky-light)] text-sm font-extrabold text-[var(--navy)]">{x.name.replace(/^د\.?\s*/, "").trim()[0] || "د"}</span>
       <div className="min-w-0 flex-1"><b className="block truncate text-sm" dir="auto">{x.name}</b><span className="block truncate text-[11px] text-[var(--muted)]" dir="auto">{[x.clinic, x.city].filter(Boolean).join(" · ")}</span>
-        <span className="text-[11px] font-bold text-amber-700">متأخر {x.overdue_days} يوم{x.classification ? ` · فئة ${x.classification}` : ""}</span></div>
+        <span className="text-[11px] font-bold" style={{ color: pr.bar }}>متأخر {x.overdue_days} يوم{x.classification ? ` · فئة ${x.classification}` : ""}</span></div>
       <button type="button" disabled={busy === x.id || added.includes(x.id)} onClick={() => void addToPlan(x)} title="ضيفه لخطة أول يوم شغل جاي" aria-label={`ضيف ${x.name} للخطة`}
         className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg font-bold transition ${added.includes(x.id) ? "bg-emerald-50 text-emerald-700" : "bg-[var(--bg)] text-[var(--navy)] hover:bg-[var(--sky-light)]"}`}>{added.includes(x.id) ? "✓" : "＋"}</button>
-      <Link href={`/visits/new?doctorId=${x.id}`} className="shrink-0 rounded-xl bg-[#33b3a6] px-3 py-2.5 text-[11.5px] font-bold text-white">زيارة</Link>
-    </li>)}</ul>
+      <Link href={`/visits/new?doctorId=${x.id}`} className={`shrink-0 rounded-xl px-3.5 py-2.5 text-[12px] font-extrabold text-white transition active:scale-95 ${pr.btn}`}>زيارة</Link>
+    </li>; })}</ul>
   </section>;
 
   /* ───── next week ───── */
@@ -191,5 +197,6 @@ export default function RepHome() {
         {nwCard}
       </aside>
     </div>
+    <QuickFab rep />
   </div>;
 }

@@ -60,7 +60,7 @@ export async function adminDashboard(userName: string, opts: { manager?: boolean
         UNION ALL SELECT 'plan', p.created_at, u.name, CASE WHEN p.status::text='pending' THEN 'بعت خطة للاعتماد' ELSE 'خطة ' || p.status::text END, '/plans?planId=' || p.id FROM plans p JOIN users u ON u.id=p.user_id
         UNION ALL SELECT CASE WHEN l.signed THEN 'sign' ELSE 'file' END, l.created_at, u.name, CASE WHEN l.signed THEN 'وقّع ' ELSE 'رفع ' END || l.name, '/library?file=' || l.id FROM library_files l JOIN users u ON u.id=l.owner_id WHERE l.deleted_at IS NULL AND COALESCE(l.source_kind,'')<>'visit_report'
         UNION ALL SELECT 'signreq', s.created_at, u.name, 'طلب توقيع على ' || s.file_name, '/library?view=signreq' FROM sign_requests s JOIN users u ON u.id=s.requested_by
-      ) x ORDER BY at DESC LIMIT 12`),
+      ) x ORDER BY at DESC LIMIT 30`),
     planAdherence(weekStart, today),
     query(`SELECT count(*)::int n FROM visits v WHERE v.follow_up_at IS NOT NULL AND v.follow_up_at < $1::date AND v.status::text<>'cancelled'
         AND NOT EXISTS(SELECT 1 FROM visits v2 WHERE v2.doctor_id=v.doctor_id AND v2.visited_at > v.visited_at AND v2.status::text<>'cancelled')`, [today]),
@@ -77,13 +77,16 @@ export async function adminDashboard(userName: string, opts: { manager?: boolean
 
   // Smart insights — only things worth a manager's attention, most important first.
   const insights: Array<{ tone: "red" | "amber" | "green" | "blue"; icon: string; title: string; text: string; href: string }> = [];
-  for (const r of thisWeek.reps.filter(r => r.redFlags >= 3).slice(0, 2))
+  const act = await query<{ id: string; name: string }>("SELECT id::text id, name FROM users WHERE active");
+  const activeIds = new Set(act.rows.map(u => u.id)), activeNames = new Set(act.rows.map(u => u.name));
+  const liveReps = thisWeek.reps.filter(r => activeIds.has(String(r.rep_id)));
+  for (const r of liveReps.filter(r => r.redFlags >= 3).slice(0, 2))
     insights.push({ tone: "red", icon: "🚩", title: `${r.rep_name}: ${r.redFlags} زيارة محتاجة مراجعة`, text: "اتسجلت بشكل جماعي من نفس المكان أو بعيد عن العيادة الأسبوع ده", href: `/visits?tab=visits&repId=${r.rep_id}` });
   if (weekPlanned >= 5 && weekDone / weekPlanned < 0.6) insights.push({ tone: "amber", icon: "🗓️", title: `الالتزام بالخطط ${Math.round(weekDone / weekPlanned * 100)}% بس`, text: `${weekDone} زيارة من ${weekPlanned} مخططة اتنفذت آخر 7 أيام`, href: "/plans" });
   if (salesPulse.target > 0 && salesPulse.actual / salesPulse.target * 100 < salesPulse.pace - 15) insights.push({ tone: "amber", icon: "💰", title: `مبيعات الشهر ${Math.round(salesPulse.actual / salesPulse.target * 100)}% والشهر عدّى ${salesPulse.pace}%`, text: "محتاجين نسرّع عشان نوصل للهدف", href: "/sales" });
   if (aGap.rows[0]?.n) insights.push({ tone: "amber", icon: "🩺", title: `${aGap.rows[0].n} طبيب تصنيف A ما اتزارش من 30 يوم`, text: "دول أهم أطبائك — يستاهلوا يدخلوا خطة الأسبوع الجاي", href: "/doctors?tab=insights" });
   if (overdue.rows[0]?.n) insights.push({ tone: "blue", icon: "🔁", title: `${overdue.rows[0].n} متابعة فات معادها`, text: "مواعيد متابعة اتحددت في زيارات ومحدش رجع للطبيب", href: "/visits?tab=visits" });
-  const best = thisWeek.reps.find(r => r.visits >= 3 && r.redFlags === 0);
+  const best = liveReps.find(r => r.visits >= 3 && r.redFlags === 0);
   if (best) insights.push({ tone: "green", icon: "🏆", title: `${best.rep_name} الأعلى جودة الأسبوع ده`, text: `${best.visits} زيارة بمتوسط جودة ${best.avgQuality}/100 — ممكن تبعتله كلمة تشجيع`, href: `/visits?tab=visits&repId=${best.rep_id}` });
 
   const hour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Riyadh", hour: "2-digit", hour12: false }).format(new Date()));
@@ -110,7 +113,7 @@ export async function adminDashboard(userName: string, opts: { manager?: boolean
     },
     team: board.board.map(b => ({ rep_id: b.rep_id, rep_name: b.rep_name, state: b.state, visits: b.visits, planned: b.planned, done: b.done, avgQuality: b.avgQuality, sinceMin: b.sinceMin, redFlags: b.redFlags })),
     daily, insights: insights.slice(0, 5),
-    activity: activity.rows,
+    activity: activity.rows.filter(a => activeNames.has(String((a as { who: string }).who))).slice(0, 12),
   };
 }
 
