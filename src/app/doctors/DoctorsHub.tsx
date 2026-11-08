@@ -1,9 +1,12 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { createPortal } from "react-dom";
 import { useToast } from "@/components/Toast";
 import DoctorRequestsClient from "../admin/requests/DoctorRequestsClient";
 import type { HubDoctor } from "@/lib/doctors-hub";
+import type { ClinicBalance } from "@/lib/clinic-balances";
+import type { Account } from "@/lib/clinic-account";
 
 type Opt = { id: string; name: string };
 type Tab = "doctors" | "clinics" | "insights" | "requests";
@@ -37,7 +40,7 @@ function useMode() {
   return m;
 }
 
-export default function DoctorsHub({ isAdmin, reps, initialQ = "", initialTab = "doctors" }: { isAdmin: boolean; reps: Opt[]; initialQ?: string; initialTab?: Tab }) {
+export default function DoctorsHub({ isAdmin, canLink = false, reps, initialQ = "", initialTab = "doctors" }: { isAdmin: boolean; canLink?: boolean; reps: Opt[]; initialQ?: string; initialTab?: Tab }) {
   const toast = useToast();
   const mode = useMode();
   const [tab, setTab] = useState<Tab>(initialTab);
@@ -56,6 +59,9 @@ export default function DoctorsHub({ isAdmin, reps, initialQ = "", initialTab = 
   const [form, setForm] = useState<{ doc: HubDoctor | null; f: Form } | null>(null);
   const [pending, setPending] = useState(0);
   const [showF, setShowF] = useState(false);
+  const [bal, setBal] = useState<ClinicBalance[] | null>(null);
+  const [openClinic, setOpenClinic] = useState<ClinicGroup | null>(null);
+  useEffect(() => { if (tab !== "clinics" || bal) return; fetch("/api/clinics/balances").then(r => r.ok ? r.json() : null).then(j => setBal(j?.clinics || [])).catch(() => setBal([])); }, [tab, bal]);
 
   useEffect(() => { try { setFav(JSON.parse(localStorage.getItem(FAV) || "[]")); } catch { /* */ } }, []);
   useEffect(() => {
@@ -173,11 +179,13 @@ export default function DoctorsHub({ isAdmin, reps, initialQ = "", initialTab = 
         {effView !== "table" && list.length > limit && <div ref={more} className="flex justify-center"><button type="button" onClick={() => setLimit(l => l + PAGE)} className="min-h-11 rounded-2xl border border-[var(--border)] bg-white px-5 text-sm font-bold text-[var(--navy)]">عرض المزيد ({list.length - limit} باقي)</button></div>}
         {!list.length && <div className="rounded-3xl border border-dashed border-[var(--border-strong)] bg-white p-10 text-center text-[var(--muted)]">لا يوجد أطباء مطابقين</div>}
       </>}
-      {rows && tab === "clinics" && <Clinics rows={all.filter(d => (!city || d.city === city) && (!cls || d.classification === cls) && (!q.trim() || `${d.clinic_name} ${d.city}`.toLowerCase().includes(q.trim().toLowerCase())))} onPick={c => { setClinic(c); setTab("doctors"); setSeg("all"); }} />}
+      {rows && tab === "clinics" && <Clinics rows={all.filter(d => (!city || d.city === city) && (!cls || d.classification === cls) && (!q.trim() || `${d.clinic_name} ${d.city}`.toLowerCase().includes(q.trim().toLowerCase())))} bal={bal} onOpen={setOpenClinic} />}
       {rows && tab === "insights" && <Insights rows={all} days={days} onSeg={(s, c) => { setSeg(s); if (c !== undefined) setCls(c); setTab("doctors"); }} onOpen={setSel} />}
       {tab === "requests" && (isAdmin ? <div className="rounded-3xl border border-[var(--border)] bg-white p-3"><DoctorRequestsClient /></div> : <MyRequests />)}
 
       {sel && <QuickView d={sel} isAdmin={isAdmin} onClose={() => setSel(null)} onPlan={date => { void addToPlan([sel.id], date); setSel(null); }} onEdit={() => { openForm(sel); setSel(null); }} fav={fav.includes(sel.id)} toggleFav={() => toggleFav(sel.id)} sheet={mode === "phone"} onPause={canPause ? (p => { void setPaused([sel.id], p); setSel({ ...sel, paused: p }); }) : undefined} monthName={monthName} />}
+      {openClinic && <ClinicPanel g={openClinic} canLink={canLink} sheet={mode === "phone"} onClose={() => setOpenClinic(null)}
+        onDoctor={d => { setOpenClinic(null); setSel(d); }} onFilter={() => { setClinic(openClinic.name); setTab("doctors"); setSeg("all"); setOpenClinic(null); }} />}
       {form && <DoctorForm form={form} setForm={setForm} isAdmin={isAdmin} cities={cities} clinics={clinics} onSave={() => void saveForm()} />}
     </div>
   );
@@ -316,32 +324,145 @@ function QuickView({ d, isAdmin, onClose, onPlan, onEdit, fav, toggleFav, sheet,
   );
 }
 
-function Clinics({ rows, onPick }: { rows: HubDoctor[]; onPick: (c: string) => void }) {
+type ClinicGroup = { key: string; id: string | null; name: string; city: string | null; ds: HubDoctor[]; visits: number; overdue: number; never: number; covered: number; a: number; last: number | null };
+const sar = (n: number) => `${Math.round(n).toLocaleString("en-US")} ر.س`;
+const normName = (s: string | null) => (s || "").trim().toLowerCase();
+function balanceOf(g: ClinicGroup, bal: ClinicBalance[] | null) {
+  if (!bal) return undefined;
+  return (g.id && bal.find(b => b.id === g.id)) || bal.find(b => normName(b.name) === normName(g.name)) || null;
+}
+
+function DebtPill({ b }: { b: ClinicBalance | null | undefined }) {
+  if (b === undefined) return <span className="es-shimmer h-6 w-28 rounded-full" />;
+  const [t, c] = !b ? ["مش مربوطة بدفترة", "bg-slate-100 text-slate-500"] : b.overdue > 0 ? [`متأخر ${sar(b.overdue)}`, "bg-red-50 text-red-700"]
+    : b.unpaid > 0 ? [`عليها ${sar(b.unpaid)}`, "bg-sky-50 text-sky-800"] : ["✓ مفيش مديونية", "bg-emerald-50 text-emerald-700"];
+  return <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${c}`}>{t}</span>;
+}
+
+function Clinics({ rows, bal, onOpen }: { rows: HubDoctor[]; bal: ClinicBalance[] | null; onOpen: (g: ClinicGroup) => void }) {
   const groups = useMemo(() => {
+    // one card per real clinic (by id); doctors without a clinic id fall back to the clinic name they carry
     const m = new Map<string, HubDoctor[]>();
-    for (const d of rows) { const k = d.clinic_name || "بدون عيادة"; (m.get(k) || m.set(k, []).get(k)!).push(d); }
-    return [...m.entries()].map(([name, ds]) => ({ name, city: ds[0].city, ds, visits: ds.reduce((a, d) => a + d.visits, 0), overdue: ds.filter(d => health(d) === "overdue").length, never: ds.filter(d => health(d) === "never").length,
-      covered: ds.filter(d => d.visits > 0).length, a: ds.filter(d => d.classification === "A").length, last: ds.map(d => d.days_since).filter((x): x is number => x !== null).sort((a, b) => a - b)[0] ?? null }))
-      .sort((a, b) => b.overdue + b.never - (a.overdue + a.never) || b.ds.length - a.ds.length);
+    for (const d of rows) { const k = d.clinic_id || `n:${normName(d.clinic_name) || "—"}`; (m.get(k) || m.set(k, []).get(k)!).push(d); }
+    return [...m.entries()].map(([key, ds]): ClinicGroup => {
+      const names = new Map<string, number>(); for (const d of ds) if (d.clinic_name) names.set(d.clinic_name, (names.get(d.clinic_name) || 0) + 1);
+      const name = [...names.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || "بدون عيادة";
+      return { key, id: key.startsWith("n:") ? null : key, name, city: ds[0].city, ds, visits: ds.reduce((a, d) => a + d.visits, 0), overdue: ds.filter(d => health(d) === "overdue").length, never: ds.filter(d => health(d) === "never").length,
+        covered: ds.filter(d => d.visits > 0).length, a: ds.filter(d => d.classification === "A").length, last: ds.map(d => d.days_since).filter((x): x is number => x !== null).sort((a, b) => a - b)[0] ?? null };
+    }).sort((a, b) => b.overdue + b.never - (a.overdue + a.never) || b.ds.length - a.ds.length);
   }, [rows]);
   return (
-    <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
-      {groups.map(g => { const cov = Math.round((g.covered / g.ds.length) * 100); return (
-        <button key={g.name} onClick={() => onPick(g.name)} className="rounded-3xl border border-[var(--border)] bg-white p-4 text-right hover:shadow-md transition">
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      {groups.map((g, i) => { const cov = Math.round((g.covered / g.ds.length) * 100); const b = balanceOf(g, bal); return (
+        <button key={g.key} type="button" onClick={() => onOpen(g)} style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }} aria-label={`تفاصيل ${g.name}`}
+          className="es-card-in group flex flex-col rounded-[26px] border border-[var(--border)] bg-white p-4 text-right shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-md">
           <div className="flex items-start gap-3">
-            <div className="h-11 w-11 rounded-2xl bg-[var(--sky-soft)] grid place-items-center text-xl">🏥</div>
-            <div className="min-w-0 flex-1"><div className="font-extrabold text-[var(--navy)] truncate">{g.name}</div><div className="text-xs text-[var(--muted)]">{g.city || "—"} · {g.ds.length} طبيب{g.a ? ` · ${g.a} فئة A` : ""}</div></div>
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-[var(--sky-soft)] text-xl">🏥</div>
+            <div className="min-w-0 flex-1"><div className="truncate font-extrabold text-[var(--navy)]" dir="auto">{g.name}</div><div className="text-xs text-[var(--muted)]">{g.city || "—"} · {g.ds.length} طبيب{g.a ? ` · ${g.a} فئة A` : ""}</div></div>
+            <span className="mt-1 text-[var(--muted)] transition group-hover:-translate-x-1">‹</span>
           </div>
-          <div className="mt-3"><div className="flex justify-between text-xs mb-1"><span className="text-[var(--muted)]">التغطية في الفترة</span><b>{g.covered}/{g.ds.length}</b></div><div className="h-2 rounded-full bg-[var(--bg)]"><div className={`h-full rounded-full ${cov >= 70 ? "bg-emerald-500" : cov >= 40 ? "bg-amber-500" : "bg-red-500"}`} style={{ width: `${cov}%` }} /></div></div>
-          <div className="flex flex-wrap gap-1.5 mt-3 text-[11px] font-bold">
+          <div className="mt-3"><div className="mb-1 flex justify-between text-xs"><span className="text-[var(--muted)]">التغطية في الفترة</span><b>{g.covered}/{g.ds.length}</b></div><div className="h-2 overflow-hidden rounded-full bg-[var(--bg)]"><div className={`h-full rounded-full transition-all duration-700 ${cov >= 70 ? "bg-emerald-500" : cov >= 40 ? "bg-amber-500" : "bg-red-500"}`} style={{ width: `${cov}%` }} /></div></div>
+          <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] font-bold">
             <span className="rounded-full bg-[var(--bg)] px-2 py-0.5">{g.visits} زيارة</span>
-            {g.overdue > 0 && <span className="rounded-full bg-red-50 text-red-700 px-2 py-0.5">{g.overdue} متأخر</span>}
-            {g.never > 0 && <span className="rounded-full bg-slate-100 text-slate-700 px-2 py-0.5">{g.never} ما اتزاروش</span>}
+            {g.overdue > 0 && <span className="rounded-full bg-red-50 px-2 py-0.5 text-red-700">{g.overdue} متأخر</span>}
+            {g.never > 0 && <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-700">{g.never} ما اتزاروش</span>}
             <span className="rounded-full bg-[var(--bg)] px-2 py-0.5">آخر زيارة: {g.last === null ? "—" : g.last === 0 ? "النهارده" : `من ${g.last} يوم`}</span>
           </div>
+          <div className="mt-3.5 flex items-center justify-between gap-2 border-t border-[var(--border)] pt-3"><DebtPill b={b} />{b?.shared && <span className="text-[10.5px] font-bold text-[var(--muted)]">🏢 حساب مشترك</span>}</div>
         </button>); })}
     </div>
   );
+}
+
+const ACC_STATUS: Record<string, [string, string]> = { stopped: ["بطّلت تطلب", "bg-red-50 text-red-700"], declining: ["مشترياتها بتقل", "bg-amber-50 text-amber-800"], ok: ["منتظمة", "bg-emerald-50 text-emerald-700"], none: ["لسه ما طلبتش", "bg-slate-100 text-slate-600"] };
+type ClinicAcc = Account & { customers: string[]; branches?: string[] };
+function ClinicPanel({ g, canLink, sheet, onClose, onDoctor, onFilter }: { g: ClinicGroup; canLink: boolean; sheet: boolean; onClose: () => void; onDoctor: (d: HubDoctor) => void; onFilter: () => void }) {
+  const [data, setData] = useState<{ clinic: { id: string; name: string; city: string | null } | null; account: ClinicAcc | null } | null>(null);
+  const [inv, setInv] = useState(false);
+  useEffect(() => {
+    let on = true; setData(null);
+    const qs = g.id ? `id=${g.id}` : `name=${encodeURIComponent(g.name)}`;
+    fetch(`/api/clinics/account?${qs}`).then(r => r.ok ? r.json() : { clinic: null, account: null }).then(j => { if (on) setData(j); }).catch(() => { if (on) setData({ clinic: null, account: null }); });
+    return () => { on = false; };
+  }, [g.id, g.name]);
+  useEffect(() => { const k = (e: KeyboardEvent) => e.key === "Escape" && onClose(); window.addEventListener("keydown", k); return () => window.removeEventListener("keydown", k); }, [onClose]);
+  const a = data?.account || null;
+  const docs = [...g.ds].sort((x, y) => { const p = (d: HubDoctor) => ({ overdue: 0, never: 1, soon: 2, ok: 3 })[health(d)]; return p(x) - p(y) || (x.classification || "Z").localeCompare(y.classification || "Z"); });
+  const maxNet = a?.products.reduce((m, p) => Math.max(m, p.net), 0) || 1;
+  const [sl, sc] = a ? ACC_STATUS[a.status] : ["", ""];
+  // portal: the page wrapper animates with a transform, which would trap a fixed panel inside it
+  return createPortal(
+    <div className="fixed inset-0 z-[60] bg-[var(--navy)]/25 backdrop-blur-[2px]" onClick={onClose}>
+      <section dir="rtl" role="dialog" aria-modal="true" aria-label={`تفاصيل ${g.name}`} onClick={e => e.stopPropagation()}
+        className={`flex flex-col overflow-hidden bg-[var(--bg)] shadow-2xl ${sheet ? "es-sheet-up absolute inset-x-0 bottom-0 max-h-[90vh] rounded-t-[26px]" : "es-drawer-in absolute inset-y-0 right-0 w-[min(500px,96vw)]"}`}>
+        <div className="shrink-0 border-b border-[var(--border)] bg-white px-5 pb-4 pt-3">
+          {sheet && <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-slate-200" />}
+          <div className="flex items-start gap-3">
+            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[var(--sky-soft)] text-2xl">🏥</div>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-xl font-extrabold text-[var(--navy)]" dir="auto">{data?.clinic?.name || g.name}</h2>
+              <div className="mt-0.5 text-xs text-[var(--muted)]">{[data?.clinic?.city || g.city, `${g.ds.length} طبيب`, a ? `من دفترة · ${a.customers.join("، ")}` : ""].filter(Boolean).join(" · ")}</div>
+              {a && <span className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-bold ${sc}`}>● {sl}</span>}
+            </div>
+            <button type="button" onClick={onClose} className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[var(--bg)] text-[var(--muted)]" aria-label="إغلاق">✕</button>
+          </div>
+        </div>
+
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="rounded-2xl border border-[var(--border)] bg-white p-2.5"><div className="text-lg font-extrabold text-[var(--navy)]">{g.covered}/{g.ds.length}</div><div className="text-[10.5px] text-[var(--muted)]">اتزاروا في الفترة</div></div>
+            <div className="rounded-2xl border border-[var(--border)] bg-white p-2.5"><div className="text-lg font-extrabold text-[var(--navy)]">{g.visits}</div><div className="text-[10.5px] text-[var(--muted)]">زيارة</div></div>
+            <div className="rounded-2xl border border-[var(--border)] bg-white p-2.5"><div className={`text-lg font-extrabold ${g.overdue ? "text-red-600" : "text-[var(--navy)]"}`}>{g.overdue}</div><div className="text-[10.5px] text-[var(--muted)]">طبيب متأخر</div></div>
+          </div>
+
+          {!data ? <div className="space-y-2">{[0, 1, 2, 3].map(i => <div key={i} className="es-shimmer h-14 rounded-2xl" />)}</div>
+            : !a ? <div className="rounded-2xl border border-dashed border-[var(--border-strong)] bg-white p-5 text-center text-sm text-[var(--muted)]">العيادة دي مش مربوطة بعميل في دفترة، فمش ظاهر مشترياتها ولا مديونيتها.
+              {canLink && <Link href="/daftra-sales?tab=ar#branches" className="mt-2 block text-xs font-bold text-[var(--sky-deep)] hover:underline">اربطها من صفحة دفترة ‹</Link>}</div>
+            : <>
+              {a.branches && a.branches.length > 0 && <div className="rounded-2xl border border-teal-200 bg-teal-50 p-3 text-xs leading-6 text-teal-900">🏢 الحساب ده مشترك مع {a.branches.length} {a.branches.length === 1 ? "فرع تاني" : "فروع تانية"}: <b dir="auto">{a.branches.join("، ")}</b> — المديونية والمشتريات للشركة كلها، مش للفرع ده بس.</div>}
+              {a.balance.overdue > 0 ? <div className="es-pop rounded-2xl bg-red-50 p-3.5 text-[13px] leading-6 text-red-900 ring-1 ring-red-200"><b>قبل أي طلب جديد:</b> عليها <b>{sar(a.balance.overdue)}</b> متأخرة{a.balance.oldest && a.balance.oldest > 0 ? ` من ${a.balance.oldest} يوم` : ""} (إجمالي المستحق {sar(a.balance.unpaid)}).</div>
+                : a.balance.unpaid > 0 ? <div className="rounded-2xl bg-sky-50 p-3.5 text-[13px] text-sky-900 ring-1 ring-sky-200">عليها {sar(a.balance.unpaid)} لسه ما جاش ميعادها — مفيش متأخرات.</div>
+                : <div className="rounded-2xl bg-emerald-50 p-3.5 text-[13px] text-emerald-900 ring-1 ring-emerald-200">✓ مفيش عليها أي مستحقات</div>}
+              <div className="grid grid-cols-2 gap-2">
+                <AccTile l="المستحق عليها" v={a.balance.unpaid ? sar(a.balance.unpaid) : "مفيش"} s={a.balance.open_count ? `${a.balance.open_count} فاتورة مفتوحة` : undefined} tone={a.balance.overdue > 0 ? "bad" : undefined} />
+                <AccTile l="آخر طلب" v={a.orders.last ? fmtD(a.orders.last) : "—"} s={a.orders.days_since !== null ? `من ${a.orders.days_since} يوم` : undefined} tone={a.status === "stopped" ? "bad" : undefined} />
+                <AccTile l="بتطلب كل" v={a.orders.usual_gap ? `${a.orders.usual_gap} يوم` : "—"} s={a.orders.next_expected ? `الطلب الجاي المتوقع ${fmtD(a.orders.next_expected)}` : `${a.orders.count} طلب`} />
+                <AccTile l="آخر 3 شهور" v={sar(a.sales.last90)} s={a.sales.change !== null ? `${a.sales.change > 0 ? "+" : ""}${a.sales.change}% عن اللي قبلها` : `متوسط الشهر ${sar(a.sales.monthly_avg)}`} tone={a.sales.change !== null ? (a.sales.change < -30 ? "bad" : a.sales.change > 0 ? "good" : undefined) : undefined} />
+              </div>
+              {a.products.length > 0 && <div className="rounded-2xl border border-[var(--border)] bg-white p-3.5">
+                <div className="mb-2.5 text-sm font-extrabold text-[var(--navy)]">بتشتري إيه <span className="text-[11px] font-normal text-[var(--muted)]">(آخر 12 شهر، قبل الضريبة)</span></div>
+                <ul className="space-y-2.5">{a.products.slice(0, 8).map(p => <li key={p.item}>
+                  <div className="flex items-baseline justify-between gap-2 text-xs"><span className="min-w-0 truncate font-bold" dir="auto">{p.item}</span><b className="shrink-0 text-[var(--navy)]">{sar(p.net)}</b></div>
+                  <div className="mt-1 flex items-center gap-2 text-[10.5px] text-[var(--muted)]"><span className="shrink-0">{p.qty.toLocaleString("en-US")} قطعة · {p.orders} طلب · آخر مرة {fmtD(p.last)}</span>
+                    <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--bg)]"><span className="es-grow block h-full rounded-full bg-teal-500" style={{ width: `${Math.max(4, p.net / maxNet * 100)}%` }} /></span></div>
+                </li>)}</ul>
+              </div>}
+              {a.balance.open.length > 0 && <div className="rounded-2xl border border-[var(--border)] bg-white">
+                <button type="button" onClick={() => setInv(x => !x)} aria-expanded={inv} className="flex w-full items-center justify-between p-3.5 text-sm font-extrabold text-[var(--navy)]">الفواتير المفتوحة ({a.balance.open_count})<span className={`transition ${inv ? "rotate-180" : ""}`}>⌄</span></button>
+                {inv && <ul className="divide-y divide-[var(--border)] border-t border-[var(--border)] text-xs">{a.balance.open.map(i => <li key={i.id} className="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2.5">
+                  <span><b>#{i.no}</b> <span className="text-[var(--muted)]">· {fmtD(i.date)} · استحقاق {fmtD(i.due)}</span></span>
+                  <span className="font-bold">{sar(i.unpaid)}{i.days > 0 ? <span className="mr-1.5 rounded-full bg-red-50 px-2 py-0.5 text-[10.5px] text-red-700">متأخرة {i.days} يوم</span> : null}</span></li>)}</ul>}
+              </div>}
+            </>}
+
+          <div>
+            <div className="mb-2 text-sm font-extrabold text-[var(--navy)]">أطباء العيادة <span className="text-[11px] font-normal text-[var(--muted)]">({g.ds.length})</span></div>
+            <div className="space-y-1.5">{docs.map(d => <button key={d.id} type="button" onClick={() => onDoctor(d)} className="flex w-full items-center gap-3 rounded-2xl border border-[var(--border)] bg-white p-2.5 text-right transition hover:border-teal-400">
+              <ClassBadge c={d.classification} />
+              <span className="min-w-0 flex-1"><span className="block truncate text-sm font-bold text-[var(--navy)]" dir="auto">{d.name}</span><span className="mt-0.5 block"><HealthPill d={d} /></span></span>
+              <span className="text-[var(--muted)]">‹</span></button>)}</div>
+          </div>
+        </div>
+
+        <div className="shrink-0 border-t border-[var(--border)] bg-white p-3"><button type="button" onClick={onFilter} className="min-h-12 w-full rounded-2xl bg-[var(--navy)] text-sm font-bold text-white shadow-md transition hover:opacity-95">اعرض أطباءها في القايمة</button></div>
+      </section>
+      <style>{`.es-sheet-up{animation:esUp .32s cubic-bezier(.2,.8,.2,1)}.es-drawer-in{animation:esIn .32s cubic-bezier(.2,.8,.2,1)}.es-grow{animation:esGrow .9s ease-out}
+        @keyframes esUp{from{transform:translateY(40px);opacity:0}to{transform:none;opacity:1}}@keyframes esIn{from{transform:translateX(40px);opacity:0}to{transform:none;opacity:1}}@keyframes esGrow{from{width:0}}`}</style>
+    </div>, document.body);
+}
+function AccTile({ l, v, s, tone }: { l: string; v: string; s?: string; tone?: "bad" | "good" }) {
+  return <div className="rounded-2xl border border-[var(--border)] bg-white p-3"><div className="text-[10.5px] text-[var(--muted)]">{l}</div>
+    <div className={`mt-1 text-base font-extrabold ${tone === "bad" ? "text-red-600" : tone === "good" ? "text-emerald-700" : "text-[var(--navy)]"}`}>{v}</div>{s && <div className="mt-0.5 text-[10.5px] text-[var(--muted)]">{s}</div>}</div>;
 }
 
 const InsightKpi = ({ l, v, s, c = "" }: { l: string; v: string | number; s?: string; c?: string }) => <div className="rounded-2xl border border-[var(--border)] bg-white p-4"><div className="text-xs text-[var(--muted)]">{l}</div><div className={`text-2xl font-extrabold text-[var(--navy)] mt-1 ${c}`}>{v}</div>{s && <div className="text-[11px] text-[var(--muted)]">{s}</div>}</div>;
