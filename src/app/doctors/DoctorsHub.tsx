@@ -45,7 +45,7 @@ function useMode() {
   return m;
 }
 
-export default function DoctorsHub({ isAdmin, canLink = false, reps, initialQ = "", initialTab = "doctors" }: { isAdmin: boolean; canLink?: boolean; reps: Opt[]; initialQ?: string; initialTab?: Tab }) {
+export default function DoctorsHub({ isAdmin, canLink = false, reps, initialQ = "", initialTab = "doctors", initialTag = "" }: { isAdmin: boolean; canLink?: boolean; reps: Opt[]; initialQ?: string; initialTab?: Tab; initialTag?: string }) {
   const toast = useToast();
   const mode = useMode();
   const [tab, setTab] = useState<Tab>(initialTab);
@@ -66,7 +66,7 @@ export default function DoctorsHub({ isAdmin, canLink = false, reps, initialQ = 
   const [showF, setShowF] = useState(false);
   const [bal, setBal] = useState<ClinicBalance[] | null>(null);
   const [openClinic, setOpenClinic] = useState<ClinicGroup | null>(null);
-  const [tag, setTag] = useState<Tag | "">("");
+  const [tag, setTag] = useState<Tag | "">((["a_late", "late", "followup", "hot", "reorder", "never", "debt", "planned"].includes(initialTag) ? initialTag : "") as Tag | "");
   const [views, setViews] = useState<SavedView[]>([]);
   const [naming, setNaming] = useState<string | null>(null);
   const [added, setAdded] = useState<string[]>([]);

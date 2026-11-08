@@ -84,6 +84,7 @@ export async function mergeIntoPending(planId: string, op: Record<string, unknow
   if (rep) {
     const items = [...(rep.items as PlanItemLike[])];
     if (op.op === "move") { const i = items.findIndex(x => x.item_id === op.item_id || (x.doctor_id === op.doctor_id && x.planned_date === op.from)); if (i >= 0) items[i] = { ...items[i], planned_date: String(op.to) }; }
+    if (op.op === "remove") { const i = items.findIndex(x => x.item_id === op.item_id || (x.doctor_id === op.doctor_id && x.planned_date === op.date)); if (i >= 0) items.splice(i, 1); }
     if (op.op === "add") items.push({ doctor_id: String(op.doctor_id), doctor_name: String(op.doctor_name || ""), planned_date: String(op.to), product_id: (op.product_id as string) || null, priority: "medium", note: String(op.note || "") });
     const cur = await planItemsNow({ query }, planId);
     const c = diffCounts(diffPlanItems(cur, items));

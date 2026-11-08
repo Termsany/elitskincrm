@@ -140,6 +140,31 @@ export async function addPlanItem(u: Who, ownerId: string, date: string, doctorI
   return { status: 201, ok: true, planId: p.rows[0].id, newPlan: true, pending: status === "pending" };
 }
 
+/** Take a visit out of the plan, with a reason. Admin / unapproved plan: removed now. Approved plan: a change request for the manager. */
+export async function removePlanItem(u: Who, itemId: string, reason: string) {
+  const it = (await query(`SELECT pi.id, pi.planned_date::text date, pi.doctor_id, p.id plan_id, p.user_id, p.status::text status, d.name doctor_name
+    FROM plan_items pi JOIN plans p ON p.id=pi.plan_id JOIN doctors d ON d.id=pi.doctor_id WHERE pi.id=$1`, [itemId])).rows[0] as Record<string, string> | undefined;
+  if (!it) return { status: 404, error: "الزيارة غير موجودة" };
+  if (u.role !== "admin" && it.user_id !== u.id) return { status: 403, error: "Forbidden" };
+  if (u.role !== "admin" && it.date < riyadhToday()) return { status: 400, error: "الأيام اللي فاتت مينفعش تتعدل" };
+  if (u.role === "admin" || EDITABLE.has(it.status)) {
+    await query("DELETE FROM plan_items WHERE id=$1", [itemId]);
+    await query("UPDATE plans SET updated_at=now() WHERE id=$1", [it.plan_id]);
+    await query("INSERT INTO audit_logs(actor_id,action,entity,entity_id,details) VALUES($1,'remove','plan_item',$2,$3)", [u.id, itemId, JSON.stringify({ date: it.date, doctor: it.doctor_name, reason })]);
+    if (u.role === "admin" && it.user_id !== u.id) await notify([it.user_id], it.plan_id, "plan_updated_by_admin", `المدير شال زيارة ${it.doctor_name} يوم ${it.date}${reason ? ` — ${reason}` : ""}`);
+    return { status: 200, ok: true };
+  }
+  const dup = await query("SELECT 1 FROM plan_edit_requests WHERE plan_id=$1 AND status='pending' AND proposed_items @> $2::jsonb", [it.plan_id, JSON.stringify([{ item_id: itemId }])]);
+  if (dup.rowCount) return { status: 409, error: "فيه طلب تعديل لسه مستني رد المدير على الزيارة دي" };
+  const op = { op: "remove", item_id: itemId, doctor_id: it.doctor_id, doctor_name: it.doctor_name, date: it.date };
+  const note = reason ? `شيل ${it.doctor_name}: ${reason}` : `شيل ${it.doctor_name}`;
+  if (!(await mergeIntoPending(it.plan_id, op, { item_id: itemId, date: it.date }, note)))
+    await query("INSERT INTO plan_edit_requests(plan_id, requested_by, note, proposed_items, original_items, status) VALUES($1,$2,$3,$4,$5,'pending')",
+      [it.plan_id, u.id, note, JSON.stringify([op]), JSON.stringify([{ item_id: itemId, date: it.date }])]);
+  await notify(await adminIds(), it.plan_id, "plan_change_request", `${u.name} طلب يشيل زيارة ${it.doctor_name} يوم ${it.date}${reason ? ` — ${reason}` : ""}`);
+  return { status: 202, requested: true };
+}
+
 export async function listChangeRequests(u: Who) {
   const r = await query(`SELECT r.id, r.plan_id, r.note, r.proposed_items, r.status, r.created_at, u.name requested_by_name, u.id requested_by, p.period_start::text ps, p.period_end::text pe
     FROM plan_edit_requests r JOIN users u ON u.id=r.requested_by JOIN plans p ON p.id=r.plan_id

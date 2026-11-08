@@ -40,7 +40,8 @@ export function priority(d: PDoctor, b: PBal, today: string): Prio {
   if (d.in_plan_next) score -= 25;
   if (d.paused) score -= 200;
 
-  const extra = [b?.due ? "العيادة جه ميعاد طلبها" : "", b && b.overdue > 0 ? "العيادة عليها متأخرات" : ""].filter(Boolean);
+  // the card's money line already shows the clinic's debt; the reason only adds the reorder hint
+  const extra = [b?.due ? (b.overdue > 0 ? "العيادة جه ميعاد طلبها بس عليها متأخرات" : "العيادة جه ميعاد طلبها") : ""].filter(Boolean);
   const join = (main: string, more: string[] = extra) => [main, ...more].join(" · ");
   let r: Omit<Prio, "score" | "tags">;
   if (d.paused) r = { icon: "⏸", tone: "slate", reason: "Inactive الشهر ده — مش في حساب التغطية" };
@@ -48,7 +49,7 @@ export function priority(d: PDoctor, b: PBal, today: string): Prio {
   else if (late && cls === "A") r = { icon: "⚠️", tone: "red", reason: join(`A · متأخر ${lateBy} يوم`) };
   else if (d.hot_product) r = { icon: "🔥", tone: "teal", reason: join(`مهتم بـ ${d.hot_product} ومفيش طلب من العيادة لسه`, extra.filter(x => !x.includes("ميعاد"))) };
   else if (late) r = { icon: "⏰", tone: "red", reason: join(`${cls || "—"} · متأخر ${lateBy} يوم`) };
-  else if (b?.due) r = { icon: "📦", tone: "gold", reason: join("العيادة جه ميعاد طلبها — فرصة طلب", extra.filter(x => !x.includes("ميعاد"))) };
+  else if (b?.due) r = { icon: "📦", tone: "gold", reason: b.overdue > 0 ? "العيادة جه ميعاد طلبها — اسأل عن السداد الأول قبل أي طلب جديد" : "العيادة جه ميعاد طلبها — فرصة طلب" };
   else if (never) r = { icon: "✨", tone: "slate", reason: join("ما اتزارش خالص — فرصة جديدة") };
   else if (d.in_plan_next) r = { icon: "🗓", tone: "navy", reason: `في خطتك يوم ${short(d.in_plan_next)}` };
   else r = { icon: "✓", tone: "green", reason: join(`في الميعاد${d.gap_days && d.days_since !== null ? ` · الزيارة الجاية بعد ${Math.max(0, d.gap_days - d.days_since)} يوم` : ""}`) };
