@@ -3,6 +3,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { GlyphIcon, Icon } from "@/components/Icon";
 import { useToast } from "@/components/Toast";
+import Sheet, { Field, FailBox, fieldCls, btnPrimary, btnSoft, btnGhost } from "@/components/Sheet";
+import { useUndo } from "@/components/UndoToast";
 import type { Gap } from "@/lib/data-gaps";
 import type { Morning } from "@/lib/morning-summary";
 
@@ -36,23 +38,25 @@ export function GapsCard({ gaps, onDone }: { gaps: Gap[]; onDone: () => void }) 
   const toast = useToast();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState("");
+  const [ask, setAsk] = useState<{ id: string; name: string } | null>(null);
   if (!gaps.length) return null;
   const tone = { red: "bg-red-50 text-red-700", amber: "bg-amber-50 text-amber-800", blue: "bg-sky-50 text-sky-800" };
   const shown = open ? gaps : gaps.slice(0, 3);
   async function off(id: string, name: string) {
-    if (!confirm(`إيقاف حساب ${name}؟ مش هيقدر يدخل، وكل سجلاته هتفضل موجودة. تقدر ترجعه في أي وقت.`)) return;
     setBusy(id);
     const r = await fetch(`/api/admin/users/${id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ active: false }) });
     const j = await r.json().catch(() => null); setBusy("");
-    if (!r.ok) toast(j?.error || "تعذر الإيقاف", "error"); else { toast(`اتقفل حساب ${name}`, "success"); onDone(); }
+    if (!r.ok) toast(j?.error || "تعذر الإيقاف", "error"); else { setAsk(null); toast(`اتقفل حساب ${name}`, "success"); onDone(); }
   }
   return <section className="es-card-in rounded-[28px] border border-[var(--border)] bg-white p-4 sm:p-5" aria-labelledby="gaps-h">
+    {ask && <Sheet title={`إيقاف حساب ${ask.name}`} onClose={() => setAsk(null)} footer={<><button type="button" disabled={!!busy} className={`${btnPrimary} flex-1`} onClick={() => void off(ask.id, ask.name)}>{busy ? "بيتقفل…" : "إيقاف الحساب"}</button><button type="button" className={btnGhost} onClick={() => setAsk(null)}>إلغاء</button></>}>
+      <p className="text-[14px] leading-7 text-[var(--ink-soft)]">مش هيقدر يدخل البرنامج، وكل سجلاته هتفضل موجودة. تقدر ترجّعه في أي وقت من صفحة المناديب.</p></Sheet>}
     <div className="mb-2 flex items-center justify-between"><div className="flex items-center gap-2"><h2 id="gaps-h" className="text-lg font-extrabold text-[var(--navy)]">بيانات ناقصة</h2><span className="rounded-full bg-red-500 px-2 py-0.5 text-xs font-bold text-white">{gaps.length}</span></div>
       <span className="text-[11px] text-[var(--muted)]">كمّلها عشان الأرقام تبقى صح</span></div>
     <ul className="space-y-2">{shown.map((gp, i) => <li key={gp.key} style={{ animationDelay: `${i * 60}ms` }} className="es-card-in flex flex-wrap items-center gap-3 rounded-2xl bg-[var(--bg)] p-3">
       <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${tone[gp.tone]}`}><Icon name={gp.tone === "red" ? "alert" : gp.tone === "amber" ? "warn" : "sparkle"} size={17} /></span>
       <div className="min-w-0 flex-1"><b className="text-sm text-[var(--ink)]">{gp.title}</b><div className="text-[11.5px] text-[var(--muted)]">{gp.text}{gp.names?.length ? ` — ${gp.names.join("، ")}` : ""}</div>
-        {gp.deactivate && <div className="mt-1.5 flex flex-wrap gap-1.5">{gp.deactivate.map(u => <button key={u.id} type="button" disabled={busy === u.id} onClick={() => void off(u.id, u.name)} className="rounded-lg border border-red-200 bg-white px-2.5 py-1 text-[11px] font-bold text-red-700 hover:bg-red-50 disabled:opacity-60" title={u.email}>إيقاف {u.name}</button>)}</div>}</div>
+        {gp.deactivate && <div className="mt-1.5 flex flex-wrap gap-1.5">{gp.deactivate.map(u => <button key={u.id} type="button" disabled={busy === u.id} onClick={() => setAsk({ id: u.id, name: u.name })} className="rounded-lg border border-red-200 bg-white px-2.5 py-1 text-[11px] font-bold text-red-700 hover:bg-red-50 disabled:opacity-60" title={u.email}>إيقاف {u.name}</button>)}</div>}</div>
       {!gp.deactivate && <Link href={gp.href} className="shrink-0 rounded-xl bg-[var(--navy)] px-3 py-1.5 text-xs font-bold text-white transition hover:-translate-y-0.5">كمّل ‹</Link>}
     </li>)}</ul>
     {gaps.length > 3 && <button type="button" onClick={() => setOpen(!open)} className="mt-2 w-full text-center text-xs font-bold text-[var(--muted)] hover:text-[var(--navy)]">{open ? "أقل" : `+ ${gaps.length - 3} كمان`}</button>}
@@ -63,22 +67,48 @@ type Item = { id: string; title: string; owner: string | null; at: string; href:
 type Group = { key: string; label: string; icon: string; href: string; count: number; items: Item[]; bulk?: boolean };
 
 /** Approve one inbox item through the module's own endpoint. */
-async function approveOne(group: string, id: string): Promise<string | null> {
+async function decide(group: string, id: string, ok: boolean, note = ""): Promise<string | null> {
   const json = { "content-type": "application/json" };
-  let r: Response;
-  if (group === "plans") r = await fetch(`/api/plans/${id}`, { method: "PATCH", headers: json, body: JSON.stringify({ status: "approved", admin_note: "" }) });
-  else if (group === "samples") r = await fetch(`/api/admin/orders/${id}`, { method: "PATCH", headers: json, body: JSON.stringify({ status: "approved" }) });
-  else if (group === "expenses") r = await fetch("/api/admin/expenses/review", { method: "POST", headers: json, body: JSON.stringify({ ids: [id], action: "approve" }) });
-  else if (group === "hr") { const fd = new FormData(); fd.set("action", "approve"); r = await fetch(`/api/hr-requests/${id}`, { method: "PATCH", body: fd }); }
+  let r: Response | null;
+  if (group === "plans") r = await fetch(`/api/plans/${id}`, { method: "PATCH", headers: json, body: JSON.stringify({ status: ok ? "approved" : "needs_revision", admin_note: note }) }).catch(() => null);
+  else if (group === "samples") r = await fetch(`/api/admin/orders/${id}`, { method: "PATCH", headers: json, body: JSON.stringify({ status: ok ? "approved" : "rejected", note }) }).catch(() => null);
+  else if (group === "expenses") r = await fetch("/api/admin/expenses/review", { method: "POST", headers: json, body: JSON.stringify({ ids: [id], action: ok ? "approve" : "reject", note }) }).catch(() => null);
+  else if (group === "hr") { const fd = new FormData(); fd.set("action", ok ? "approve" : "reject"); if (note) fd.set("note", note); r = await fetch(`/api/hr-requests/${id}`, { method: "PATCH", body: fd }).catch(() => null); }
   else return "مش مدعوم";
+  if (!r) return "الاتصال انقطع. اللي كتبته لسه موجود، حاول تاني.";
   if (r.ok) return null;
-  const j = await r.json().catch(() => null); return j?.error || "تعذر";
+  const j = await r.json().catch(() => null); return j?.error || "تعذر الحفظ، حاول تاني";
+}
+const approveOne = (group: string, id: string) => decide(group, id, true);
+const NO: Record<string, string> = { plans: "طلب تعديل", samples: "رفض", expenses: "رفض", hr: "رفض" };
+const YES: Record<string, string> = { plans: "اعتماد الخطة", samples: "اعتماد", expenses: "اعتماد المصروف", hr: "موافقة" };
+
+/** One inbox item decided in a popup: summary, optional note (required to reject), approve / reject. Bigger work opens its page. */
+function DecisionPopup({ g, it, onClose, onDone }: { g: Group; it: Item; onClose: () => void; onDone: (ok: boolean) => void }) {
+  const [note, setNote] = useState(""); const [busy, setBusy] = useState<"" | "yes" | "no">(""); const [err, setErr] = useState(""); const [fail, setFail] = useState("");
+  const go = async (ok: boolean) => {
+    if (busy) return; if (!ok && note.trim().length < 3) { setErr(g.key === "plans" ? "اكتب للمندوب يعدّل إيه" : "اكتب السبب عشان يوصل لصاحب الطلب"); return; }
+    setErr(""); setFail(""); setBusy(ok ? "yes" : "no"); const e = await decide(g.key, it.id, ok, note.trim()); setBusy("");
+    if (e) { setFail(e); return; } onDone(ok);
+  };
+  return <Sheet title={g.label} onClose={onClose} footer={<>
+    <button type="button" disabled={!!busy} className={`${btnPrimary} flex-1`} onClick={() => void go(true)}>{busy === "yes" ? "بيتحفظ…" : YES[g.key]}</button>
+    <button type="button" disabled={!!busy} className={btnSoft} onClick={() => void go(false)}>{busy === "no" ? "بيتبعت…" : NO[g.key]}</button></>}>
+    <div className="rounded-2xl bg-[var(--sky-light)] p-4"><b className="block text-[15px] text-[var(--ink)]" dir="auto">{it.title}</b>
+      <p className="mt-1 text-[12.5px] text-[var(--muted)]">{it.owner ? `${it.owner}، ` : ""}{rel(it.at)}</p></div>
+    <div className="mt-4"><Field label="ملاحظة" error={err} hint="اختيارية عند الموافقة، ولازمة عند الرفض أو طلب التعديل">
+      <textarea value={note} onChange={e => { setNote(e.target.value); setErr(""); }} aria-invalid={!!err} rows={3} maxLength={1000} className={fieldCls} /></Field></div>
+    <FailBox text={fail} />
+    <Link href={it.href} className="mt-4 inline-flex min-h-10 items-center text-[13.5px] font-bold text-[var(--sky-deep)]">افتح التفاصيل كاملة ‹</Link>
+  </Sheet>;
 }
 
 /** Inbox rows with a select mode: tick several plans / samples / expenses / employee requests and approve them together. */
 export function InboxList({ g, onDone }: { g: Group; onDone: () => void }) {
   const toast = useToast();
+  const undo = useUndo();
   const [sel, setSel] = useState<string[]>([]); const [mode, setMode] = useState(false); const [busy, setBusy] = useState(false); const [all, setAll] = useState(false);
+  const [pop, setPop] = useState<Item | null>(null); const [gone, setGone] = useState<string[]>([]);
   const bulkable = g.items.filter(i => i.bulk);
   const items = mode || all ? g.items : g.items.slice(0, 5);
   async function run() {
@@ -102,10 +132,13 @@ export function InboxList({ g, onDone }: { g: Group; onDone: () => void }) {
         <div className="min-w-0 flex-1"><div className="truncate text-sm font-bold text-[var(--ink)]" dir="auto">{it.title}</div><div className="text-[11px] text-[var(--muted)]">{it.owner ? `${it.owner} · ` : ""}{rel(it.at)}</div></div></>;
       if (mode) return <label key={it.id} className={`flex cursor-pointer items-center gap-3 px-5 py-3 transition ${sel.includes(it.id) ? "bg-emerald-50/70" : "hover:bg-[var(--sky-light)]/50"} ${it.bulk ? "" : "opacity-50"}`}>
         <input type="checkbox" disabled={!it.bulk} className="h-4 w-4 accent-emerald-600" checked={sel.includes(it.id)} onChange={e => setSel(s => e.target.checked ? [...s, it.id] : s.filter(x => x !== it.id))} />{row}</label>;
-      return <Link key={it.id} href={it.href} className="group flex items-center gap-3 px-5 py-3 transition hover:bg-[var(--sky-light)]/50">{row}
-        <span className="rounded-lg bg-[var(--navy)] px-2.5 py-1 text-[11px] font-bold text-white opacity-0 transition group-hover:opacity-100">راجع ‹</span></Link>;
+      if (it.bulk && YES[g.key]) return <button key={it.id} type="button" onClick={() => setPop(it)} className={`group flex w-full items-center gap-3 px-5 py-3 text-right transition-all duration-200 hover:bg-[var(--sky-light)] ${gone.includes(it.id) ? "max-h-0 overflow-hidden py-0 opacity-0" : "max-h-24"}`}>{row}
+        <span className="shrink-0 rounded-lg bg-[var(--sky-soft)] px-2.5 py-1 text-[11px] font-bold text-[var(--navy)]">قرار</span></button>;
+      return <Link key={it.id} href={it.href} className="group flex items-center gap-3 px-5 py-3 transition hover:bg-[var(--sky-light)]">{row}
+        <span className="shrink-0 text-[11px] font-bold text-[var(--muted)]">افتح ‹</span></Link>;
     })}</div>
     {!mode && g.items.length > 5 && <button type="button" onClick={() => setAll(!all)} className="block w-full px-5 py-2.5 text-center text-xs font-bold text-[var(--muted)] hover:text-[var(--navy)]">{all ? "أقل" : `+ ${g.items.length - 5} كمان`}</button>}
+    {pop && <DecisionPopup g={g} it={pop} onClose={() => setPop(null)} onDone={ok => { const x = pop; setPop(null); setGone(v => [...v, x.id]); undo({ text: ok ? `اتعمل: ${YES[g.key]} — ${x.title}` : `اتبعت ${NO[g.key]} لـ ${x.owner || "صاحب الطلب"}` }); setTimeout(onDone, 260); }} />}
     {g.count > g.items.length && (mode || all) && <Link href={g.href} className="block px-5 py-2.5 text-center text-xs font-bold text-[var(--muted)] hover:text-[var(--navy)]">+ {g.count - g.items.length} في الصفحة ‹</Link>}
   </div>;
 }

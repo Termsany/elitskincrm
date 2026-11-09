@@ -9,6 +9,8 @@ import { GapsCard, InboxList } from "./HomeExtras";
 import { HealthHero, KpiTile, QuickFab, Spark, StartHere } from "./DashParts";
 import type { ActionIn, HealthIn } from "@/lib/dash-health";
 import AdminSmartBoard from "@/components/smart/AdminSmartBoard";
+import { UndoProvider } from "@/components/UndoToast";
+import Sheet, { btnPrimary, btnGhost } from "@/components/Sheet";
 
 type D = {
   greeting: string; name: string; today: string; summary: string; pendingTotal: number;
@@ -23,11 +25,12 @@ type D = {
 };
 const L = "ar-EG-u-nu-latn";
 const card = "rounded-[28px] border border-[var(--border)] bg-white";
+const mins = (m: number) => m < 1 ? "دلوقتي" : m < 60 ? `من ${m} د` : m < 1440 ? `من ${Math.floor(m / 60)} س` : `من ${Math.floor(m / 1440)} يوم`;
 const short = (n: number) => n >= 1e6 ? `${(n / 1e6).toFixed(n >= 1e7 ? 0 : 1)}M` : n >= 1e3 ? `${Math.round(n / 1e3)}K` : String(Math.round(n));
 const rel = (d: string) => { const m = Math.round((Date.now() - new Date(d).getTime()) / 60000); return m < 1 ? "دلوقتي" : m < 60 ? `من ${m} د` : m < 1440 ? `من ${Math.floor(m / 60)} س` : m < 2880 ? "امبارح" : `من ${Math.floor(m / 1440)} يوم`; };
-const qColor = (q: number | null) => q === null ? "#dce5e6" : q >= 75 ? "#1aa865" : q >= 50 ? "#e99608" : "#ff8c50";
+const qColor = (q: number | null) => q === null ? "#dce5e6" : q >= 75 ? "#6cc0a8" : q >= 50 ? "#e6c27a" : "#e8b49c";
 const STATE: Record<string, [string, string]> = { active: ["شغال", "bg-emerald-500"], paused: ["متوقف", "bg-amber-500"], done: ["خلّص ✓", "bg-sky-500"], idle: ["مسجلش", "bg-slate-300"] };
-const TONE: Record<string, string> = { red: "border-r-red-500 bg-red-50/60", amber: "border-r-amber-400 bg-amber-50/60", green: "border-r-emerald-500 bg-emerald-50/60", blue: "border-r-sky-500 bg-sky-50/60" };
+const TONE: Record<string, string> = { red: "border-r-[#c25550] bg-white", amber: "border-r-[#d39a3c] bg-white", green: "border-r-[#5cb89a] bg-white", blue: "border-r-[#5b9bd5] bg-white" };
 const ACT: Record<string, string> = { visit: "🩺", plan: "🗓️", file: "📄", sign: "🖋️", signreq: "📨" };
 const actIcon = (k: string) => ACT[k] ? <GlyphIcon g={ACT[k]} chip size={16} box={32} /> : <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--bg)] text-sm">•</span>;
 
@@ -37,6 +40,20 @@ function useCount(v: number) {
   return n;
 }
 const Num = ({ v, className = "", fmt = false }: { v: number; className?: string; fmt?: boolean }) => { const n = useCount(v); return <span className={className}>{fmt ? n.toLocaleString("en-US") : n}</span>; };
+/* Calm look for the dashboard: one-colour soft icons, no looping or hover motion, short transitions only. */
+const CALM = `
+.calm .dz-ico{background:var(--sky-light)!important;color:var(--navy)!important}
+.calm .dz-ico .es-ico-line>*{animation:none!important;stroke-dashoffset:0!important}
+.calm .dz-ico .es-ico-duo{animation:none!important}
+.calm .dz-live::after,.calm .animate-ping,.calm .dp-first{animation:none!important}
+.calm .group:hover .es-ico,.calm .dz-tile:hover .es-ico{animation:none!important}
+.calm .group:hover .dz-ico,.calm .dz-tile:hover .dz-ico{transform:none}
+.calm .dz-in,.calm .dz-tile,.calm .es-card-in{animation-duration:.22s!important;animation-delay:0ms!important}
+.calm .dz-bar,.calm .dz-grow-x,.calm .dz-reveal{animation-duration:.25s!important;animation-delay:0ms!important}
+.calm .dz-card:hover,.calm .dz-tile:hover{transform:none;box-shadow:none}
+.calm .dz-tile>span.absolute{background:var(--navy)!important}
+.calm .dp-cta:hover{transform:none}
+@media (prefers-reduced-motion:reduce){.calm *{animation:none!important;transition:none!important}}`;
 const MON = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
 const mFull = (m: string) => `${MON[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`;
 /** Duotone icon in a soft tinted tile; its strokes draw in on load and it plays a small motion when the card is hovered. */
@@ -70,7 +87,10 @@ function Ring({ pct, size = 76, color = "#10484f", children }: { pct: number; si
   return <div className="relative shrink-0" style={{ width: size, height: size }}><svg width={size} height={size} className="-rotate-90"><circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#eef2f5" strokeWidth={s} /><circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={s} strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - Math.min(100, Math.max(0, pct)) / 100)} style={{ transition: "stroke-dashoffset 1s cubic-bezier(.2,.8,.2,1)" }} /></svg><div className="absolute inset-0 flex flex-col items-center justify-center leading-none">{children}</div></div>;
 }
 
-export default function CommandCenter() {
+export default function CommandCenter() { return <UndoProvider><Dash /></UndoProvider>; }
+
+function Dash() {
+  const [pop, setPop] = useState<"" | "visits" | "ar">(""); const [rep, setRep] = useState<D["team"][number] | null>(null);
   const [d, setD] = useState<D | null>(null); const [err, setErr] = useState(false); const [grp, setGrp] = useState<string>(""); const [hover, setHover] = useState<number | null>(null);
   const [f, setF] = useState<DaftraPulse | null>(null); const [ser, setSer] = useState("sales"); const [fh, setFh] = useState<number | null>(null);
   const load = async () => { try { const r = await fetch("/api/admin/dashboard", { cache: "no-store" }); if (!r.ok) throw 0; const j = await r.json(); setD(j); setErr(false); } catch { setErr(true); } };
@@ -108,23 +128,23 @@ export default function CommandCenter() {
   const qSeries = d.daily.filter(x => x.quality !== null).map(x => x.quality as number);
   const arPct = f?.configured && f.ar.total ? Math.round(f.ar.overdue / f.ar.total * 100) : 0;
   const pulse = <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-    <KpiTile href={`/visits?tab=visits&day=${d.today}`} color="#1aa865" tint="#e9f8f0" label="زيارات النهارده" icon="visits" delay={0} live={p.today.active > 0}
+    <KpiTile href={`/visits?tab=visits&day=${d.today}`} onOpen={() => setPop("visits")} color="#2e9d8f" tint="" label="زيارات النهارده" icon="visits" delay={0} live={p.today.active > 0}
       value={<><Num v={p.today.visits} className="text-4xl font-extrabold text-[var(--navy)]" /><span className="pb-1.5 text-sm text-[var(--muted)]"> زيارة</span></>}
       sub={p.today.active > 0 ? `${p.today.active} شغال دلوقتي` : p.today.planned ? `${p.today.done} من ${p.today.planned} في الخطة` : "مفيش خطة معتمدة"} chip={p.today.red > 0 ? { text: `${p.today.red} تنبيه`, tone: "red" } : undefined}
-      spark={<Spark data={d.daily.map(x => x.visits)} color="#1aa865" />} />
-    {!mgr && <KpiTile href="/daftra-sales?tab=sales" color="#165f66" tint="#e8f4f4" label="مبيعات الشهر" icon="receipt" delay={70}
+      spark={<Spark data={d.daily.map(x => x.visits)} color="#2e9d8f" />} />
+    {!mgr && <KpiTile href="/daftra-sales?tab=sales" color="#165f66" tint="" label="مبيعات الشهر" icon="receipt" delay={70}
       value={f?.configured ? <><Num v={Math.round(f.mtd.sales)} fmt className="text-3xl font-extrabold text-[var(--navy)]" /><span className="pb-1 text-sm text-[var(--muted)]"> ر.س</span></> : <span className="text-3xl font-extrabold text-[var(--muted)]">—</span>}
       sub={f?.configured ? (planPct !== null ? `${planPct}% من خطة الشهر` : `${f.mtd.invoices} فاتورة · ${f.mtd.clients} عميل`) : f ? "دفترة مش مربوطة" : "بيحمّل…"}
       chip={salesDelta !== null ? { text: `${salesDelta >= 0 ? "▲" : "▼"} ${Math.abs(salesDelta)}%`, tone: salesDelta >= 0 ? "green" : "red" } : undefined}
       spark={f?.configured ? <Spark data={f.series.map(x => x.sales)} color="#165f66" /> : undefined} />}
-    {!mgr && <KpiTile href="/daftra-sales?tab=ar" color="#d64545" tint="#fdecec" label="ليك عند العملاء متأخر" icon="wallet" delay={140} live={!!(f?.configured && f.ar.overdue > 0)}
-      value={f?.configured ? <><Num v={Math.round(f.ar.overdue)} fmt className={`text-3xl font-extrabold ${f.ar.overdue > 0 ? "text-[#b4262c]" : "text-[var(--navy)]"}`} /><span className="pb-1 text-sm text-[var(--muted)]"> ر.س</span></> : <span className="text-3xl font-extrabold text-[var(--muted)]">—</span>}
+    {!mgr && <KpiTile href="/daftra-sales?tab=ar" onOpen={f?.configured ? () => setPop("ar") : undefined} color="#c25550" tint="" label="ليك عند العملاء متأخر" icon="wallet" delay={140} live={!!(f?.configured && f.ar.overdue > 0)}
+      value={f?.configured ? <><Num v={Math.round(f.ar.overdue)} fmt className={`text-3xl font-extrabold ${f.ar.overdue > 0 ? "text-[#a8443f]" : "text-[var(--navy)]"}`} /><span className="pb-1 text-sm text-[var(--muted)]"> ر.س</span></> : <span className="text-3xl font-extrabold text-[var(--muted)]">—</span>}
       sub={f?.configured ? `إجمالي ليك ${short(f.ar.total)}${f.ar.old60 > 0 ? ` · ${short(f.ar.old60)} أكتر من 60 يوم` : ""}` : ""}
-      spark={f?.configured && f.ar.total > 0 ? <div className="mt-3"><div className="h-2.5 overflow-hidden rounded-full bg-white/80"><div className="dz-grow-x h-full rounded-full bg-gradient-to-l from-[#d64545] to-[#ef8a8a]" style={{ width: `${arPct}%` }} /></div><div className="mt-1 text-[10.5px] text-[var(--muted)]">{arPct}% من اللي ليك متأخر</div></div> : undefined} />}
-    <KpiTile href="/visits?tab=insights" color="#8b5cf6" tint="#f1ecfe" label="جودة الزيارات" icon="reports" delay={210}
+      spark={f?.configured && f.ar.total > 0 ? <div className="mt-3"><div className="h-2.5 overflow-hidden rounded-full bg-white/80"><div className="dz-grow-x h-full rounded-full bg-[#c25550]" style={{ width: `${arPct}%` }} /></div><div className="mt-1 text-[10.5px] text-[var(--muted)]">{arPct}% من اللي ليك متأخر</div></div> : undefined} />}
+    <KpiTile href="/visits?tab=insights" color="#5b8db8" tint="" label="جودة الزيارات" icon="reports" delay={210}
       value={<><Num v={p.quality.week} className="text-4xl font-extrabold text-[var(--navy)]" /><span className="pb-1.5 text-sm text-[var(--muted)]"> / 100</span></>}
       sub={`آخر 7 أيام · ${p.quality.visits} زيارة`} chip={p.quality.lastWeek > 0 ? { text: `${qDelta >= 0 ? "▲" : "▼"} ${Math.abs(qDelta)}`, tone: qDelta >= 0 ? "green" : "red" } : undefined}
-      spark={<Spark data={qSeries} color="#8b5cf6" />} />
+      spark={<Spark data={qSeries} color="#5b8db8" />} />
   </section>;
 
   /* ───────── Visits panel ───────── */
@@ -152,9 +172,9 @@ export default function CommandCenter() {
   </section>;
 
   /* ───────── Daftra sales panel ───────── */
-  const SER: Record<string, [string, string]> = { sales: ["المبيعات", "#1aa865"], gross: ["مجمل الربح", "#15646a"], collected: ["التحصيل", "#3b90e8"] };
+  const SER: Record<string, [string, string]> = { sales: ["المبيعات", "#2e9d8f"], gross: ["مجمل الربح", "#15646a"], collected: ["التحصيل", "#5b8db8"] };
   const daftra = <section id="dash-money" className={`${card} dz-in scroll-mt-24 p-5`} style={{ "--d": "320ms" } as React.CSSProperties}>
-    <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2.5"><AIco name="receipt" color="#1aa865" anim="rise" box={38} size={19} /><div><h2 className="text-lg font-extrabold text-[var(--navy)]">مبيعات دفترة</h2><div className="flex items-center gap-1.5 text-[11px] text-[var(--muted)]">{f?.configured && <><span className={`h-1.5 w-1.5 rounded-full ${f.sync.running ? "animate-pulse bg-amber-500" : f.sync.ok === false ? "bg-red-500" : "bg-emerald-500"}`} />{f.sync.running ? "بيتحدث من دفترة…" : f.sync.at ? `آخر تحديث ${rel(f.sync.at)}` : "لسه ما اتحدثش"}</>}</div></div></div>
+    <div className="flex flex-wrap items-center justify-between gap-2"><div className="flex items-center gap-2.5"><AIco name="receipt" color="#2e9d8f" anim="rise" box={38} size={19} /><div><h2 className="text-lg font-extrabold text-[var(--navy)]">مبيعات دفترة</h2><div className="flex items-center gap-1.5 text-[11px] text-[var(--muted)]">{f?.configured && <><span className={`h-1.5 w-1.5 rounded-full ${f.sync.running ? "animate-pulse bg-amber-500" : f.sync.ok === false ? "bg-red-500" : "bg-emerald-500"}`} />{f.sync.running ? "بيتحدث من دفترة…" : f.sync.at ? `آخر تحديث ${rel(f.sync.at)}` : "لسه ما اتحدثش"}</>}</div></div></div>
       <Link href="/daftra-sales" className="text-xs font-bold text-[var(--navy)] opacity-70 hover:opacity-100">الحسابات كاملة ‹</Link></div>
     {!f ? <div className="mt-4 h-56 animate-pulse rounded-2xl bg-[var(--bg)]" /> : !f.configured ? <div className="mt-4 rounded-2xl bg-[var(--bg)] p-6 text-center text-sm text-[var(--muted)]">دفترة مش مربوطة على السيرفر.</div> : <>
       <div className="mt-3 flex gap-1 rounded-xl bg-[var(--bg)] p-1">{Object.entries(SER).map(([k, [l, c]]) => <button key={k} type="button" onClick={() => { setSer(k); setFh(null); }} className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-bold transition ${ser === k ? "bg-white text-[var(--navy)] shadow-sm" : "text-[var(--muted)] hover:text-[var(--navy)]"}`}><i className="h-2 w-2 rounded-full" style={{ background: c }} />{l}</button>)}</div>
@@ -167,12 +187,12 @@ export default function CommandCenter() {
         <Link href="/daftra-sales?tab=plan" className="group rounded-2xl border border-[var(--border)] p-3 transition hover:border-[var(--sky-border)] hover:bg-[var(--sky-light)]/50">
           <div className="flex items-center justify-between text-[11px] font-bold text-[var(--muted)]"><span>الشهر ده لحد النهارده</span><span className="dz-ico dz-spin !h-6 !w-6 !rounded-lg" style={{ color: "#10484f" }}><Icon name="plans" size={14} /></span></div>
           {f.plan?.target_revenue ? <><div className="mt-1 text-sm font-extrabold text-[var(--navy)]">{short(f.mtd.sales)} <span className="font-normal text-[var(--muted)]">من هدف {short(f.plan.target_revenue)}</span></div>
-            <div className="relative mt-2 h-2 overflow-hidden rounded-full bg-[var(--bg)]"><div className="dz-grow-x h-full rounded-full" style={{ width: `${Math.min(100, planPct || 0)}%`, background: (planPct || 0) >= f.day / f.days_in_month * 100 ? "#1aa865" : "#e99608" }} /><span className="absolute inset-y-0 w-0.5 bg-[var(--navy)]/60" style={{ right: `${f.day / f.days_in_month * 100}%` }} title="مكانك المفروض النهارده" /></div>
+            <div className="relative mt-2 h-2 overflow-hidden rounded-full bg-[var(--bg)]"><div className="dz-grow-x h-full rounded-full" style={{ width: `${Math.min(100, planPct || 0)}%`, background: (planPct || 0) >= f.day / f.days_in_month * 100 ? "#2e9d8f" : "#e99608" }} /><span className="absolute inset-y-0 w-0.5 bg-[var(--navy)]/60" style={{ right: `${f.day / f.days_in_month * 100}%` }} title="مكانك المفروض النهارده" /></div>
             <div className="mt-1 text-[10.5px] text-[var(--muted)]">الخط = المفروض توصل له النهارده · بنفس المعدل هتقفل {short(f.run_rate)}</div></>
             : <><div className="mt-1 text-sm font-extrabold text-[var(--navy)]">{short(f.mtd.sales)} <span className="font-normal text-[var(--muted)]">· بنفس المعدل {short(f.run_rate)}</span></div><div className="mt-1.5 text-[11px] font-bold text-[var(--sky-deep)]">اعمل خطة الشهر وحط هدف ‹</div></>}
         </Link>
         <div className="rounded-2xl border border-[var(--border)] p-3"><div className="mb-1.5 text-[11px] font-bold text-[var(--muted)]">الأكثر مبيعاً الشهر ده</div>
-          {f.top_products.length ? <div className="space-y-1.5">{f.top_products.slice(0, 4).map((x, k) => <Link key={x.name} href="/daftra-sales?tab=sales" className="block text-[11px] hover:opacity-80"><div className="flex justify-between gap-2"><span className="truncate font-bold" dir="auto">{x.name}</span><span className="shrink-0 text-[var(--muted)]">{Math.round(x.qty)} حبة</span></div><div className="mt-0.5 h-1 overflow-hidden rounded-full bg-[var(--bg)]"><div className="dz-grow-x h-full rounded-full bg-[#1aa865]" style={{ width: `${x.net / (f.top_products[0].net || 1) * 100}%`, animationDelay: `${k * 80}ms` }} /></div></Link>)}</div>
+          {f.top_products.length ? <div className="space-y-1.5">{f.top_products.slice(0, 4).map((x, k) => <Link key={x.name} href="/daftra-sales?tab=sales" className="block text-[11px] hover:opacity-80"><div className="flex justify-between gap-2"><span className="truncate font-bold" dir="auto">{x.name}</span><span className="shrink-0 text-[var(--muted)]">{Math.round(x.qty)} حبة</span></div><div className="mt-0.5 h-1 overflow-hidden rounded-full bg-[var(--bg)]"><div className="dz-grow-x h-full rounded-full bg-[#2e9d8f]" style={{ width: `${x.net / (f.top_products[0].net || 1) * 100}%`, animationDelay: `${k * 80}ms` }} /></div></Link>)}</div>
             : <div className="py-3 text-center text-[11px] text-[var(--muted)]">لسه مفيش فواتير الشهر ده</div>}</div>
       </div>
       {(f.stock_n > 0 || f.guard.n > 0) && <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -186,7 +206,7 @@ export default function CommandCenter() {
   /* ───────── System shortcuts (everything one tap away) ───────── */
   const MODS0: Array<[string, string, string, string, string | null]> = [
     ["/visits", "الزيارات", "visits", "#33b3a6", p.today.visits ? `${p.today.visits} النهارده` : null],
-    ["/daftra-sales", "مبيعات دفترة", "receipt", "#1aa865", f?.configured && f.mtd.sales ? short(f.mtd.sales) : null],
+    ["/daftra-sales", "مبيعات دفترة", "receipt", "#2e9d8f", f?.configured && f.mtd.sales ? short(f.mtd.sales) : null],
     ["/daftra-sales?tab=plan", "خطة الشهر", "plans", "#10484f", null],
     ["/daftra-sales?tab=ar", "التحصيل", "wallet", "#e16201", f?.configured && f.ar.overdue ? short(f.ar.overdue) : null],
     ["/doctors", "الأطباء", "doctors", "#3b90e8", null],
@@ -225,13 +245,13 @@ export default function CommandCenter() {
 
   const team = <section className={`${card} p-5`}>
     <div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-extrabold text-[var(--navy)]">الفريق النهارده</h2><Link href="/visits" className="text-xs font-bold text-[var(--navy)] opacity-70 hover:opacity-100">لوحة المتابعة ‹</Link></div>
-    <div className="space-y-1">{d.team.map(t => { const [lbl, dot] = STATE[t.state] || STATE.idle; return <Link key={t.rep_id} href={`/visits?tab=visits&repId=${t.rep_id}`} className="flex items-center gap-3 rounded-2xl px-2 py-2.5 transition hover:bg-[var(--bg)]">
-      <div className="relative"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--navy)] to-[#1f7a7f] text-xs font-extrabold text-white">{t.rep_name.split(/\s+/).map(x => x[0]).slice(0, 2).join("").toUpperCase()}</div><span className={`absolute -bottom-0.5 -left-0.5 h-3 w-3 rounded-full border-2 border-white ${dot} ${t.state === "active" ? "animate-pulse" : ""}`} /></div>
+    <div className="space-y-1">{d.team.map(t => { const [lbl, dot] = STATE[t.state] || STATE.idle; return <button type="button" key={t.rep_id} onClick={() => setRep(t)} className="w-full text-right flex items-center gap-3 rounded-2xl px-2 py-2.5 transition hover:bg-[var(--bg)]">
+      <div className="relative"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--sky-light)] text-xs font-extrabold text-[var(--navy)]">{t.rep_name.split(/\s+/).map(x => x[0]).slice(0, 2).join("").toUpperCase()}</div><span className={`absolute -bottom-0.5 -left-0.5 h-3 w-3 rounded-full border-2 border-white ${dot} ${t.state === "active" ? "animate-pulse" : ""}`} /></div>
       <div className="min-w-0 flex-1"><div className="flex items-center gap-2"><span className="truncate text-sm font-bold">{t.rep_name}</span>{t.redFlags > 0 && <span className="flex items-center gap-0.5 text-[10px] font-bold text-red-600"><Icon name="flag" size={11} />{t.redFlags}</span>}</div>
         <div className="mt-1 flex items-center gap-2"><div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--bg)]"><div className="h-full rounded-full bg-[var(--navy)] transition-all duration-1000" style={{ width: `${t.planned ? Math.min(100, t.done / t.planned * 100) : t.visits ? 100 : 0}%`, opacity: t.planned ? 1 : 0.35 }} /></div><span className="w-24 text-left text-[10px] text-[var(--muted)]">{t.visits} زيارة{t.planned ? ` · ${t.done}/${t.planned}` : ""}</span></div></div>
       <span className="hidden w-16 text-center text-[10px] text-[var(--muted)] sm:block">{lbl}</span>
       <span className="flex h-8 w-10 items-center justify-center rounded-lg text-xs font-extrabold" style={{ background: t.avgQuality === null ? "#edf2f3" : `${qColor(t.avgQuality)}22`, color: t.avgQuality === null ? "#889799" : qColor(t.avgQuality) }}>{t.avgQuality ?? "—"}</span>
-    </Link>; })}</div>
+    </button>; })}</div>
   </section>;
 
   const activity = <section className={`${card} dz-in p-5`} style={{ "--d": "460ms" } as React.CSSProperties}>
@@ -247,7 +267,23 @@ export default function CommandCenter() {
         <div className={`grid gap-4 lg:gap-5 ${gapsCard ? "xl:grid-cols-2" : ""}`}>{gapsCard}{insights}</div>
       </div>;
 
-  return <div className="mt-2 flex flex-col gap-4 pb-24 lg:gap-5 lg:pb-6">
+  const repCard = rep && <Sheet title={rep.rep_name} onClose={() => setRep(null)} footer={<><Link href={`/admin/rep/${rep.rep_id}`} className={`${btnPrimary} flex flex-1 items-center justify-center`}>صفحة المندوب</Link><button type="button" className={btnGhost} onClick={() => setRep(null)}>إغلاق</button></>}>
+    <dl className="grid grid-cols-2 gap-3 rounded-2xl bg-[var(--sky-light)] p-4 text-[14px]">{([["الحالة", (STATE[rep.state] || STATE.idle)[0]], ["زيارات النهارده", String(rep.visits)], ["من خطة النهارده", rep.planned ? `${rep.done} من ${rep.planned}` : "مفيش خطة"], ["جودة الزيارات", rep.avgQuality === null ? "—" : `${rep.avgQuality}/100`], ["آخر نشاط", rep.sinceMin === null ? "لسه" : mins(rep.sinceMin)], ["تنبيهات", rep.redFlags ? `${rep.redFlags} زيارة عليها علامة` : "مفيش"]] as const).map(([a, b]) => <div key={a}><dt className="text-[12px] text-[var(--muted)]">{a}</dt><dd className="font-bold">{b}</dd></div>)}</dl>
+    <div className="mt-4 grid grid-cols-2 gap-2"><Link href={`/visits?tab=visits&repId=${rep.rep_id}`} className="rounded-2xl border border-[var(--border)] px-3 py-3 text-center text-[13.5px] font-bold text-[var(--navy)] hover:bg-[var(--sky-light)]">زياراته</Link><Link href={`/plans?repId=${rep.rep_id}`} className="rounded-2xl border border-[var(--border)] px-3 py-3 text-center text-[13.5px] font-bold text-[var(--navy)] hover:bg-[var(--sky-light)]">خطته</Link></div>
+  </Sheet>;
+  const visitsPop = pop === "visits" && <Sheet title="زيارات النهارده" onClose={() => setPop("")} footer={<><Link href={`/visits?tab=visits&day=${d.today}`} className={`${btnPrimary} flex flex-1 items-center justify-center`}>كل زيارات النهارده</Link><button type="button" className={btnGhost} onClick={() => setPop("")}>إغلاق</button></>}>
+    <p className="mb-3 text-[13px] text-[var(--muted)]">{p.today.visits} زيارة، و{p.today.active} مندوب شغال دلوقتي{p.today.planned ? `، ${p.today.done} من ${p.today.planned} في الخطة` : ""}</p>
+    <ul className="divide-y divide-[var(--border)] rounded-2xl border border-[var(--border)]">{d.team.map(t => <li key={t.rep_id}><button type="button" onClick={() => { setPop(""); setRep(t); }} className="flex w-full items-center gap-3 px-4 py-3 text-right hover:bg-[var(--sky-light)]">
+      <span className={`h-2.5 w-2.5 rounded-full ${(STATE[t.state] || STATE.idle)[1]}`} /><span className="min-w-0 flex-1 truncate font-bold">{t.rep_name}</span><span className="text-[13px] text-[var(--muted)]">{t.visits} زيارة</span>{t.planned > 0 && <b className="text-[13px]">{t.done}/{t.planned}</b>}</button></li>)}</ul>
+  </Sheet>;
+  const arPop = pop === "ar" && f?.configured && <Sheet title="ليك عند العملاء" onClose={() => setPop("")} footer={<><Link href="/daftra-sales?tab=ar" className={`${btnPrimary} flex flex-1 items-center justify-center`}>كل العملاء والفواتير</Link><button type="button" className={btnGhost} onClick={() => setPop("")}>إغلاق</button></>}>
+    <dl className="grid grid-cols-3 gap-2 rounded-2xl bg-[var(--sky-light)] p-4 text-center">{([["الإجمالي", f.ar.total], ["متأخر", f.ar.overdue], ["أكتر من 60 يوم", f.ar.old60]] as const).map(([a, b]) => <div key={a}><dt className="text-[11.5px] text-[var(--muted)]">{a}</dt><dd className="text-[16px] font-extrabold text-[var(--navy)]">{short(b)}</dd></div>)}</dl>
+    <h3 className="mb-2 mt-4 text-[14px] font-extrabold">أكبر العملاء المتأخرين</h3>
+    <ul className="divide-y divide-[var(--border)] rounded-2xl border border-[var(--border)]">{f.ar.top.map(x => <li key={x.name} className="flex items-center gap-3 px-4 py-3"><span className="min-w-0 flex-1"><b className="block truncate" dir="auto">{x.name}</b><span className="text-[12px] text-[var(--muted)]">أقدم فاتورة متأخرة {x.days} يوم</span></span><b className="shrink-0">{Math.round(x.unpaid).toLocaleString("en-US")} ر.س</b></li>)}</ul>
+  </Sheet>;
+
+  return <div className="calm mt-2 flex flex-col gap-4 pb-24 lg:gap-5 lg:pb-6">
+    <style>{CALM}</style>{repCard}{visitsPop}{arPop}
     {header}
     <HealthHero h={hIn} />
     <StartHere input={aIn} today={d.today} onDone={() => void load()} />
