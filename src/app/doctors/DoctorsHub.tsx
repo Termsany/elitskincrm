@@ -174,8 +174,8 @@ export default function DoctorsHub({ isAdmin, canLink = false, reps, initialQ = 
       {/* toolbar */}
       <div className={`rounded-3xl border border-[var(--border)] bg-white p-3 space-y-3 shadow-sm ${mode === "phone" ? "" : "sticky top-0 z-20"}`}>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex rounded-xl bg-[var(--bg)] p-1 overflow-x-auto">{TABS.map(([k, l]) => <button key={k} onClick={() => setTab(k)} className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-bold ${tab === k ? "bg-white shadow text-[var(--navy)]" : "text-[var(--muted)]"}`}>{l}</button>)}</div>
-          <div className="flex items-center gap-2 mr-auto">
+          <div className="flex max-w-full rounded-xl bg-[var(--bg)] p-1 overflow-x-auto">{TABS.map(([k, l]) => <button key={k} onClick={() => setTab(k)} className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-bold ${tab === k ? "bg-white shadow text-[var(--navy)]" : "text-[var(--muted)]"}`}>{l}</button>)}</div>
+          <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 mr-auto">
             {isAdmin && <select value={repId} onChange={e => setRepId(e.target.value)} className="h-10 rounded-xl border border-[var(--border)] px-2 text-sm"><option value="">كل الفريق</option>{reps.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}</select>}
             <select value={days} onChange={e => setDays(Number(e.target.value))} className="h-10 rounded-xl border border-[var(--border)] px-2 text-sm" title="فترة الأرقام">{[30, 90, 180, 365].map(d => <option key={d} value={d}>آخر {d} يوم</option>)}</select>
             <a href={exportUrl()} className="h-10 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 px-3 text-sm font-bold grid place-items-center">Excel</a>

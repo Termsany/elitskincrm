@@ -78,7 +78,7 @@ body { background: var(--bg); color: var(--ink); }
 .es-ind-anim { transition: transform .45s var(--es-spring), height .3s var(--es-ease), opacity .2s; }
 .es-link-solid { background: rgba(51,179,166,.16); color: #fff; font-weight: 700; }
 .es-link-solid .es-ibox { background: var(--sky); --ico-duo: .35; }
-.es-stagger { animation: es-up .35s var(--es-ease) both; }
+.es-stagger { animation: es-up .35s var(--es-ease) backwards; }
 
 /* collapsed sidebar */
 html[data-sb="c"] .es-sidebar { width: 88px; padding-inline: 14px; overflow: visible; }
@@ -163,7 +163,7 @@ input[type="checkbox"] { transition: transform .15s var(--es-spring); } input[ty
 .es-ripple-box { position: fixed; z-index: 9999; overflow: hidden; pointer-events: none; }
 .es-ripple { position: absolute; border-radius: 9999px; opacity: .22; transform: scale(0); animation: es-ripple .6s var(--es-ease) forwards; }
 @keyframes es-ripple { to { transform: scale(1); opacity: 0; } }
-.es-page { animation: es-page .4s var(--es-ease) both; }
+.es-page { animation: es-page .4s var(--es-ease) backwards; }
 @keyframes es-page { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) {
   button, a, summary, [role="button"], input { transition: none !important; }
@@ -172,9 +172,9 @@ input[type="checkbox"] { transition: transform .15s var(--es-spring); } input[ty
 }
 
 /* ── dashboard v3: calm motion ── */
-.dz-in { animation: es-up .6s var(--es-ease) both; animation-delay: var(--d, 0ms); }
+.dz-in { animation: es-up .6s var(--es-ease) backwards; animation-delay: var(--d, 0ms); }
 .dz-card { transition: transform .35s var(--es-spring), box-shadow .35s var(--es-ease), border-color .2s; }
-.dz-card:hover { transform: translateY(-3px); box-shadow: 0 18px 40px -20px rgba(16,72,79,.32); border-color: var(--sky-border); }
+@media (hover: hover) { .dz-card:hover { transform: translateY(-3px); box-shadow: 0 18px 40px -20px rgba(16,72,79,.32); border-color: var(--sky-border); } }
 .dz-ico { position: relative; display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 14px; --ico-duo: .38; transition: transform .35s var(--es-spring); }
 .dz-ico .es-ico-line > * { stroke-dasharray: 100; stroke-dashoffset: 100; animation: dz-draw 1.2s var(--es-ease) forwards; animation-delay: calc(var(--d, 0ms) + 180ms); }
 .dz-ico .es-ico-duo { animation: dz-duo .9s ease both; animation-delay: calc(var(--d, 0ms) + 650ms); }
@@ -189,7 +189,7 @@ input[type="checkbox"] { transition: transform .15s var(--es-spring); } input[ty
 .dz-bar { transform-origin: bottom; animation: dz-grow .8s var(--es-spring) both; animation-delay: var(--d, 0ms); }
 .dz-grow-x { transform-origin: right; animation: dz-growx 1s var(--es-ease) both; }
 .dz-reveal { transform-box: fill-box; transform-origin: right; animation: dz-growx 1.5s var(--es-ease) .25s both; }
-.dz-tile { transition: background .2s, transform .3s var(--es-spring); animation: es-up .5s var(--es-ease) both; animation-delay: var(--d, 0ms); }
+.dz-tile { transition: background .2s, transform .3s var(--es-spring); animation: es-up .5s var(--es-ease) backwards; animation-delay: var(--d, 0ms); }
 .dz-tile:hover { background: var(--sky-light); transform: translateY(-2px); }
 .dz-tile:hover .dz-ico { transform: scale(1.08); }
 .dz-tile:hover .dz-bob .es-ico { animation: es-bob .6s var(--es-spring); }
@@ -280,7 +280,7 @@ input[type="checkbox"] { transition: transform .15s var(--es-spring); } input[ty
 .grid > * { min-width: 0; }
 
 /* Reports pulse board: cards rise in one after another, skeleton shimmer, soft glow on hover */
-.es-card-in { animation: es-card-in .6s cubic-bezier(.2,.8,.2,1) both; }
+.es-card-in { animation: es-card-in .6s cubic-bezier(.2,.8,.2,1) backwards; }
 @keyframes es-card-in { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
 .es-shimmer { position: relative; overflow: hidden; background: var(--bg); }
 .es-shimmer::after { content: ""; position: absolute; inset: 0; transform: translateX(100%); background: linear-gradient(90deg, transparent, rgba(255,255,255,.75), transparent); animation: es-shimmer 1.3s infinite; }
@@ -296,3 +296,19 @@ input[type="checkbox"] { transition: transform .15s var(--es-spring); } input[ty
 .es-hr-ring { animation: es-hr-ring 1.2s cubic-bezier(.2,.8,.2,1) both; }
 @keyframes es-hr-ring { from { stroke-dashoffset: var(--hr-len); } }
 @media (prefers-reduced-motion: reduce) { .es-hr-ring { animation: none !important; } }
+
+/* ───────── Phone / iPad fixes (p64) ─────────
+   Entry animations above end with "backwards" (not "both") so no transform stays on the page:
+   a lingering transform turns the page into the containing block of position:fixed popups,
+   which then opened at the top of a long page instead of on screen. */
+select { max-width: 100%; }
+@media (max-width: 1023.98px) {
+  /* a popup / sheet / drawer is open → hide the bottom tab bar and floating buttons, freeze the page behind */
+  html:has(.fixed.inset-0) { overflow: hidden; }
+  body:has(.fixed.inset-0) .es-tabbar, body:has(.fixed.inset-0) .es-quickfab { display: none; }
+  /* centred popups never taller than the screen: the panel scrolls instead of being cut off */
+  .fixed.inset-0:is(.grid, .flex):is(.place-items-center, .items-center, .place-items-end, .items-end) { overflow-y: auto; overscroll-behavior: contain; }
+  .fixed.inset-0:is(.grid, .flex):is(.place-items-center, .items-center, .place-items-end, .items-end) > :is(div, form, section):not(.absolute):not(.fixed) { max-height: calc(100dvh - 1rem); overflow-y: auto; overscroll-behavior: contain; }
+  /* toasts sit above the bottom tab bar */
+  .es-toast-lift { bottom: calc(92px + env(safe-area-inset-bottom)) !important; }
+}

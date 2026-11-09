@@ -115,7 +115,7 @@ export function QuickFab({ mgr = false, rep = false }: { mgr?: boolean; rep?: bo
     : mgr
     ? [["/plans", "خطة", "#e9a23b", "plans"], ["/tasks", "مهمة", "#3b82f6", "check"], ["/admin/reports", "تقرير", "#1aa865", "reports"], ["/doctors", "الأطباء", "#8b5cf6", "doctors"]]
     : [["/plans", "خطة", "#e9a23b", "plans"], ["/tasks", "مهمة", "#3b82f6", "check"], ["/library?view=signreq", "توقيع", "#8b5cf6", "signature"], ["/admin/reports", "تقرير", "#1aa865", "reports"]];
-  return createPortal(<div dir="rtl" className="fixed bottom-24 left-4 z-[55] flex flex-col-reverse items-start gap-2 lg:bottom-6">
+  return createPortal(<div dir="rtl" className="es-quickfab fixed bottom-24 left-4 z-[55] flex flex-col-reverse items-start gap-2 lg:bottom-6">
     <button type="button" aria-label="إجراءات سريعة" aria-expanded={open} onClick={() => setOpen(o => !o)} className="dp-cta flex h-14 w-14 items-center justify-center rounded-full bg-[var(--navy)] text-3xl font-light leading-none text-white shadow-[0_14px_30px_-10px_rgba(11,42,74,.7)]"><span style={{ transform: open ? "rotate(45deg)" : "none", transition: "transform .25s" }}>＋</span></button>
     {open && items.map(([href, label, c, ic], i) => <Link key={href} href={href} onClick={() => setOpen(false)} className="dp-fab-item flex items-center gap-2 rounded-full bg-white py-1.5 pl-4 pr-1.5 text-sm font-bold text-[var(--navy)] shadow-lg ring-1 ring-black/5" style={{ animationDelay: `${i * 50}ms` }}><span className="flex h-9 w-9 items-center justify-center rounded-full text-white" style={{ background: c }}><Icon name={ic} size={18} /></span>{label}</Link>)}
   </div>, document.body);
