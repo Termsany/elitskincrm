@@ -34,7 +34,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const isAdmin = user.role === "admin";
   const isOwner = owner.sales_rep_id === user.id;
   const within24h = (Date.now() - new Date(owner.visited_at).getTime()) < 24 * 60 * 60 * 1000;
-  if (!isAdmin && !(isOwner && within24h)) return json({ error: "غير مسموح" }, 403);
+  const corr = !isAdmin && isOwner ? (await query("SELECT 1 FROM visit_checks WHERE visit_id=$1 AND status='correction' AND resolved_at IS NULL", [id])).rows.length > 0 : false;
+  if (!isAdmin && !(isOwner && (within24h || corr))) return json({ error: "غير مسموح" }, 403);
 
   const body = await req.json().catch(() => null) as Record<string, unknown> | null;
   if (!body || typeof body !== "object") return json({ error: "Invalid" }, 400);
@@ -82,6 +83,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (sets.length) {
       await client.query(`UPDATE visits SET ${sets.join(", ")} WHERE id=$${idx}`, [...vals, id]);
       await client.query("INSERT INTO audit_logs(actor_id, action, entity, entity_id, details) VALUES($1,'update','visit',$2,$3)", [user.id, id, JSON.stringify(body).slice(0, 2000)]);
+      await client.query("INSERT INTO visit_edits(visit_id, user_id, action, detail) VALUES($1,$2,'edited',$3)", [id, user.id, Object.keys(body).filter(k => k !== "idempotencyKey").join("، ")]).catch(() => {});
+      if (corr) await client.query("UPDATE visit_checks SET resolved_at=now() WHERE visit_id=$1 AND status='correction' AND resolved_at IS NULL", [id]);
     }
     if (samples !== undefined) {
       await client.query("DELETE FROM visit_items WHERE visit_id=$1 AND kind='sample'", [id]);

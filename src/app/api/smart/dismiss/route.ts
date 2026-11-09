@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { query } from "@/lib/db";
 
-const KINDS = new Set(["reorder", "promise"]);
+const KINDS = new Set(["reorder", "promise", "admin_review", "admin_debt"]);
 const REASONS = new Set(["visited", "later", "not_mine"]);
 /** Hide one suggestion for N days (1–90). */
 export async function POST(req: Request) {
