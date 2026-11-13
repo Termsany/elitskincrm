@@ -35,7 +35,7 @@ export default function ImportTab({ onChanged }: { onChanged: () => void }) {
       const failed = j.failed?.length || 0;
       toast(`اتحدثت قاعدة الأطباء ✓ — ${j.add - failed} جديد، ${j.update} اتعدل، ${j.archive + j.delete} اتشال`, "success");
       setRes(null); setFile(null); setOk(false); if (input.current) input.current.value = ""; onChanged();
-      if (failed) toast(`${failed} صف ماتضافش لأنه متكرر مع طبيب قديم مدموج: ${j.failed.slice(0, 5).map((x: { name: string }) => x.name).join("، ")}`, "info");
+      if (failed) toast(`${failed} صف ماتحفظش لأنه متكرر مع طبيب تاني بنفس الاسم والعيادة والتليفون: ${j.failed.slice(0, 5).map((x: { name: string }) => x.name).join("، ")}`, "info");
       return;
     }
     setRes(j); setOk(false); setOpen("");

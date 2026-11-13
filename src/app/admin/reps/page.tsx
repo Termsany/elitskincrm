@@ -10,7 +10,7 @@ export default async function RepsPage(){
  const year=Number(riyadhNow().month.slice(0,4));
  const reps=await query(`SELECT u.id,u.name,u.email,u.job_title,u.role,u.active,u.last_login_at,u.assigned_product_id,p.name product_name,
   (SELECT count(*)::int FROM visits v WHERE v.sales_rep_id=u.id) visits_count,
-  (SELECT count(*)::int FROM visits v WHERE v.sales_rep_id=u.id AND v.visited_at >= date_trunc('month',now())) month_visits,
+  (SELECT count(*)::int FROM visits v WHERE v.sales_rep_id=u.id AND v.visited_at >= (date_trunc('month', now() AT TIME ZONE 'Asia/Riyadh') AT TIME ZONE 'Asia/Riyadh')) month_visits,
   (SELECT count(*)::int FROM visits v WHERE v.sales_rep_id=u.id AND v.status='completed') completed_visits,
   (SELECT count(*)::int FROM plans pl WHERE pl.user_id=u.id) plans_count,
   (SELECT count(*)::int FROM plan_items pi JOIN plans pl ON pl.id=pi.plan_id WHERE pl.user_id=u.id) planned_visits,

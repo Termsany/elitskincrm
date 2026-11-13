@@ -12,7 +12,8 @@ export async function GET(req: Request) {
   const limit = Math.min(parseInt(searchParams.get("limit") || "50", 10) || 50, 2000);
   const offset = Math.max(parseInt(searchParams.get("offset") || "0", 10) || 0, 0);
 
-  const conds: string[] = [];
+  // Archived (inactive) and merged doctors stay out of pickers unless asked for with ?all=1.
+  const conds: string[] = searchParams.get("all") === "1" ? [] : ["COALESCE(status,'active')='active'", "merged_into IS NULL"];
   const vals: unknown[] = [];
   let idx = 1;
   if (q) { conds.push(`(name ILIKE $${idx} OR clinic_name ILIKE $${idx} OR city ILIKE $${idx} OR phone ILIKE $${idx} OR email ILIKE $${idx})`); vals.push(`%${q}%`); idx++; }
@@ -31,6 +32,12 @@ export async function POST(req: Request) {
 
   const body = await req.json().catch(()=>null) as Record<string,unknown> | null;
   if (!body || !body.name || String(body.name).trim().length < 2) return NextResponse.json({ error: "name required" }, { status: 400 });
-  const r = await query("INSERT INTO doctors(name, clinic_name, city, specialty, classification, phone, email, status) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id", [String(body.name).trim(), String(body.clinic_name||body.clinicName||"").trim(), String(body.city||"").trim(), String(body.specialty||"").trim(), String(body.classification||"").trim(), String(body.phone||"").trim(), String(body.email||"").trim(), String(body.status||"active").trim()]);
-  return NextResponse.json({ id: r.rows[0].id }, { status: 201 });
+  const status = ["active", "inactive", "pending"].includes(String(body.status || "")) ? String(body.status) : "active";
+  try {
+    const r = await query("INSERT INTO doctors(name, clinic_name, city, specialty, classification, phone, email, status) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id", [String(body.name).trim(), String(body.clinic_name||body.clinicName||"").trim(), String(body.city||"").trim(), String(body.specialty||"").trim(), String(body.classification||"").trim(), String(body.phone||"").trim(), String(body.email||"").trim(), status]);
+    return NextResponse.json({ id: r.rows[0].id }, { status: 201 });
+  } catch (e) {
+    if ((e as { code?: string }).code === "23505") return NextResponse.json({ error: "الطبيب ده موجود قبل كده بنفس الاسم والعيادة والتليفون" }, { status: 409 });
+    throw e;
+  }
 }

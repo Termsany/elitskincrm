@@ -42,7 +42,7 @@ export default function TasksClient({ isAdmin, reps, currentUserId }: { isAdmin:
     finally{setLoading(false);}
   }
   useEffect(()=>{ load(); },[filter, showArchived]);
-  useEffect(()=>{ if(isAdmin) fetch("/api/doctors?limit=100").then(r=>r.json()).then(j=> setDoctors((j.doctors||[]).map((d:Record<string,unknown>)=> ({id:d.id, name:d.name, clinic_name:d.clinic_name})))).catch(()=>{}); },[]);
+  useEffect(()=>{ if(isAdmin) fetch("/api/doctors?limit=2000").then(r=>r.json()).then(j=> setDoctors((j.doctors||[]).map((d:Record<string,unknown>)=> ({id:d.id, name:d.name, clinic_name:d.clinic_name})))).catch(()=>{}); },[]);
 
   async function createTask(e:React.FormEvent){
     e.preventDefault();

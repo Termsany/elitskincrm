@@ -91,7 +91,9 @@ async function write(client: Q, plan: Plan, keepHistory: Set<string>) {
     const sets: string[] = []; const vals: unknown[] = [x.id];
     for (const [f, [, v]] of Object.entries(x.changes)) { vals.push(v); sets.push(`${f}=$${vals.length}`); }
     if (x.reactivate) sets.push("status='active'");
-    await client.query(`UPDATE doctors SET ${sets.join(",")} WHERE id=$1`, vals);
+    await client.query("SAVEPOINT r");
+    try { await client.query(`UPDATE doctors SET ${sets.join(",")} WHERE id=$1`, vals); await client.query("RELEASE SAVEPOINT r"); }
+    catch { await client.query("ROLLBACK TO SAVEPOINT r"); failed.push({ line: x.row.line, name: x.row.name }); }
   }
   for (const r of plan.add) {
     // A savepoint per row: a clash with an old merged record skips that row instead of failing the whole import.

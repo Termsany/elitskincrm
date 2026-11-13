@@ -119,7 +119,7 @@ export async function getDetailedReportData(searchParams: URLSearchParams, opts:
     JOIN visit_items vi ON vi.visit_id=v.id AND vi.kind='sample' JOIN products p ON p.id=vi.product_id
     WHERE ${where} ${productLineFilter} GROUP BY d.id,d.name,d.clinic_name,d.city ORDER BY samples DESC,d.name`,[...vals]);
 
-  const coverageVals:unknown[]=[];const coverageConds:string[]=["u.role='sales_rep'", "u.active=true"];const coverageVisitConds:string[]=[];
+  const coverageVals:unknown[]=[];const coverageConds:string[]=["u.role='sales_rep'", "u.active=true", "COALESCE(d.status,'active')='active'", "d.merged_into IS NULL"];const coverageVisitConds:string[]=[];
   const addCoverage=(sql:string,value:unknown)=>{coverageVals.push(value);return sql.replace("?",`$${coverageVals.length}`)};
   if(repId)coverageConds.push(addCoverage("u.id=?",repId));
   if(city)coverageConds.push(addCoverage("d.city=?",city));

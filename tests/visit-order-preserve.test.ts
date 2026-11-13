@@ -13,7 +13,7 @@ const patch = (body: Record<string, unknown>) => PATCH(new Request(`http://local
 
 function database(status: "pending" | "approved" | "rejected" = "approved", gate?: { promise: Promise<void> }) {
   const sql: string[] = [];
-  let release = vi.fn();
+  const release = vi.fn();
   const client = { query: vi.fn(async (statement: string) => {
     sql.push(statement);
     if (statement.includes("FROM visits WHERE id=$1 FOR UPDATE")) return { rows: [visit()] };
