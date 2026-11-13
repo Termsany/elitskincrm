@@ -16,6 +16,13 @@ cd /opt/elite-crm
 
 log() { echo "$(date -uIs) $*"; }
 
+# Puts a failure message in every active admin's notification bell inside the app (best effort).
+notify_admins() {
+  printf '%s\n' "INSERT INTO task_notifications(user_id, task_id, kind, message, action_url) SELECT id, NULL, 'deploy_failed', :'msg', '/' FROM users WHERE role::text='admin' AND active=true;" \
+    | docker compose exec -T db sh -c 'psql -q -v ON_ERROR_STOP=1 -v msg="$1" -U "$POSTGRES_USER" -d "$POSTGRES_DB"' _ "$1" >/dev/null 2>&1 || true
+}
+fail() { log "FAIL: $1"; notify_admins "⚠ تحديث البرنامج على السيرفر فشل: $2"; exit 1; }
+
 # One deploy at a time (workflow runs and manual/cron runs can overlap).
 exec 9>.git/deploy.lock
 if ! flock -w 900 9; then
@@ -35,21 +42,18 @@ if [ "$deployed" = "$remote_head" ]; then
 fi
 
 if [ -n "$(git status --porcelain)" ]; then
-  log "FAIL: working tree has uncommitted changes — refusing to auto-deploy over them. Resolve manually."
-  exit 1
+  fail "working tree has uncommitted changes — refusing to auto-deploy over them. Resolve manually." "فيه تعديلات يدوية على السيرفر منعت التحديث. النسخة القديمة لسه شغالة."
 fi
 
 # Fast-forward only: never discards commits, never force-overwrites history.
 if ! git merge --ff-only origin/main --quiet; then
-  log "FAIL: local main has diverged from origin/main (not a fast-forward) — needs manual resolution."
-  exit 1
+  fail "local main has diverged from origin/main (not a fast-forward) — needs manual resolution." "نسخة السيرفر مختلفة عن GitHub ومحتاجة تدخل يدوي. النسخة القديمة لسه شغالة."
 fi
 
 log "deploying $deployed -> $remote_head"
 
 if ! docker compose build app; then
-  log "FAIL: image build failed for $remote_head — currently running app left untouched; will retry on the next run."
-  exit 1
+  fail "image build failed for $remote_head — currently running app left untouched; will retry on the next run." "بناء النسخة الجديدة فشل (${remote_head:0:7}). النسخة القديمة لسه شغالة."
 fi
 
 docker compose up -d app reminders
@@ -63,5 +67,4 @@ for i in $(seq 1 30); do
   sleep 2
 done
 
-log "FAIL: deployed $remote_head but health check did not pass within 60s — check manually; will redeploy on the next run."
-exit 1
+fail "deployed $remote_head but health check did not pass within 60s — check manually; will redeploy on the next run." "النسخة الجديدة (${remote_head:0:7}) اتشغلت بس مش بترد صح — راجعها."

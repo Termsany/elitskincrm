@@ -1,19 +1,23 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/session";
 import { pool, query } from "@/lib/db";
-import { planSync, readDoctorSheet, SheetError, type Existing, type Plan } from "@/lib/doctor-sync";
+import { planSync, readDoctorSheet, SheetError, type Existing } from "@/lib/doctor-sync";
+import { applyPlan, HISTORY } from "@/lib/doctor-import-apply";
 
 export const runtime = "nodejs";
 const MAX = 10 * 1024 * 1024;
 const BIG = 0.3; // removing more than this share of active doctors needs an explicit confirmation
 async function admin() { const u = await getCurrentUser(); return u && u.role === "admin" && !u.manager ? u : null; }
 
-// A doctor with any of these is archived (status 'inactive') instead of deleted, so history stays intact.
-const HISTORY = ["visits", "plan_items", "doctor_followups", "doctor_month_pauses", "tasks", "doctor_requests", "calendar_events", "detailing_sessions", "expenses"];
-
 /** Template to fill in (GET). */
-export async function GET() {
+export async function GET(req: Request) {
   if (!await admin()) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (new URL(req.url).searchParams.get("history") === "1") {
+    const h = await query(`SELECT i.id, i.file_name, i.summary, i.created_at, i.undone_at, u.name actor,
+        i.undone_at IS NULL AND i.id = (SELECT id FROM doctor_imports ORDER BY created_at DESC LIMIT 1) can_undo
+      FROM doctor_imports i LEFT JOIN users u ON u.id=i.actor_id ORDER BY i.created_at DESC LIMIT 10`);
+    return NextResponse.json({ imports: h.rows });
+  }
   const ExcelJS = await import("exceljs");
   const wb = new ExcelJS.Workbook(); wb.creator = "Elite Skin CRM";
   const ws = wb.addWorksheet("الأطباء", { views: [{ rightToLeft: true, state: "frozen", ySplit: 1 }] });
@@ -72,9 +76,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: `الملف هيشيل ${plan.remove.length} من ${activeNow} طبيب — لازم تأكيد صريح` }, { status: 409 });
     }
 
-    const failed = await write(client, plan, keepHistory);
+    const done = await applyPlan(client, plan, keepHistory);
+    const failed = done.failed;
+    const who = (d: { name: string; clinic_name: string }) => ({ name: d.name, clinic: d.clinic_name });
+    const report = {
+      rows: summary.rows, add: done.snapshot.added.length, update: done.snapshot.updated.length, archive: summary.archive, delete: summary.delete, failed,
+      names: { add: done.addedRows.map(who), archive: plan.remove.filter(d => keepHistory.has(d.id)).map(who), delete: plan.remove.filter(d => !keepHistory.has(d.id)).map(who) },
+    };
+    await client.query("INSERT INTO doctor_imports(actor_id,file_name,summary,snapshot) VALUES($1,$2,$3,$4)", [u.id, file.name.slice(0, 200), JSON.stringify(report), JSON.stringify(done.snapshot)]);
     await client.query(`INSERT INTO audit_logs(actor_id,action,entity,entity_id,details) VALUES($1,'import','doctors','excel',$2)`,
-      [u.id, JSON.stringify({ file: file.name, rows: summary.rows, add: summary.add - failed.length, update: summary.update, archive: summary.archive, delete: summary.delete, failed })]);
+      [u.id, JSON.stringify({ file: file.name, rows: report.rows, add: report.add, update: report.update, archive: report.archive, delete: report.delete, failed })]);
     await client.query("COMMIT");
     return NextResponse.json({ ok: true, ...summary, failed });
   } catch (e) {
@@ -84,29 +95,3 @@ export async function POST(req: Request) {
   } finally { client.release(); }
 }
 
-type Q = { query: (text: string, values?: unknown[]) => Promise<unknown> };
-async function write(client: Q, plan: Plan, keepHistory: Set<string>) {
-  const failed: Array<{ line: number; name: string }> = [];
-  for (const x of plan.update) {
-    const sets: string[] = []; const vals: unknown[] = [x.id];
-    for (const [f, [, v]] of Object.entries(x.changes)) { vals.push(v); sets.push(`${f}=$${vals.length}`); }
-    if (x.reactivate) sets.push("status='active'");
-    await client.query("SAVEPOINT r");
-    try { await client.query(`UPDATE doctors SET ${sets.join(",")} WHERE id=$1`, vals); await client.query("RELEASE SAVEPOINT r"); }
-    catch { await client.query("ROLLBACK TO SAVEPOINT r"); failed.push({ line: x.row.line, name: x.row.name }); }
-  }
-  for (const r of plan.add) {
-    // A savepoint per row: a clash with an old merged record skips that row instead of failing the whole import.
-    await client.query("SAVEPOINT r");
-    try {
-      await client.query("INSERT INTO doctors(name,clinic_name,city,specialty,classification,phone,email,status) VALUES($1,$2,$3,$4,$5,$6,$7,'active')",
-        [r.name, r.clinic_name, r.city, r.specialty, r.classification, r.phone, r.email]);
-      await client.query("RELEASE SAVEPOINT r");
-    } catch { await client.query("ROLLBACK TO SAVEPOINT r"); failed.push({ line: r.line, name: r.name }); }
-  }
-  const archive = plan.remove.filter(d => keepHistory.has(d.id)).map(d => d.id);
-  const del = plan.remove.filter(d => !keepHistory.has(d.id)).map(d => d.id);
-  if (archive.length) await client.query("UPDATE doctors SET status='inactive' WHERE id=ANY($1::uuid[])", [archive]);
-  if (del.length) await client.query("DELETE FROM doctors WHERE id=ANY($1::uuid[])", [del]);
-  return failed;
-}

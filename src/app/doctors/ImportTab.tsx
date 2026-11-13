@@ -1,6 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
 import { useToast } from "@/components/Toast";
+import { ArchivedDoctors, ImportHistory } from "./ImportExtras";
 
 type Change = Record<string, [string, string]>;
 type Result = {
@@ -24,6 +25,8 @@ export default function ImportTab({ onChanged }: { onChanged: () => void }) {
   const [busy, setBusy] = useState<"" | "preview" | "apply">("");
   const [ok, setOk] = useState(false);
   const [open, setOpen] = useState<K>("");
+  const [ver, setVer] = useState(0);
+  const changed = () => { setVer(v => v + 1); onChanged(); };
 
   async function send(f: File, apply: boolean) {
     setBusy(apply ? "apply" : "preview");
@@ -34,7 +37,7 @@ export default function ImportTab({ onChanged }: { onChanged: () => void }) {
     if (apply) {
       const failed = j.failed?.length || 0;
       toast(`اتحدثت قاعدة الأطباء ✓ — ${j.add - failed} جديد، ${j.update} اتعدل، ${j.archive + j.delete} اتشال`, "success");
-      setRes(null); setFile(null); setOk(false); if (input.current) input.current.value = ""; onChanged();
+      setRes(null); setFile(null); setOk(false); if (input.current) input.current.value = ""; changed();
       if (failed) toast(`${failed} صف ماتحفظش لأنه متكرر مع طبيب تاني بنفس الاسم والعيادة والتليفون: ${j.failed.slice(0, 5).map((x: { name: string }) => x.name).join("، ")}`, "info");
       return;
     }
@@ -95,6 +98,8 @@ export default function ImportTab({ onChanged }: { onChanged: () => void }) {
           <button type="button" disabled={!!busy} onClick={() => { setRes(null); setFile(null); if (input.current) input.current.value = ""; }} className="h-10 rounded-xl border border-[var(--border)] px-4 text-sm font-bold">إلغاء</button>
         </div>
       </div>}
+      <ImportHistory reload={ver} onChanged={changed} />
+      <ArchivedDoctors reload={ver} onChanged={changed} />
     </div>
   );
 }

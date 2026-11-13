@@ -19,7 +19,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
      FROM visits v JOIN doctors d ON d.id=v.doctor_id WHERE v.sales_rep_id=$1 GROUP BY d.id, d.name, d.clinic_name ORDER BY cnt DESC`,
     [id]
   );
-  const weekly = await query("SELECT count(*)::int cnt FROM visits WHERE sales_rep_id=$1 AND visited_at >= (date_trunc('week', now() AT TIME ZONE 'Asia/Riyadh') AT TIME ZONE 'Asia/Riyadh')", [id]);
+  const weekly = await query("SELECT count(*)::int cnt FROM visits WHERE sales_rep_id=$1 AND visited_at >= ((date_trunc('week', (now() AT TIME ZONE 'Asia/Riyadh') + interval '1 day') - interval '1 day') AT TIME ZONE 'Asia/Riyadh')", [id]);
   const monthly = await query("SELECT count(*)::int cnt FROM visits WHERE sales_rep_id=$1 AND visited_at >= (date_trunc('month', now() AT TIME ZONE 'Asia/Riyadh') AT TIME ZONE 'Asia/Riyadh')", [id]);
   const yearly = await query("SELECT count(*)::int cnt FROM visits WHERE sales_rep_id=$1 AND visited_at >= date_trunc('year', now())", [id]);
   const plans = await query(
