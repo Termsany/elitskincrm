@@ -9,7 +9,7 @@ export default async function DoctorsPage({ searchParams }: { searchParams: Prom
   const sp = await searchParams;
   const { query } = await import("@/lib/db");
   const reps = user.role === "admin" ? (await query("SELECT id, name FROM users WHERE role='sales_rep' AND active ORDER BY name")).rows : [];
-  const tab = ["doctors", "clinics", "insights", "requests", "merge"].includes(sp.tab || "") ? sp.tab as "doctors" : "doctors";
+  const tab = ["doctors", "clinics", "insights", "requests", "merge", "import"].includes(sp.tab || "") ? sp.tab as "doctors" : "doctors";
   return (
     <AppShell role={user.role} email={user.email} name={user.name} jobTitle={user.job_title} productName={user.product_name} active="/doctors">
       <h1 className="text-2xl font-extrabold text-[var(--navy)]">الأطباء والعيادات</h1>

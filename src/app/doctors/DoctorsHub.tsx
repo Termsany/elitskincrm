@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useToast } from "@/components/Toast";
 import DoctorRequestsClient from "../admin/requests/DoctorRequestsClient";
 import MergeTab from "./MergeTab";
+import ImportTab from "./ImportTab";
 import { SmartTiles, SmartCard, PlanWeekCard, TeamCoverage, ClinicMini, last6 } from "./SmartDoctors";
 import { nextWorkDay, parseSmart, priority, type Prio, type Tag } from "@/lib/doctor-priority";
 import type { HubDoctor } from "@/lib/doctors-hub";
@@ -13,7 +14,7 @@ import type { Account } from "@/lib/clinic-account";
 import { addDays, sar, riyadhToday } from "@/lib/fmt";
 
 type Opt = { id: string; name: string };
-type Tab = "doctors" | "clinics" | "insights" | "requests" | "merge";
+type Tab = "doctors" | "clinics" | "insights" | "requests" | "merge" | "import";
 type Seg = "all" | "overdue" | "never" | "followup" | "interested" | "planned" | "favorites" | "paused";
 type Form = { name: string; clinic_name: string; city: string; specialty: string; classification: string; phone: string; email: string };
 const EMPTY: Form = { name: "", clinic_name: "", city: "", specialty: "", classification: "", phone: "", email: "" };
@@ -167,7 +168,7 @@ export default function DoctorsHub({ isAdmin, canLink = false, reps, initialQ = 
   const effView = mode === "desktop" ? view : "cards";
 
   const SEGS: Array<[Seg, string, string]> = [["all", "الكل", ""], ["overdue", "متأخرين", "text-red-700"], ["never", "ما اتزاروش", ""], ["followup", "متابعات", "text-amber-700"], ["interested", "مهتمين", "text-emerald-700"], ["planned", "في الخطة", ""], ["favorites", "★ المفضلة", ""], ...(canPause ? [["paused", "⏸ Inactive الشهر ده", "text-slate-600"] as [Seg, string, string]] : [])];
-  const TABS: Array<[Tab, string]> = [["doctors", "الأطباء"], ["clinics", "العيادات"], ["insights", "الأداء والتحليل"], ["requests", isAdmin ? `طلبات التعديل${pending ? ` (${pending})` : ""}` : `طلباتي${pending ? ` (${pending})` : ""}`], ...(canLink ? [["merge", "دمج المكرر"] as [Tab, string]] : [])];
+  const TABS: Array<[Tab, string]> = [["doctors", "الأطباء"], ["clinics", "العيادات"], ["insights", "الأداء والتحليل"], ["requests", isAdmin ? `طلبات التعديل${pending ? ` (${pending})` : ""}` : `طلباتي${pending ? ` (${pending})` : ""}`], ...(canLink ? [["merge", "دمج المكرر"] as [Tab, string], ["import", "رفع إكسيل"] as [Tab, string]] : [])];
 
   return (
     <div className="mt-4 space-y-3 pb-20 lg:pb-0">
@@ -206,7 +207,7 @@ export default function DoctorsHub({ isAdmin, canLink = false, reps, initialQ = 
         </>}
       </div>
 
-      {!rows && tab !== "requests" && tab !== "merge" && <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">{[0, 1, 2, 3, 4, 5].map(i => <div key={i} className="h-32 rounded-3xl bg-white animate-pulse" />)}</div>}
+      {!rows && tab !== "requests" && tab !== "merge" && tab !== "import" && <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">{[0, 1, 2, 3, 4, 5].map(i => <div key={i} className="h-32 rounded-3xl bg-white animate-pulse" />)}</div>}
 
       {rows && tab === "doctors" && <>
         {canPause && mode !== "phone" && Number(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh", day: "numeric" }).format(new Date())) <= 7 && !counts.paused && <div className="dz-in flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--sky-border)] bg-[var(--sky-light)] px-4 py-3 text-sm"><span className="text-lg">🗓️</span><span className="flex-1"><b className="text-[var(--navy)]">بداية شهر {monthName}:</b> حدد الأطباء اللي مش هتزورهم الشهر ده واعملهم <b>Inactive</b> — كده التغطية تتحسب على الأطباء الحقيقيين بس.</span><span className="text-[11px] text-[var(--muted)]">علّم عليهم من الجدول ← «Inactive الشهر ده»</span></div>}
@@ -233,6 +234,7 @@ export default function DoctorsHub({ isAdmin, canLink = false, reps, initialQ = 
       </>}
       {rows && tab === "clinics" && <Clinics rows={all.filter(d => (!city || d.city === city) && (!cls || d.classification === cls) && (!q.trim() || `${d.clinic_name} ${d.city}`.toLowerCase().includes(q.trim().toLowerCase())))} bal={bal} onOpen={setOpenClinic} />}
       {rows && tab === "insights" && <Insights rows={all} days={days} onSeg={(s, c) => { setSeg(s); if (c !== undefined) setCls(c); setTab("doctors"); }} onOpen={setSel} />}
+      {tab === "import" && canLink && <ImportTab onChanged={() => { setReload(n => n + 1); setBal(null); }} />}
       {tab === "merge" && canLink && <MergeTab onChanged={() => { setReload(n => n + 1); setBal(null); }} />}
       {tab === "requests" && (isAdmin ? <div className="rounded-3xl border border-[var(--border)] bg-white p-3"><DoctorRequestsClient /></div> : <MyRequests />)}
 
