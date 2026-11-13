@@ -79,7 +79,7 @@ export function ArchivedDoctors({ reload, onChanged }: { reload: number; onChang
   return (
     <div className="rounded-3xl border border-[var(--border)] bg-white p-4 space-y-3">
       <button type="button" onClick={() => setShow(x => !x)} className="flex w-full items-center justify-between text-start">
-        <span><span className="font-extrabold text-[var(--navy)]">الأطباء المؤرشفين ({rows.length})</span><span className="block text-xs text-[var(--muted)]">مش ظاهرين في القوايم، وزياراتهم وتقاريرهم محفوظة. تقدر ترجّع أي حد منهم.</span></span>
+        <span><span className="font-extrabold text-[var(--navy)]">الأطباء المؤرشفين ({rows.length})</span></span>
         <span className="text-[var(--muted)]">{show ? "▴" : "▾"}</span>
       </button>
       {show && <>

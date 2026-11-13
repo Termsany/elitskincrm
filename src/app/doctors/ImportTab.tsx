@@ -51,13 +51,8 @@ export default function ImportTab({ onChanged }: { onChanged: () => void }) {
       <div className="rounded-3xl border border-[var(--border)] bg-white p-4 space-y-3">
         <div>
           <h2 className="text-lg font-extrabold text-[var(--navy)]">تحديث قاعدة الأطباء من إكسيل</h2>
-          <p className="text-sm text-[var(--muted)]">الملف بيبقى هو قائمة الأطباء: الجديد بيتضاف، الموجود بيتحدث، واللي مش في الملف بيتشال. الطبيب اللي ليه زيارات أو خطط بيتأرشف بدل ما يتمسح، عشان تاريخه وتقاريره تفضل موجودة.</p>
         </div>
-        <ol className="text-sm space-y-1 list-decimal ps-5 text-[var(--navy)]">
-          <li>نزّل القائمة الحالية: <a href="/api/admin/doctor-import" className="font-bold text-teal-700 underline">⬇ قائمة الأطباء الحالية (إكسيل)</a>. عدّل عليها أو استخدم ملفك.</li>
-          <li>الأعمدة: <b>اسم الطبيب</b> (لازم)، العيادة، المدينة، التخصص، التصنيف، الجوال، البريد. عمود «المعرف» اختياري، ويخلّي المطابقة أدق لو سبته زي ما هو.</li>
-          <li>ارفع الملف وراجع التغييرات قبل ما تأكد. مفيش حاجة بتتغير قبل التأكيد.</li>
-        </ol>
+        <a href="/api/admin/doctor-import" className="inline-block text-sm font-bold text-teal-700 underline">⬇ القائمة الحالية (إكسيل)</a>
         <div className="flex flex-wrap items-center gap-2">
           <input ref={input} type="file" accept=".xlsx" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) { setFile(f); void send(f, false); } }} />
           <button type="button" onClick={() => input.current?.click()} disabled={!!busy} className="h-10 rounded-xl bg-[var(--navy)] px-4 text-sm font-bold text-white disabled:opacity-50">
@@ -75,7 +70,7 @@ export default function ImportTab({ onChanged }: { onChanged: () => void }) {
           <Stat n={res.same} label="زي ما هو" tone="bg-slate-50 text-slate-700" open={open} setOpen={setOpen} />
           <Stat n={removing} label="هيتشال" tone="bg-red-50 text-red-800" k="remove" open={open} setOpen={setOpen} />
         </div>
-        {removing > 0 && <p className="text-xs text-[var(--muted)]">من اللي هيتشالوا: {res.archive} هيتأرشفوا (ليهم زيارات أو خطط، وتاريخهم هيفضل في التقارير) و{res.delete} هيتمسحوا نهائي (مالهمش أي تاريخ).</p>}
+        {removing > 0 && <p className="text-xs text-[var(--muted)]">{res.archive} أرشيف · {res.delete} مسح</p>}
 
         {open === "add" && <List items={res.sample.add.map(x => `${x.name} — ${x.clinic || "بدون عيادة"}${x.city ? ` · ${x.city}` : ""}`)} total={res.add} />}
         {open === "update" && <List items={res.sample.update.map(x => `${x.name}: ${x.reactivate ? "يرجع نشط" : ""}${x.reactivate && Object.keys(x.changes).length ? " · " : ""}${Object.entries(x.changes).map(([f, [a, b]]) => `${FIELD[f] || f} «${a || "—"}» ← «${b}»`).join(" · ")}`)} total={res.update} />}

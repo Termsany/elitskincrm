@@ -128,7 +128,6 @@ export default function NotificationsBell({ role = "sales_rep" }: { role?: strin
           {msg && <div className="border-b border-[var(--border)] bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">{msg}</div>}
           <div className="max-h-[55vh] divide-y divide-[var(--border)] overflow-auto">
             {tab === "important" && live.length > 0 && <div className="bg-[var(--bg)] p-2">
-              <div className="px-1 pb-1.5 text-[11px] font-bold text-[var(--muted)]">محتاجاك دلوقتي · بتختفي لوحدها لما تخلص</div>
               <div className="space-y-1.5">{live.map(x => <button key={x.key} type="button" onClick={() => { setOpen(false); router.push(x.href); }}
                 className="flex w-full items-center gap-3 rounded-xl border border-[var(--border)] bg-white p-2.5 text-right text-sm shadow-sm transition hover:border-[var(--sky)]">
                 <span className={`flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-xs font-extrabold text-white ${LIVE_TONE[x.tone]}`}>{x.count}</span>
