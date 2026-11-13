@@ -1,4 +1,3 @@
-import MyAlertsBadge from "./MyAlertsBadge";
 import NotificationsBell from "./NotificationsBell";
 import MobileNav from "./MobileNav";
 import SidebarNav, { SidebarToggle } from "./SidebarNav";
@@ -54,7 +53,6 @@ export async function AppShell({ role: role0, email, name, jobTitle, productName
       </div>
       {isAdmin && <PaletteButton />}
       <SidebarNav primary={primary} more={more} active={active} />
-      <div className="es-hide px-1"><MyAlertsBadge role={role}/></div>
       <div className="es-user mt-auto rounded-2xl bg-white/[0.07] p-2.5">
         <div className="flex items-center gap-2.5">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--sky)] text-xs font-extrabold text-[#0b1d20]" title={name}>{initials || "ES"}</div>

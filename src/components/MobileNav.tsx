@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { dashboardMobileLinks } from "@/lib/dashboard-workspace";
 import NotificationsBell from "./NotificationsBell";
-import MyAlertsBadge from "./MyAlertsBadge";
 import { Icon } from "@/components/Icon";
 import { Logo, BrandMark, Wordmark } from "@/components/Logo";
 
@@ -36,7 +35,7 @@ export default function MobileNav({ items, active, name, role }: { items: Item[]
         <div dir="ltr" className="flex items-center justify-center gap-1.5"><BrandMark size={22} /><Wordmark height={17} tone="onDark" /></div>
         <div className="mt-0.5 truncate text-[10px] text-white/60">{name}</div>
       </div>
-      <div className="flex shrink-0 items-center gap-1"><NotificationsBell role={role} /><MyAlertsBadge role={role} /></div>
+      <div className="flex shrink-0 items-center gap-1"><NotificationsBell role={role} /></div>
     </header>
 
     <nav aria-label="التنقل السريع" className="es-tabbar fixed inset-x-0 bottom-0 z-50 grid min-h-[76px] grid-cols-5 items-end rounded-t-[26px] bg-white/95 px-2 pt-2 pb-[max(10px,env(safe-area-inset-bottom))] shadow-[0_-12px_32px_rgba(16,72,79,0.14)] backdrop-blur lg:hidden">
