@@ -1,0 +1,27 @@
+# برنامج المتابعة المالية — مشروع docker منفصل عن الـ CRM (اسم المشروع: elite-finance).
+# على السيرفر يشغّله scripts/deploy-finance.sh، والإعدادات في /opt/elite-finance.env (خارج الـ git).
+name: elite-finance
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - ${FINANCE_ENV_FILE:-.env}
+    environment:
+      NODE_ENV: production
+      PORT: 3200
+      DATA_DIR: /app/data
+      TZ: Asia/Riyadh
+    volumes:
+      - financedata:/app/data
+    ports:
+      - "127.0.0.1:3200:3200"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3200/api/health',{signal:AbortSignal.timeout(4000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  financedata:

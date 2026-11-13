@@ -1,0 +1,18 @@
+{
+  "name": "elite-finance",
+  "version": "1.0.0",
+  "description": "المتابعة المالية - Elite Skin — متابعة المصاريف والمديونيات والأرباح مع ربط دفترة و AI",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "sync": "node src/synccli.js",
+    "test": "node test/smoke.js"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "node-cron": "^3.0.3"
+  }
+}

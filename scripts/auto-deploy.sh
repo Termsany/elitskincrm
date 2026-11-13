@@ -29,8 +29,12 @@ git fetch origin main --quiet
 remote_head="$(git rev-parse origin/main)"
 deployed="$(cat "$state_file" 2>/dev/null || echo none)"
 
+# The separate finance app (finance/) — never fails the CRM deploy.
+deploy_finance() { [ -x scripts/deploy-finance.sh ] && { scripts/deploy-finance.sh || log "finance deploy failed (CRM unaffected)"; }; return 0; }
+
 if [ "$deployed" = "$remote_head" ]; then
   log "up to date ($remote_head)"
+  deploy_finance
   exit 0
 fi
 
@@ -58,6 +62,7 @@ for i in $(seq 1 30); do
   if curl -fs -m 3 http://127.0.0.1:3100/api/health >/dev/null 2>&1; then
     echo "$remote_head" > "$state_file"
     log "OK: deployed $remote_head, health check passed"
+    deploy_finance
     exit 0
   fi
   sleep 2

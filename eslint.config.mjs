@@ -5,7 +5,7 @@ import nextTs from 'eslint-config-next/typescript';
 export default defineConfig([
   ...nextVitals,
   ...nextTs,
-  globalIgnores(['.next/**', 'out/**', 'build/**', 'next-env.d.ts', 'public/pdf.worker.min.mjs']),
+  globalIgnores(['finance/**', '.next/**', 'out/**', 'build/**', 'next-env.d.ts', 'public/pdf.worker.min.mjs']),
   {
     rules: {
       'react-hooks/set-state-in-effect': 'off',

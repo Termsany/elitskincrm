@@ -28,3 +28,15 @@ jobs:
             -o ServerAliveInterval=30 \
             -o BatchMode=yes \
             "root@${DEPLOY_HOST}" "/opt/elite-crm/scripts/auto-deploy.sh"
+      # Second pass: runs the freshly pulled auto-deploy.sh (the first pass ran
+      # the previous copy). The CRM is already up to date, so this only brings
+      # the finance app (finance/) up to date.
+      - name: Deploy finance app
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          ssh -i ~/.ssh/id_deploy \
+            -o StrictHostKeyChecking=accept-new \
+            -o ConnectTimeout=15 \
+            -o BatchMode=yes \
+            "root@${DEPLOY_HOST}" "/opt/elite-crm/scripts/auto-deploy.sh"
