@@ -15,6 +15,8 @@ async function autoResolve(userId: string) {
       OR (n.kind = ANY($2::text[]) AND n.created_at < now() - interval '14 days')
       OR (n.kind IN ('morning_summary','smart_daily') AND n.created_at < now() - interval '20 hours')
       OR (n.kind='plan_draft' AND n.plan_id IS NOT NULL AND EXISTS (SELECT 1 FROM plans p WHERE p.id=n.plan_id AND p.status::text<>'draft'))
+      OR (n.kind='password_reset_request' AND NOT EXISTS (SELECT 1 FROM password_reset_requests r WHERE r.handled_at IS NULL))
+      OR (n.task_id IS NOT NULL AND n.kind IN ('assigned','reminder','overdue','update') AND EXISTS (SELECT 1 FROM tasks t WHERE t.id=n.task_id AND (t.archived OR t.status::text NOT IN ('pending','in_progress'))))
     )`, [userId, INFO_KINDS]).catch(e => console.error("notifications auto-resolve", e));
 }
 
@@ -26,8 +28,8 @@ export async function GET() {
     CASE WHEN n.plan_id IS NOT NULL THEN 'الخطة الأسبوعية' ELSE NULL END plan_title
     FROM task_notifications n
     LEFT JOIN tasks t ON t.id=n.task_id
-    WHERE n.user_id=$1 AND (n.snoozed_until IS NULL OR n.snoozed_until <= now())
-    ORDER BY n.is_read, n.created_at DESC LIMIT 80`, [user.id]);
+    WHERE n.user_id=$1 AND n.is_read=false AND (n.snoozed_until IS NULL OR n.snoozed_until <= now())
+    ORDER BY n.created_at DESC LIMIT 100`, [user.id]);
   const rows = r.rows.map(n => ({ ...n, level: levelOf(String(n.kind)) }));
   const counts = (await query<{ kind: string; n: number }>("SELECT kind, count(*)::int n FROM task_notifications WHERE user_id=$1 AND is_read=false AND (snoozed_until IS NULL OR snoozed_until <= now()) GROUP BY kind", [user.id])).rows;
   const important = counts.filter(c => levelOf(c.kind) === "important").reduce((s, c) => s + c.n, 0);

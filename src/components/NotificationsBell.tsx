@@ -69,6 +69,7 @@ export default function NotificationsBell({ role = "sales_rep" }: { role?: strin
   }
   async function markAll() { await fetch("/api/notifications", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ all: true, level: tab }) }); await load(); }
   async function openNotification(n: N) {
+    setList(l => l.filter(x => x.id !== n.id));
     if (!n.is_read) await markIds([n.id]);
     setOpen(false); router.push(notificationHref(n, role));
   }
@@ -106,7 +107,6 @@ export default function NotificationsBell({ role = "sales_rep" }: { role?: strin
   // Only what is new since the bell was last opened: new important notifications + live items that grew.
   const freshLive = live.reduce((a, x) => a + Math.max(0, x.count - (seenLive[x.key] ?? 0)), 0);
   const badge = fresh + freshLive;
-  const total = important + info + liveTotal;
   return (
     <div className="relative">
       <button onClick={() => setOpen(!open)} className={`relative flex h-11 w-11 items-center justify-center rounded-2xl border-2 shadow-md transition ${badge > 0 ? "es-bell-ring border-[var(--sky)] bg-[var(--navy)] text-white" : "es-bell-idle border-[var(--border)] bg-white text-[var(--navy)] hover:border-[var(--sky)]"} ${hasNew ? "scale-110" : ""}`} title="الإشعارات" aria-label={`الإشعارات${badge ? ` — ${badge} محتاج منك حاجة` : ""}`}>
@@ -144,7 +144,7 @@ export default function NotificationsBell({ role = "sales_rep" }: { role?: strin
               {expanded === r.kind && <div className="divide-y divide-[var(--border)] border-t border-[var(--border)]">{r.items.map(n => item(n, true))}
                 <button type="button" onClick={() => void markIds(r.items.map(n => n.id)).then(load)} className="w-full py-2 text-center text-[11px] font-bold text-[var(--muted)] hover:text-[var(--navy)]">تعليم المجموعة مقروءة</button></div>}
             </div> : item(r.n))}
-            {!rows.length && !(tab === "important" && live.length) && <div className="p-8 text-center text-sm text-[var(--muted)]">{tab === "important" ? "مفيش حاجة محتاجاك ✓" : "مفيش إشعارات للعلم"}<br /><span className="text-xs">{total ? "" : "هتظهر هنا لما يحصل جديد"}</span></div>}
+            {!rows.length && !(tab === "important" && live.length) && <div className="p-8 text-center text-sm text-[var(--muted)]">{tab === "important" ? "مفيش حاجة محتاجاك ✓" : "مفيش إشعارات للعلم"}</div>}
           </div>
         </div>
       </>}
