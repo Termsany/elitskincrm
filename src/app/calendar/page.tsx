@@ -17,7 +17,6 @@ export default async function CalendarPage() {
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <h1 className="text-2xl font-extrabold text-[var(--navy)]">الخطة · التقويم</h1>
-          <p className="text-sm text-[var(--muted)]">الخطة والزيارات والمواعيد والمتابعات وطلبات التعاون — في مكان واحد</p>
         </div>
       </div>
       <WorkPlanner isAdmin={user.role === "admin"} currentUserId={user.id} reps={reps.rows as any} doctors={doctors.rows as any} products={products.rows as any} />

@@ -14,7 +14,6 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
   const reps = isAdmin ? (await query("SELECT id, name FROM users WHERE role='sales_rep' AND active ORDER BY name")).rows : [];
   return <AppShell role={user.role} email={user.email} name={user.name} jobTitle={user.job_title} productName={user.product_name} active="/expenses">
     <h1 className="text-2xl font-extrabold text-[var(--navy)]">{isAdmin ? "المصروفات والربحية" : "مصروفاتي"}</h1>
-    <p className="text-sm text-[var(--muted)]">{isAdmin ? "اعتماد مصروفات المناديب، صرفها، وربحية كل مندوب مقابل مبيعاته" : "سجّل مصروفك بالإيصال من جوالك، وتابع اعتماده وصرفه"}</p>
     {isAdmin ? <ExpensesAdmin reps={reps as Array<{ id: string; name: string }>} initialTab={["review", "all", "pnl", "settings"].includes(sp.tab || "") ? sp.tab as "review" : "review"} />
       : <ExpensesRep doctors={doctors as Array<{ id: string; name: string; clinic_name: string | null; city: string | null }>} />}
   </AppShell>;

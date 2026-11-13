@@ -46,9 +46,7 @@ export function startActions(i: ActionIn): Action[] {
   const red = i.insights.find(x => x.tone === "red");
   if (red) out.push({ id: "red", icon: "flag", tone: "red", prio: 95, title: red.title, sub: red.text, cta: "راجعها", href: red.href });
   if (i.withPlan !== null && i.reps > 0 && i.withPlan < i.reps) { const m = i.reps - i.withPlan; out.push({ id: "plans", icon: "plans", tone: "amber", prio: 90, title: `${m} ${m === 1 ? "مندوب" : "مناديب"} مفيش عندهم خطة الأسبوع الجاي`, sub: "تجهيز الخطط بيقترح الأطباء الأهم لكل مندوب وبيبعتها للاعتماد", cta: "جهّز الخطط", run: "autoplan" }); }
-  if (i.pendingTotal > 0) out.push({ id: "pending", icon: "check", tone: "blue", prio: 85, title: `${i.pendingTotal} حاجة مستنية قرارك`, sub: "خطط وطلبات وتوقيعات", cta: "راجعها", href: "#inbox" });
   const m = i.morning;
-  if (m?.behind?.length) out.push({ id: "behind", icon: "reports", tone: "amber", prio: 70, title: `${m.behind.length} ${m.behind.length === 1 ? "مندوب" : "مناديب"} متأخر عن الهدف`, sub: m.behind.join("، "), cta: "شوف الأهداف", href: "/sales" });
   if (m?.visits.idle.length) out.push({ id: "idle", icon: "reps", tone: "amber", prio: 60, title: `${m.visits.idle.length} من غير زيارات إمبارح`, sub: m.visits.idle.join("، "), cta: "المناديب", href: "/visits" });
   if (m && m.followupsToday > 0) out.push({ id: "fu", icon: "time", tone: "blue", prio: 50, title: `${m.followupsToday} متابعة مع أطباء النهارده`, sub: "مواعيد متابعة اتحددت في زيارات", cta: "افتحها", href: "/visits?tab=visits" });
   return out.sort((a, b) => b.prio - a.prio).slice(0, 3);

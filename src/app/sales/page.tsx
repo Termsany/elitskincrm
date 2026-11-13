@@ -13,7 +13,6 @@ export default async function SalesPage({ searchParams }: { searchParams: Promis
   return (
     <AppShell role={user.role} email={user.email} name={user.name} jobTitle={user.job_title} productName={user.product_name} active="/sales">
       <h1 className="text-2xl font-extrabold text-[var(--navy)]">المبيعات والأهداف</h1>
-      <p className="text-sm text-[var(--muted)]">الهدف السنوي وتوزيعه، والتوقع الشهري، والمبيعات الفعلية من دفترة — في مكان واحد</p>
       <SalesHub isAdmin={user.role === "admin"} reps={reps as any} initialTab={sp.tab === "workspace" ? "workspace" : "overview"} />
     </AppShell>
   );

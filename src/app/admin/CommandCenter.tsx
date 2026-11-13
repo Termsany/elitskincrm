@@ -204,31 +204,6 @@ function Dash() {
   </section>;
 
   /* ───────── System shortcuts (everything one tap away) ───────── */
-  const MODS0: Array<[string, string, string, string, string | null]> = [
-    ["/visits", "الزيارات", "visits", "#33b3a6", p.today.visits ? `${p.today.visits} النهارده` : null],
-    ["/daftra-sales", "مبيعات دفترة", "receipt", "#2e9d8f", f?.configured && f.mtd.sales ? short(f.mtd.sales) : null],
-    ["/daftra-sales?tab=plan", "خطة الشهر", "plans", "#10484f", null],
-    ["/daftra-sales?tab=ar", "التحصيل", "wallet", "#e16201", f?.configured && f.ar.overdue ? short(f.ar.overdue) : null],
-    ["/doctors", "الأطباء", "doctors", "#3b90e8", null],
-    ["/plans", "خطط المناديب", "calendar", "#e99608", null],
-    ["/admin/requests", "الطلبات", "send", "#9676e3", d.pendingTotal ? String(d.pendingTotal) : null],
-    ["/admin/reports", "التقارير", "reports", "#e16201", null],
-    ["/admin/reps", "المناديب", "reps", "#15646a", null],
-    ["/expenses", "المصروفات", "fuel", "#637274", null],
-    ["/admin/products", "المنتجات", "products", "#9676e3", null],
-    ["/admin/document-signing", "التوقيعات", "signature", "#3b90e8", null],
-  ];
-  // sales managers don't get company-accounts shortcuts (see lib/manager-scope)
-  const MODS = MODS0.filter(([href]) => !(d as { manager?: boolean }).manager || !/^\/(daftra-sales|admin\/products|admin\/document-signing)/.test(href));
-  const modules = <section className={`${card} dz-in p-5`} style={{ "--d": "420ms" } as React.CSSProperties}>
-    <div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-extrabold text-[var(--navy)]">النظام كله في ضغطة</h2><button type="button" onClick={openPalette} className="text-xs font-bold text-[var(--navy)] opacity-70 hover:opacity-100">بحث ‹</button></div>
-    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-6">{MODS.map(([href, label, icon, color, badge], k) => <Link key={href} href={href} className="dz-tile group relative flex flex-col items-center gap-1.5 rounded-2xl p-2.5 text-center" style={{ "--d": `${480 + k * 40}ms` } as React.CSSProperties}>
-      <AIco name={icon} color={color} anim={k % 3 === 0 ? "bob" : k % 3 === 1 ? "pulse" : "wiggle"} box={46} size={22} />
-      <span className="text-[11.5px] font-bold text-[var(--ink)]">{label}</span>
-      {badge && <span className="absolute left-1.5 top-1.5 rounded-full px-1.5 text-[9.5px] font-extrabold text-white" style={{ background: color }}>{badge}</span>}
-    </Link>)}</div>
-  </section>;
-
   const inbox = <section id="inbox" className={`${card} dz-in scroll-mt-24 overflow-hidden`} style={{ "--d": "360ms" } as React.CSSProperties}>
     <div className="flex items-center justify-between p-5 pb-3"><div className="flex items-center gap-2"><h2 className="text-lg font-extrabold text-[var(--navy)]">محتاج قرارك</h2>{d.pendingTotal > 0 && <span className="rounded-full bg-[var(--navy)] px-2.5 py-0.5 text-xs font-bold text-white">{d.pendingTotal}</span>}</div>{g && <Link href={g.href} className="text-xs font-bold text-[var(--navy)] opacity-70 hover:opacity-100">افتح الكل ‹</Link>}</div>
     {!d.inbox.length ? <div className="px-5 pb-8 pt-4 text-center"><div className="es-pop mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600"><Icon name="sparkle" size={30} /></div><div className="mt-2 font-extrabold text-[var(--navy)]">مفيش حاجة مستنياك</div><div className="text-sm text-[var(--muted)]">كل الخطط والطلبات والتوقيعات متراجعة</div></div> : <>
@@ -237,9 +212,11 @@ function Dash() {
     </>}
   </section>;
 
+  const firstRed = d.insights.find(x => x.tone === "red");
+  const shownInsights = d.insights.filter(x => x !== firstRed);
   const insights = <section className={`${card} dz-in p-5`} style={{ "--d": "380ms" } as React.CSSProperties}>
     <h2 className="mb-3 text-lg font-extrabold text-[var(--navy)]">يستاهل انتباهك</h2>
-    {d.insights.length ? <div className="space-y-2">{d.insights.map((x, k) => <Link key={k} href={x.href} className={`block rounded-2xl border-r-4 p-3 transition hover:translate-x-[-2px] ${TONE[x.tone]}`}><div className="flex items-center gap-3"><GlyphIcon g={x.icon} chip size={18} box={34} /><div><div className="text-sm font-extrabold text-[var(--ink)]">{x.title}</div><div className="mt-0.5 text-[11px] leading-5 text-[var(--muted)]">{x.text}</div></div></div></Link>)}</div>
+    {shownInsights.length ? <div className="space-y-2">{shownInsights.map((x, k) => <Link key={k} href={x.href} className={`block rounded-2xl border-r-4 p-3 transition hover:translate-x-[-2px] ${TONE[x.tone]}`}><div className="flex items-center gap-3"><GlyphIcon g={x.icon} chip size={18} box={34} /><div><div className="text-sm font-extrabold text-[var(--ink)]">{x.title}</div><div className="mt-0.5 text-[11px] leading-5 text-[var(--muted)]">{x.text}</div></div></div></Link>)}</div>
       : <div className="rounded-2xl bg-emerald-50 p-4 text-center text-sm font-bold text-emerald-800">✓ كله تمام — مفيش ملاحظات مهمة دلوقتي</div>}
   </section>;
 
@@ -291,7 +268,7 @@ function Dash() {
     <AdminSmartBoard />
     <div className={`grid gap-4 lg:gap-5 ${mgr ? "" : "xl:grid-cols-[1.25fr_1fr]"}`}>{visits}{!mgr && daftra}</div>
     {decisions}
-    <div className="grid gap-4 lg:gap-5 xl:grid-cols-[1.5fr_1fr]">{team}{modules}</div>
+    {team}
     {activity}
     <QuickFab mgr={mgr} />
   </div>;

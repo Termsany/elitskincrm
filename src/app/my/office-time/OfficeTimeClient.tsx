@@ -60,7 +60,7 @@ export default function OfficeTimeClient() {
   </div>;
 
   return <div className="mx-auto max-w-xl space-y-4 pb-24">
-    <div><h1 className="text-2xl font-extrabold text-[var(--navy)]">وقت مش زيارة</h1><p className="mt-0.5 text-sm text-[var(--muted)]">سجّل الوقت المكتبي أو الاجتماعات عشان يومك يتحسب صح</p></div>
+    <div><h1 className="text-2xl font-extrabold text-[var(--navy)]">وقت مش زيارة</h1></div>
     {tabs}
     {(kind || dur > 0) && <div className="flex flex-wrap gap-2">
       {kind && <button type="button" onClick={() => setStep(1)} className="rounded-full bg-teal-50 px-3 py-2 text-xs font-bold text-teal-800">{K?.icon} {K?.label} · ✎</button>}

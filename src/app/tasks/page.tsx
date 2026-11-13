@@ -14,7 +14,6 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-extrabold text-[var(--navy)]">المهام</h1>
-          <p className="text-sm text-[var(--muted)]">{user.role==="admin" ? "أنشئ مهام للمندوبين وتابع حالتها" : "مهامك — حدّث حالتها عند الإنجاز"}</p>
         </div>
       </div>
       <TasksClient isAdmin={user.role==="admin"} reps={reps.rows as any} currentUserId={user.id} />

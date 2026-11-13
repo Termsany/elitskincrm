@@ -14,7 +14,6 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
       <div>
         <div className="text-xs font-extrabold text-[var(--sky-deep)]">مساحة عمل المندوب</div>
         <h1 className="mt-1 text-2xl font-extrabold text-[var(--navy)] sm:text-3xl">طلباتي</h1>
-        <p className="mt-1 text-sm text-[var(--muted)]">أنشئ الطلب، تابع المسؤول والموعد، ورد من داخل سجل واحد.</p>
       </div>
     </div>
     <RequestsClient isAdmin={false} />

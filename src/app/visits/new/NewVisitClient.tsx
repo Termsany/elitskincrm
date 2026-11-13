@@ -553,7 +553,7 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
       <div className="flex items-end justify-between gap-3"><div>
         {todayPlan.length > 0 && <p className="text-xs font-bold text-teal-600">زيارات اليوم · {planDone} من {todayPlan.length}</p>}
         <h1 className="text-2xl font-extrabold text-[var(--navy)]">تسجيل زيارة</h1>
-        {!phone && <p className="mt-0.5 text-sm text-[var(--muted)]">اختار الطبيب، اعرض البروشور، وسجّل النتيجة — الوقت والموقع بيتسجلوا لوحدهم</p>}</div></div>
+        </div></div>
     </div>
   );
 

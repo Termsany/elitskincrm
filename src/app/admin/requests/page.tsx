@@ -16,7 +16,6 @@ export default async function AdminRequestsPage({ searchParams }: { searchParams
       <div>
         <div className="text-xs font-extrabold text-[var(--sky-deep)]">مركز العمليات</div>
         <h1 className="mt-1 text-2xl font-extrabold text-[var(--navy)] sm:text-3xl">الطلبات والإجازات</h1>
-        <p className="mt-1 text-sm text-[var(--muted)]">قرارات واضحة، مسؤول وموعد لكل طلب، وسجل كامل للتواصل والتنفيذ.</p>
       </div>
       <a href="#doctor-requests" className="inline-flex min-h-11 items-center rounded-xl border border-[var(--border)] bg-white px-4 text-sm font-bold">طلبات الأطباء والعيادات ↓</a>
     </div>

@@ -21,9 +21,9 @@ describe("healthScore", () => {
 
 describe("startActions", () => {
   const base = { manager: false, arOverdue: 375596, arInvoices: 24, ar60: 336784, reps: 3, withPlan: 1, pendingTotal: 0, insights: [], morning: null };
-  it("puts overdue money first, then missing plans, max 3", () => {
+  it("puts overdue money first, then missing plans; pending decisions stay in their own box", () => {
     const a = startActions({ ...base, pendingTotal: 2, insights: [{ tone: "blue", title: "x", text: "y", href: "/z" }] });
-    expect(a.map(x => x.id)).toEqual(["ar", "plans", "pending"]);
+    expect(a.map(x => x.id)).toEqual(["ar", "plans"]);
     expect(a[1].run).toBe("autoplan");
   });
   it("never shows company money to a sales manager", () => {

@@ -13,7 +13,6 @@ export default async function DoctorsPage({ searchParams }: { searchParams: Prom
   return (
     <AppShell role={user.role} email={user.email} name={user.name} jobTitle={user.job_title} productName={user.product_name} active="/doctors">
       <h1 className="text-2xl font-extrabold text-[var(--navy)]">الأطباء والعيادات</h1>
-      <p className="text-sm text-[var(--muted)]">قائمة الأطباء وأداؤهم وتغطيتهم في مكان واحد — ابحث، رتّب بالأولوية، وأضف للخطة مباشرة</p>
       <DoctorsHub isAdmin={user.role === "admin"} canLink={user.role === "admin" && !user.manager} reps={reps as any} initialQ={sp.q || ""} initialTab={tab} initialTag={sp.tag || ""} />
     </AppShell>
   );

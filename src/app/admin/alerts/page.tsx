@@ -10,7 +10,6 @@ export default async function AlertsPage(){
   return (
     <AppShell role={user.role} email={user.email} name={user.name} jobTitle={user.job_title} productName={user.product_name} active="/admin/alerts">
       <h1 className="text-2xl font-extrabold text-[var(--navy)]">التنبيهات</h1>
-      <p className="text-sm text-[var(--muted)]">تنبيهات عاجلة ومتابعات الخطط والزيارات والأطباء والمناديب</p>
       <AlertsClient />
     </AppShell>
   );
