@@ -42,7 +42,7 @@ export async function hubDoctors(u: { id: string; role: string }, days: number, 
     fu AS (SELECT DISTINCT ON (doctor_id) doctor_id, due::text next_follow_up, NULLIF(btrim(note),'') follow_up_note FROM (
         SELECT v.doctor_id, v.follow_up_at due, v.follow_up_note note FROM v WHERE v.follow_up_at >= (now() AT TIME ZONE 'Asia/Riyadh')::date - 30
           AND NOT EXISTS (SELECT 1 FROM visits v2 WHERE v2.doctor_id=v.doctor_id AND v2.sales_rep_id=v.sales_rep_id AND v2.visited_at>v.visited_at AND v2.status='completed')
-        UNION ALL SELECT f.doctor_id, f.due_at, COALESCE(NULLIF(btrim(f.note),''), f.title) FROM doctor_followups f WHERE f.completed_at IS NULL AND COALESCE(f.status,'') NOT IN ('done','completed','closed') ${scope ? `AND f.sales_rep_id=$${vals.length}` : ""}
+        UNION ALL SELECT f.doctor_id, f.due_at, COALESCE(NULLIF(btrim(f.note),''), f.title) FROM doctor_followups f WHERE f.completed_at IS NULL AND COALESCE(f.status,'') NOT IN ('done','completed','closed','cancelled') ${scope ? `AND f.sales_rep_id=$${vals.length}` : ""}
       ) x ORDER BY doctor_id, due),
     m6 AS (SELECT v.doctor_id, array_agg(DISTINCT to_char(v.visited_at AT TIME ZONE 'Asia/Riyadh', 'YYYY-MM')) months6 FROM v
       WHERE v.status='completed' AND v.visited_at > now() - interval '6 months' GROUP BY v.doctor_id),

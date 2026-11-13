@@ -26,9 +26,10 @@ export async function GET() {
     CASE WHEN n.plan_id IS NOT NULL THEN 'الخطة الأسبوعية' ELSE NULL END plan_title
     FROM task_notifications n
     LEFT JOIN tasks t ON t.id=n.task_id
-    WHERE n.user_id=$1 ORDER BY n.is_read, n.created_at DESC LIMIT 80`, [user.id]);
+    WHERE n.user_id=$1 AND (n.snoozed_until IS NULL OR n.snoozed_until <= now())
+    ORDER BY n.is_read, n.created_at DESC LIMIT 80`, [user.id]);
   const rows = r.rows.map(n => ({ ...n, level: levelOf(String(n.kind)) }));
-  const counts = (await query<{ kind: string; n: number }>("SELECT kind, count(*)::int n FROM task_notifications WHERE user_id=$1 AND is_read=false GROUP BY kind", [user.id])).rows;
+  const counts = (await query<{ kind: string; n: number }>("SELECT kind, count(*)::int n FROM task_notifications WHERE user_id=$1 AND is_read=false AND (snoozed_until IS NULL OR snoozed_until <= now()) GROUP BY kind", [user.id])).rows;
   const important = counts.filter(c => levelOf(c.kind) === "important").reduce((s, c) => s + c.n, 0);
   const info = counts.reduce((s, c) => s + c.n, 0) - important;
   // `unread` stays the badge number other screens read: important only
@@ -44,6 +45,14 @@ export async function PATCH(req: Request) {
     const level = body.level === "info" || body.level === "important" ? body.level : null;
     if (level) await query(`UPDATE task_notifications SET is_read=true, read_at=COALESCE(read_at, now()) WHERE user_id=$1 AND is_read=false AND (kind = ANY($2::text[])) = $3`, [user.id, INFO_KINDS, level === "info"]);
     else await query(`UPDATE task_notifications SET is_read=true, read_at=COALESCE(read_at, now()) WHERE user_id=$1`, [user.id]);
+  } else if (body?.snooze) {
+    // Hide until tomorrow 8:00 Riyadh (or a given number of days), then it comes back unread.
+    const id = String(body.snooze); const days = Math.min(Math.max(Number(body.days) || 1, 1), 7);
+    if (!uuid.test(id)) return NextResponse.json({ error: "Invalid notification id" }, { status: 400 });
+    const r = await query(`UPDATE task_notifications SET status='snoozed', snoozed_until=(((now() AT TIME ZONE 'Asia/Riyadh')::date + $3::int + time '08:00') AT TIME ZONE 'Asia/Riyadh')
+      WHERE id=$1 AND user_id=$2 RETURNING snoozed_until`, [id, user.id, days]);
+    if (!r.rows.length) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ ok: true, until: r.rows[0].snoozed_until });
   } else if (Array.isArray(body?.ids)) {
     const ids = (body.ids as unknown[]).map(String).filter(x => uuid.test(x)).slice(0, 200);
     if (ids.length) await query(`UPDATE task_notifications SET is_read=true, read_at=COALESCE(read_at, now()) WHERE user_id=$1 AND id = ANY($2::uuid[])`, [user.id, ids]);

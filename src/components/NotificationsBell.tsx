@@ -6,6 +6,8 @@ import { GROUP_LABEL, QUICK_APPROVE } from "@/lib/notification-levels";
 import { Icon } from "@/components/Icon";
 
 type N = { id: string; message: string; kind: string; is_read: boolean; created_at: string; task_id: string | null; task_title: string | null; plan_title: string | null; plan_id: string | null; action_url: string | null; entity_id: string | null; level: "important" | "info" };
+type Live = { key: string; icon: string; text: string; href: string; count: number; tone: "red" | "amber" | "teal" };
+const LIVE_TONE: Record<Live["tone"], string> = { red: "bg-red-500", amber: "bg-amber-500", teal: "bg-teal-600" };
 type Row = { group: false; n: N } | { group: true; kind: string; items: N[] };
 const rel = (iso: string) => { const m = Math.round((Date.now() - Date.parse(iso)) / 6e4); return m < 1 ? "دلوقتي" : m < 60 ? `من ${m} د` : m < 1440 ? `من ${Math.round(m / 60)} س` : `من ${Math.round(m / 1440)} يوم`; };
 
@@ -16,8 +18,13 @@ export default function NotificationsBell({ role = "sales_rep" }: { role?: strin
   const [open, setOpen] = useState(false); const [tab, setTab] = useState<"important" | "info">("important");
   const [hasNew, setHasNew] = useState(false); const [expanded, setExpanded] = useState<string | null>(null);
   const [busy, setBusy] = useState(""); const [msg, setMsg] = useState("");
+  const [live, setLive] = useState<Live[]>([]);
   const load = useCallback(async () => {
-    const r = await fetch("/api/notifications").then(x => x.json()).catch(() => null);
+    const [r, l] = await Promise.all([
+      fetch("/api/notifications", { cache: "no-store" }).then(x => x.json()).catch(() => null),
+      fetch("/api/notifications/live", { cache: "no-store" }).then(x => x.ok ? x.json() : null).catch(() => null),
+    ]);
+    if (l) setLive(l.items || []);
     if (r) {
       const n = r.important ?? r.unread ?? 0;
       setImportant(p => { if (n > p) setHasNew(true); return n; }); setInfo(r.info || 0);
@@ -28,11 +35,12 @@ export default function NotificationsBell({ role = "sales_rep" }: { role?: strin
     void load();
     const id = setInterval(() => { if (document.visibilityState === "visible") void load(); }, 60 * 1000);
     const onVis = () => { if (document.visibilityState === "visible") void load(); };
-    document.addEventListener("visibilitychange", onVis);
-    return () => { clearInterval(id); document.removeEventListener("visibilitychange", onVis); };
+    const onChange = () => void load();
+    document.addEventListener("visibilitychange", onVis); window.addEventListener("es:alerts-changed", onChange);
+    return () => { clearInterval(id); document.removeEventListener("visibilitychange", onVis); window.removeEventListener("es:alerts-changed", onChange); };
   }, [load]);
   useEffect(() => { if (hasNew) { const t = setTimeout(() => setHasNew(false), 2000); return () => clearTimeout(t); } }, [hasNew]);
-  useEffect(() => { if (open) setTab(important || !info ? "important" : "info"); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (open) setTab(important || liveTotal || !info ? "important" : "info"); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const shown = useMemo(() => list.filter(n => (n.level || "important") === tab), [list, tab]);
   const rows = useMemo<Row[]>(() => {
@@ -65,6 +73,13 @@ export default function NotificationsBell({ role = "sales_rep" }: { role?: strin
     if (!r.ok) { setMsg(j?.error || "تعذر الاعتماد — افتح التفاصيل"); return; }
     await markIds([n.id]); setMsg("اتعتمد ✓"); await load(); setTimeout(() => setMsg(""), 1800);
   }
+  async function snooze(n: N) {
+    setBusy(n.id);
+    const r = await fetch("/api/notifications", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ snooze: n.id, days: 1 }) });
+    setBusy("");
+    if (!r.ok) { setMsg("تعذر التأجيل"); return; }
+    setMsg("هيرجعلك بكرة 8 الصبح ⏰"); await load(); setTimeout(() => setMsg(""), 1800);
+  }
   const canApprove = (n: N) => role === "admin" && !n.is_read && QUICK_APPROVE.includes(n.kind) && (n.kind === "plan_pending" ? !!n.plan_id : !!n.entity_id);
 
   const item = (n: N, inner = false) => <div key={n.id} className={`flex items-start gap-2 p-3 text-sm transition hover:bg-sky-50 ${!n.is_read ? "bg-amber-50/70" : ""} ${inner ? "pr-6" : ""}`}>
@@ -74,15 +89,18 @@ export default function NotificationsBell({ role = "sales_rep" }: { role?: strin
       {(n.task_title || n.plan_title) && <div className="text-xs text-[var(--muted)]">{n.task_title || n.plan_title}</div>}
       <div className="mt-0.5 text-[11px] text-[var(--muted)]">{rel(n.created_at)}</div>
     </button>
+    {!n.is_read && !inner && (n.level || "important") === "important" && <button type="button" disabled={busy === n.id} onClick={() => void snooze(n)} title="فكّرني بكرة" aria-label="فكّرني بكرة" className="shrink-0 rounded-lg border border-[var(--border)] bg-white px-2 py-1.5 text-[11px] font-bold text-[var(--muted)] hover:text-[var(--navy)] disabled:opacity-60">⏰ بكرة</button>}
     {canApprove(n) && <button type="button" disabled={busy === n.id} onClick={() => void approve(n)} className="shrink-0 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-[11px] font-bold text-white disabled:opacity-60">{busy === n.id ? "…" : "✓ اعتماد"}</button>}
   </div>;
 
-  const total = important + info;
+  const liveTotal = live.reduce((a, x) => a + x.count, 0);
+  const badge = important + liveTotal;
+  const total = important + info + liveTotal;
   return (
     <div className="relative">
-      <button onClick={() => setOpen(!open)} className={`relative flex h-11 w-11 items-center justify-center rounded-2xl border-2 shadow-md transition ${important > 0 ? "es-bell-ring border-[var(--sky)] bg-[var(--navy)] text-white" : "es-bell-idle border-[var(--border)] bg-white text-[var(--navy)] hover:border-[var(--sky)]"} ${hasNew ? "scale-110" : ""}`} title="الإشعارات" aria-label={`الإشعارات${important ? ` — ${important} مهم` : ""}`}>
+      <button onClick={() => setOpen(!open)} className={`relative flex h-11 w-11 items-center justify-center rounded-2xl border-2 shadow-md transition ${badge > 0 ? "es-bell-ring border-[var(--sky)] bg-[var(--navy)] text-white" : "es-bell-idle border-[var(--border)] bg-white text-[var(--navy)] hover:border-[var(--sky)]"} ${hasNew ? "scale-110" : ""}`} title="الإشعارات" aria-label={`الإشعارات${badge ? ` — ${badge} محتاج منك حاجة` : ""}`}>
         <Icon name="bell" size={22} />
-        {important > 0 ? <span key={important} className="es-badge-pop absolute -right-1.5 -top-1.5 flex h-6 min-w-6 items-center justify-center rounded-full border-2 border-white bg-red-500 px-1 text-[11px] font-extrabold text-white shadow">{important > 99 ? "99+" : important}</span>
+        {badge > 0 ? <span key={badge} className="es-badge-pop absolute -right-1.5 -top-1.5 flex h-6 min-w-6 items-center justify-center rounded-full border-2 border-white bg-red-500 px-1 text-[11px] font-extrabold text-white shadow">{badge > 99 ? "99+" : badge}</span>
           : info > 0 ? <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-white bg-sky-400" /> : null}
       </button>
       {open && <>
@@ -93,11 +111,20 @@ export default function NotificationsBell({ role = "sales_rep" }: { role?: strin
             {(tab === "important" ? important : info) > 0 && <button onClick={() => void markAll()} className="rounded-full bg-white/15 px-2 py-1 text-xs font-bold hover:bg-white/20">تعليم الكل مقروء</button>}
           </div>
           <div className="grid grid-cols-2 gap-1 border-b border-[var(--border)] bg-[var(--bg)] p-1.5">
-            {([["important", "مهم", important], ["info", "للعلم", info]] as const).map(([t, l, c]) => <button key={t} type="button" onClick={() => { setTab(t); setExpanded(null); }}
+            {([["important", "مهم", important + liveTotal], ["info", "للعلم", info]] as const).map(([t, l, c]) => <button key={t} type="button" onClick={() => { setTab(t); setExpanded(null); }}
               className={`rounded-xl py-2 text-xs font-bold transition ${tab === t ? "bg-white text-[var(--navy)] shadow" : "text-[var(--muted)]"}`}>{l}{c ? <span className={`mr-1.5 rounded-full px-1.5 text-[10px] text-white ${t === "important" ? "bg-red-500" : "bg-sky-500"}`}>{c}</span> : null}</button>)}
           </div>
           {msg && <div className="border-b border-[var(--border)] bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">{msg}</div>}
           <div className="max-h-[55vh] divide-y divide-[var(--border)] overflow-auto">
+            {tab === "important" && live.length > 0 && <div className="bg-[var(--bg)] p-2">
+              <div className="px-1 pb-1.5 text-[11px] font-bold text-[var(--muted)]">محتاجاك دلوقتي · بتختفي لوحدها لما تخلص</div>
+              <div className="space-y-1.5">{live.map(x => <button key={x.key} type="button" onClick={() => { setOpen(false); router.push(x.href); }}
+                className="flex w-full items-center gap-3 rounded-xl border border-[var(--border)] bg-white p-2.5 text-right text-sm shadow-sm transition hover:border-[var(--sky)]">
+                <span className={`flex h-8 min-w-8 items-center justify-center rounded-full px-2 text-xs font-extrabold text-white ${LIVE_TONE[x.tone]}`}>{x.count}</span>
+                <span className="min-w-0 flex-1 font-bold leading-5">{x.icon} {x.text}</span>
+                <span className="text-[var(--muted)]">‹</span>
+              </button>)}</div>
+            </div>}
             {rows.map(r => r.group ? <div key={`g-${r.kind}`}>
               <button type="button" onClick={() => setExpanded(expanded === r.kind ? null : r.kind)} className="flex w-full items-center gap-3 bg-amber-50 p-3 text-right text-sm hover:bg-amber-100/70">
                 <span className="flex h-8 min-w-8 items-center justify-center rounded-full bg-amber-500 px-2 text-xs font-extrabold text-white">{r.items.length}</span>
@@ -107,7 +134,7 @@ export default function NotificationsBell({ role = "sales_rep" }: { role?: strin
               {expanded === r.kind && <div className="divide-y divide-[var(--border)] border-t border-[var(--border)]">{r.items.map(n => item(n, true))}
                 <button type="button" onClick={() => void markIds(r.items.map(n => n.id)).then(load)} className="w-full py-2 text-center text-[11px] font-bold text-[var(--muted)] hover:text-[var(--navy)]">تعليم المجموعة مقروءة</button></div>}
             </div> : item(r.n))}
-            {!rows.length && <div className="p-8 text-center text-sm text-[var(--muted)]">{tab === "important" ? "مفيش حاجة محتاجاك ✓" : "مفيش إشعارات للعلم"}<br /><span className="text-xs">{total ? "" : "هتظهر هنا لما يحصل جديد"}</span></div>}
+            {!rows.length && !(tab === "important" && live.length) && <div className="p-8 text-center text-sm text-[var(--muted)]">{tab === "important" ? "مفيش حاجة محتاجاك ✓" : "مفيش إشعارات للعلم"}<br /><span className="text-xs">{total ? "" : "هتظهر هنا لما يحصل جديد"}</span></div>}
           </div>
         </div>
       </>}

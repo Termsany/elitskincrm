@@ -25,7 +25,9 @@ export function priority(d: PDoctor, b: PBal, today: string): Prio {
   const lateBy = late ? d.days_since! - d.gap_days! : 0;
   const fuDue = !!d.next_follow_up && d.next_follow_up.slice(0, 10) <= today;
   const never = d.days_since === null;
-  if (late) tags.push("late"); if (late && cls === "A") tags.push("a_late");
+  // "late" = needs planning: overdue, not paused this month, not already in an upcoming plan (same set as the rep's badge).
+  const needsPlan = late && !d.paused && !d.in_plan_next;
+  if (needsPlan) tags.push("late"); if (needsPlan && cls === "A") tags.push("a_late");
   if (fuDue) tags.push("followup"); if (d.hot_product) tags.push("hot"); if (b?.due) tags.push("reorder");
   if (never) tags.push("never"); if (b && b.overdue > 0) tags.push("debt"); if (d.in_plan_next) tags.push("planned");
 

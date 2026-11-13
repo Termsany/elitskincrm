@@ -25,6 +25,9 @@ const L = "ar-EG-u-nu-latn";
 const today = () => riyadhToday();
 const fmtD = (s: string | null) => s ? new Intl.DateTimeFormat(L, { day: "numeric", month: "short", timeZone: "Asia/Riyadh" }).format(new Date(s.length === 10 ? `${s}T12:00:00Z` : s)) : "—";
 
+/** Tells the header badge and the bell to recount right away (instead of on their 1–5 minute timers). */
+const alertsChanged = () => window.dispatchEvent(new Event("es:alerts-changed"));
+
 type Health = "never" | "overdue" | "soon" | "ok";
 function health(d: HubDoctor): Health {
   if (d.days_since === null) return "never";
@@ -130,7 +133,7 @@ export default function DoctorsHub({ isAdmin, canLink = false, reps, initialQ = 
       if (r.status === 202) req++; else if (r.ok) ok++; else fail++;
     }
     toast([ok && `${ok} اتضافوا للخطة`, req && `${req} اتبعتوا كطلب للمدير`, fail && `${fail} فشلوا`].filter(Boolean).join(" · ") || "تم", fail ? "error" : "success");
-    setChecked([]); setReload(n => n + 1);
+    setChecked([]); setReload(n => n + 1); alertsChanged();
   }
   const canPause = !isAdmin || !!repId;
   async function tomorrow(d: HubDoctor) {
@@ -139,7 +142,7 @@ export default function DoctorsHub({ isAdmin, canLink = false, reps, initialQ = 
     const r = await fetch("/api/agenda/plan-items", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ date, doctorId: d.id, repId: isAdmin ? repId : undefined }) });
     const j = await r.json().catch(() => null);
     if (!r.ok && r.status !== 202) { toast(j?.error || "تعذر الإضافة", "error"); return; }
-    setAdded(a => [...a, d.id]); setRows(rs => rs && rs.map(x => x.id === d.id ? { ...x, in_plan_next: x.in_plan_next && x.in_plan_next < date ? x.in_plan_next : date } : x));
+    alertsChanged(); setAdded(a => [...a, d.id]); setRows(rs => rs && rs.map(x => x.id === d.id ? { ...x, in_plan_next: x.in_plan_next && x.in_plan_next < date ? x.in_plan_next : date } : x));
     toast(r.status === 202 ? "اتبعت كطلب للمدير يضيفه لخطتك" : `اتضاف لخطة ${new Intl.DateTimeFormat("ar-EG", { weekday: "long", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`))}`, "success");
   }
   const monthName = new Intl.DateTimeFormat("ar-EG-u-nu-latn", { month: "long", timeZone: "Asia/Riyadh" }).format(new Date());
@@ -149,6 +152,7 @@ export default function DoctorsHub({ isAdmin, canLink = false, reps, initialQ = 
     const r = await fetch("/api/doctors/pauses", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ doctorIds: ids, paused, repId: isAdmin ? repId : undefined }) });
     const j = await r.json().catch(() => null);
     if (!r.ok) { toast(j?.error || "تعذر الحفظ", "error"); setReload(n => n + 1); return; }
+    alertsChanged();
     toast(paused ? `⏸ ${ids.length === 1 ? "الطبيب" : `${ids.length} أطباء`} Inactive لشهر ${monthName} — مش هيتحسبوا في التغطية` : `▶ ${ids.length === 1 ? "الطبيب رجع" : `${ids.length} أطباء رجعوا`} Active`, "success");
     setChecked([]);
   }
