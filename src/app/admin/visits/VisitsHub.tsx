@@ -15,19 +15,19 @@ const btn = "inline-flex items-center justify-center gap-1.5 rounded-xl px-3.5 p
 const ghost = `${btn} border border-[var(--border)] bg-white hover:bg-[var(--bg)]`;
 const primary = `${btn} bg-[var(--navy)] text-white hover:opacity-95`;
 const field = "h-10 rounded-xl border border-[var(--border)] bg-white px-3 text-sm outline-none focus:border-[var(--sky)]";
-const PERIODS: Array<[string, string]> = [["today", "النهارده"], ["yesterday", "امبارح"], ["week", "الأسبوع ده"], ["month", "الشهر ده"], ["30d", "آخر 30 يوم"], ["custom", "فترة مخصصة"]];
+const PERIODS: Array<[string, string]> = [["today", "النهارده"], ["yesterday", "امبارح"], ["week", "الأسبوع ده"], ["7d", "آخر 7 أيام"], ["month", "الشهر ده"], ["30d", "آخر 30 يوم"], ["custom", "فترة مخصصة"]];
 const STATE: Record<string, { label: string; dot: string; chip: string }> = {
   active: { label: "شغال", dot: "bg-emerald-500 animate-pulse", chip: "bg-emerald-50 text-emerald-800" },
   paused: { label: "متوقف من فترة", dot: "bg-amber-500", chip: "bg-amber-50 text-amber-800" },
   done: { label: "خلّص خطته ✓", dot: "bg-sky-500", chip: "bg-sky-50 text-sky-800" },
   idle: { label: "مسجلش النهارده", dot: "bg-slate-300", chip: "bg-slate-100 text-slate-600" },
 };
-const FLAGS: Array<[string, string]> = [["any", "🚩 أي تنبيه مهم"], ["burst", "تسجيل جماعي"], ["rapid", "تسجيل متتابع سريع"], ["far", "بعيد عن العيادة"], ["no_gps", "من غير موقع"], ["no_notes", "من غير ملاحظات"], ["no_products", "من غير منتجات"]];
+const FLAGS: Array<[string, string]> = [["review", "🚩 محتاجة مراجعة"], ["any", "🚩 أي تنبيه مهم"], ["burst", "تسجيل جماعي"], ["rapid", "تسجيل متتابع سريع"], ["far", "بعيد عن العيادة"], ["no_gps", "من غير موقع"], ["no_notes", "من غير ملاحظات"], ["no_products", "من غير منتجات"]];
 
 function useDevice() { const [w, setW] = useState(1400); useEffect(() => { const f = () => setW(window.innerWidth); f(); window.addEventListener("resize", f); return () => window.removeEventListener("resize", f); }, []); return w < 768 ? "phone" : w < 1280 ? "tablet" : "desktop"; }
 const initials = (n: string) => n.split(/\s+/).map(x => x[0]).slice(0, 2).join("").toUpperCase();
 
-export default function VisitsHub({ reps, products, initialTab, initialVisit, initialRepId, initialDay }: { reps: Opt[]; products: Opt[]; initialTab?: string; initialVisit?: string; initialRepId?: string; initialDay?: string }) {
+export default function VisitsHub({ reps, products, initialTab, initialVisit, initialRepId, initialDay, initialFlag = "", initialPeriod = "" }: { initialFlag?: string; initialPeriod?: string; reps: Opt[]; products: Opt[]; initialTab?: string; initialVisit?: string; initialRepId?: string; initialDay?: string }) {
   const toast = useToast(); const device = useDevice();
   const [tab, setTab] = useState<Tab>((["today", "visits", "insights", "reports"].includes(initialTab || "") ? initialTab : initialRepId || initialVisit ? "visits" : "today") as Tab);
   const [sel, setSel] = useState<string | null>(initialVisit || null);
@@ -36,9 +36,9 @@ export default function VisitsHub({ reps, products, initialTab, initialVisit, in
   const loadToday = useCallback(async () => { const j = await fetch("/api/admin/visits/today", { cache: "no-store" }).then(r => r.json()).catch(() => null); if (j?.board) setBoard(j); }, []);
   useEffect(() => { void loadToday(); const t = setInterval(() => { if (document.visibilityState === "visible") void loadToday(); }, 60000); return () => clearInterval(t); }, [loadToday]);
   // visits explorer
-  const [period, setPeriod] = useState(initialDay ? "custom" : "week"); const [from, setFrom] = useState(initialDay || ""); const [to, setTo] = useState(initialDay || "");
+  const [period, setPeriod] = useState(initialDay ? "custom" : PERIODS.some(x => x[0] === initialPeriod && x[0] !== "custom") ? initialPeriod : "week"); const [from, setFrom] = useState(initialDay || ""); const [to, setTo] = useState(initialDay || "");
   const [repId, setRepId] = useState(initialRepId || ""); const [q, setQ] = useState(""); const [qLive, setQLive] = useState("");
-  const [f, setF] = useState<Record<string, string>>({ cls: "", productId: "", reaction: "", planned: "", band: "", flag: "" });
+  const [f, setF] = useState<Record<string, string>>({ cls: "", productId: "", reaction: "", planned: "", band: "", flag: FLAGS.some(x => x[0] === initialFlag) ? initialFlag : "" });
   const [more, setMore] = useState(false); const [view, setView] = useState<"list" | "day">(initialDay && initialRepId ? "day" : "list");
   const [data, setData] = useState<{ from: string; to: string; visits: V[]; summary: Sum; overall: Record<string, number>; adherence: Array<{ rep_id: string; planned: number; done: number }> } | null>(null);
   const [loading, setLoading] = useState(false);

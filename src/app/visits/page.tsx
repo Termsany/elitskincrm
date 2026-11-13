@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import VisitsClient from "./VisitsClient";
 import VisitsHub from "../admin/visits/VisitsHub";
 
-export default async function VisitsPage({ searchParams }: { searchParams: Promise<{ repId?: string; day?: string; tab?: string; visit?: string }> }) {
+export default async function VisitsPage({ searchParams }: { searchParams: Promise<{ repId?: string; day?: string; tab?: string; visit?: string; flag?: string; period?: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const { query } = await import("@/lib/db");
@@ -18,7 +18,7 @@ export default async function VisitsPage({ searchParams }: { searchParams: Promi
       <div className="flex flex-wrap items-center gap-2"><h1 className="text-2xl font-extrabold text-[var(--navy)]">الزيارات</h1>{isAdmin && <ReportLink href="/admin/reports?type=visits" label="تقارير الزيارات" className="mr-auto" />}</div>
       <p className="text-sm text-[var(--muted)]">{isAdmin ? "تابع المناديب لحظة بلحظة، جودة كل زيارة، والتقارير — في مكان واحد" : "بحث وفلترة وتصدير وتعديل"}</p>
       {isAdmin
-        ? <VisitsHub reps={reps.rows as any} products={products as any} initialTab={sp.tab} initialVisit={/^[0-9a-f-]{36}$/i.test(sp.visit || "") ? sp.visit : undefined} initialRepId={sp.repId || ""} initialDay={/^\d{4}-\d{2}-\d{2}$/.test(sp.day || "") ? sp.day : ""} />
+        ? <VisitsHub reps={reps.rows as any} products={products as any} initialTab={sp.tab} initialVisit={/^[0-9a-f-]{36}$/i.test(sp.visit || "") ? sp.visit : undefined} initialRepId={sp.repId || ""} initialDay={/^\d{4}-\d{2}-\d{2}$/.test(sp.day || "") ? sp.day : ""} initialFlag={sp.flag || ""} initialPeriod={sp.period || ""} />
         : <div className="mt-4"><VisitsClient isAdmin={false} reps={reps.rows as any} initialRepId={sp.repId || ""} /></div>}
     </AppShell>
   );

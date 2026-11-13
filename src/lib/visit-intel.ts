@@ -13,6 +13,7 @@ export function periodRange(period: string, from?: string | null, to?: string | 
   if (period === "yesterday") { const y = addDays(t, -1); return { from: y, to: y }; }
   if (period === "week") { const dow = new Date(`${t}T12:00:00Z`).getUTCDay(); return { from: addDays(t, -dow), to: t }; } // week starts Sunday
   if (period === "month") return { from: `${t.slice(0, 8)}01`, to: t };
+  if (period === "7d") return { from: addDays(t, -6), to: t };
   if (period === "30d") return { from: addDays(t, -29), to: t };
   return { from: t, to: t };
 }
@@ -152,7 +153,7 @@ export async function enrichedVisits(f: VFilter): Promise<EVisit[]> {
     (!f.reaction || v.presented.some(p => p.reaction === f.reaction)) &&
     (!f.planned || (f.planned === "yes" ? v.planned : !v.planned)) &&
     (!f.band || v.band === f.band) &&
-    (!f.flag || (f.flag === "any" ? v.flags.some(x => x.tone === "red") : v.flags.some(x => x.code === f.flag))) &&
+    (!f.flag || (f.flag === "any" ? v.flags.some(x => x.tone === "red") : f.flag === "review" ? !v.rating && v.flags.some(x => x.tone === "red") : v.flags.some(x => x.code === f.flag))) &&
     (!f.status || (f.status === "active" ? v.status !== "cancelled" : v.status === f.status)));
   return out;
 }
@@ -174,7 +175,7 @@ export function summarize(vs: EVisit[]) {
   const repMap = new Map<string, { rep_id: string; rep_name: string; visits: number; doctors: Set<string>; q: number[]; planned: number; red: number; samples: number; pres: number; pos: number; detail: number }>();
   for (const v of act) {
     const r = repMap.get(v.rep_id) || repMap.set(v.rep_id, { rep_id: v.rep_id, rep_name: v.rep_name, visits: 0, doctors: new Set(), q: [], planned: 0, red: 0, samples: 0, pres: 0, pos: 0, detail: 0 }).get(v.rep_id)!;
-    r.visits++; r.doctors.add(v.doctor_id); if (v.score !== null) r.q.push(v.score); if (v.planned) r.planned++; if (v.flags.some(f => f.tone === "red")) r.red++;
+    r.visits++; r.doctors.add(v.doctor_id); if (v.score !== null) r.q.push(v.score); if (v.planned) r.planned++; if (!v.rating && v.flags.some(f => f.tone === "red")) r.red++; // reviewing a visit takes it off the list
     r.samples += v.samples; r.pres += v.presented.length; r.pos += v.presented.filter(p => p.reaction === "interested").length; r.detail += v.detail_sec;
   }
   const reps = [...repMap.values()].map(r => ({ rep_id: r.rep_id, rep_name: r.rep_name, visits: r.visits, doctors: r.doctors.size, avgQuality: avg(r.q), plannedPct: r.visits ? Math.round(r.planned / r.visits * 100) : 0, redFlags: r.red, samples: r.samples, positivePct: r.pres ? Math.round(r.pos / r.pres * 100) : 0, detailMin: Math.round(r.detail / 60) }))

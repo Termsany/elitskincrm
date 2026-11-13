@@ -81,7 +81,7 @@ export async function adminDashboard(userName: string, opts: { manager?: boolean
   const activeIds = new Set(act.rows.map(u => u.id)), activeNames = new Set(act.rows.map(u => u.name));
   const liveReps = thisWeek.reps.filter(r => activeIds.has(String(r.rep_id)));
   for (const r of liveReps.filter(r => r.redFlags >= 3).slice(0, 2))
-    insights.push({ tone: "red", icon: "🚩", title: `${r.rep_name}: ${r.redFlags} زيارة محتاجة مراجعة`, text: "اتسجلت بشكل جماعي من نفس المكان أو بعيد عن العيادة الأسبوع ده", href: `/visits?tab=visits&repId=${r.rep_id}` });
+    insights.push({ tone: "red", icon: "🚩", title: `${r.rep_name}: ${r.redFlags} زيارة محتاجة مراجعة`, text: "اتسجلت بشكل جماعي من نفس المكان أو بعيد عن العيادة الأسبوع ده", href: `/visits?tab=visits&repId=${r.rep_id}&flag=review&period=7d` });
   if (weekPlanned >= 5 && weekDone / weekPlanned < 0.6) insights.push({ tone: "amber", icon: "🗓️", title: `الالتزام بالخطط ${Math.round(weekDone / weekPlanned * 100)}% بس`, text: `${weekDone} زيارة من ${weekPlanned} مخططة اتنفذت آخر 7 أيام`, href: "/plans" });
   if (salesPulse.target > 0 && salesPulse.actual / salesPulse.target * 100 < salesPulse.pace - 15) insights.push({ tone: "amber", icon: "💰", title: `مبيعات الشهر ${Math.round(salesPulse.actual / salesPulse.target * 100)}% والشهر عدّى ${salesPulse.pace}%`, text: "محتاجين نسرّع عشان نوصل للهدف", href: "/sales" });
   if (aGap.rows[0]?.n) insights.push({ tone: "amber", icon: "🩺", title: `${aGap.rows[0].n} طبيب تصنيف A ما اتزارش من 30 يوم`, text: "دول أهم أطبائك — يستاهلوا يدخلوا خطة الأسبوع الجاي", href: "/doctors?tab=insights" });
