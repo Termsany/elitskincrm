@@ -16,17 +16,23 @@ const FIELDS: Field[] = ["name", "clinic_name", "city", "specialty", "classifica
 
 const ALIASES: Record<Field | "id", string[]> = {
   id: ["id", "معرف الطبيب", "المعرف", "كود الطبيب"],
-  name: ["name", "doctor", "doctor name", "اسم الطبيب", "الطبيب", "الاسم", "اسم الدكتور", "الدكتور"],
-  clinic_name: ["clinic_name", "clinic", "account", "account / العيادة", "العيادة", "اسم العيادة", "المستشفى", "الجهة"],
-  city: ["city", "area", "region", "المدينة", "المنطقة", "المحافظة"],
+  name: ["name", "doctor", "doctor name", "اسم الطبيب", "الطبيب", "الاسم", "اسم الدكتور", "الدكتور", "dr name", "doctor's name", "physician", "full name"],
+  clinic_name: ["clinic_name", "clinic", "account", "account / العيادة", "العيادة", "اسم العيادة", "المستشفى", "الجهة", "clinic name", "account name", "hospital", "center", "المركز", "المجمع"],
+  city: ["city", "area", "region", "المدينة", "المنطقة", "المحافظة", "location", "district", "الحي"],
   specialty: ["specialty", "speciality", "التخصص"],
   classification: ["classification", "class", "category", "التصنيف", "الفئة", "الكلاس"],
-  phone: ["phone", "mobile", "tel", "الهاتف", "الجوال", "التليفون", "الموبايل", "رقم الجوال", "رقم الهاتف"],
+  phone: ["phone", "mobile", "tel", "الهاتف", "الجوال", "التليفون", "الموبايل", "رقم الجوال", "رقم الهاتف", "mobile number", "phone number", "mobile no", "whatsapp", "واتساب"],
   email: ["email", "e-mail", "mail", "البريد", "البريد الإلكتروني", "الايميل", "الإيميل"],
 };
 const headerKey = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
 const ALIAS_TO_FIELD = new Map<string, Field | "id">();
 for (const [f, list] of Object.entries(ALIASES)) for (const a of list) ALIAS_TO_FIELD.set(headerKey(a), f as Field | "id");
+/** Header text → field. Combined headers like "Account / Clinic" or "City / Area" match on any of their parts. */
+export function headerField(text: string): Field | "id" | undefined {
+  const whole = headerKey(text.replace(/[*:]+$/, ""));
+  if (!whole) return undefined;
+  return ALIAS_TO_FIELD.get(whole) ?? whole.split(/\s*[/|\\،,()-]\s*/).map(headerKey).filter(Boolean).map(p => ALIAS_TO_FIELD.get(p)).find(Boolean);
+}
 
 const clean = (v: unknown) => String(v ?? "").replace(/\s+/g, " ").trim();
 
@@ -48,7 +54,7 @@ export function readDoctorSheet(wb: ExcelJS.Workbook): { rows: SyncRow[]; skippe
     for (let hr = 1; hr <= Math.min(10, ws.rowCount); hr++) {
       const cols = new Map<number, Field | "id">();
       const vals = ws.getRow(hr).values as ExcelJS.CellValue[];
-      vals.forEach((v, i) => { const f = ALIAS_TO_FIELD.get(headerKey(String(plainCell(v) ?? ""))); if (f && ![...cols.values()].includes(f)) cols.set(i, f); });
+      vals.forEach((v, i) => { const f = headerField(String(plainCell(v) ?? "")); if (f && ![...cols.values()].includes(f)) cols.set(i, f); });
       if (![...cols.values()].includes("name")) continue;
       const rows: SyncRow[] = []; const skipped: number[] = [];
       for (let r = hr + 1; r <= ws.rowCount; r++) {
@@ -97,7 +103,11 @@ export function planSync(rows: SyncRow[], existing: Existing[]): Plan {
     let match = row.id && byId.has(row.id) && !taken.has(row.id) ? byId.get(row.id) : undefined;
     match ||= free(byNameClinic.get(fileKey));
     if (!match && normPhone(row.phone)) match = free(byNamePhone.get(`${normKey(row.name)}|${normPhone(row.phone)}`));
-    if (!match && !row.clinic_name) { const l = (byName.get(normKey(row.name)) || []).filter(d => !taken.has(d.id)); if (l.length === 1) match = l[0]; }
+    if (!match) {
+      // Same name, and one side has no clinic yet (e.g. an earlier upload that missed the clinic column): the same doctor.
+      const l = (byName.get(normKey(row.name)) || []).filter(d => !taken.has(d.id) && (!row.clinic_name || !normKey(d.clinic_name)));
+      if (l.length === 1) match = l[0];
+    }
     if (!match) { plan.add.push(row); continue; }
     taken.add(match.id);
     const changes: Partial<Record<Field, [string, string]>> = {};

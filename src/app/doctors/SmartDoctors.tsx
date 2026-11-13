@@ -64,6 +64,7 @@ export function SmartCard({ d, p, b, months, today, fav, toggleFav, onOpen, sele
             {fav && <span className="text-amber-500">★</span>}
           </div>
           <div className="mt-0.5 truncate text-xs text-[var(--muted)]" dir="auto">{[d.specialty, d.clinic_name, d.city].filter(Boolean).join(" · ")}</div>
+          {d.email && <div className="mt-0.5 truncate text-[11px] text-teal-700" dir="ltr">{d.email}</div>}
           <div className={`mt-2 text-[13px] font-bold leading-6 ${TONE[p.tone]}`}>{p.icon} {p.reason}</div>
           <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
             <span className="flex items-center gap-1" aria-label="زيارات آخر 6 شهور">{months.map((m, i) => { const on = seen.has(m); const cur = i === months.length - 1; return <span key={m} title={m} className={`h-2.5 w-2.5 rounded-full ${on ? "bg-teal-500" : cur ? "bg-slate-200" : d.days_since === null ? "bg-slate-200" : "bg-white ring-2 ring-red-300"}`} />; })}</span>
@@ -80,6 +81,7 @@ export function SmartCard({ d, p, b, months, today, fav, toggleFav, onOpen, sele
           : <Link href={`/doctors/${d.id}`} className="flex min-h-10 items-center rounded-xl bg-[var(--navy)] px-4 text-sm font-bold text-white">الملف</Link>}
         <button type="button" onClick={onTomorrow} disabled={added} className={`flex min-h-10 items-center rounded-xl border px-3 text-sm font-bold transition ${added ? "es-pop border-emerald-200 bg-emerald-50 text-emerald-700" : "border-[var(--border)] text-[var(--navy)] hover:border-teal-400"}`}>{added ? "✓ مضاف لبكرة" : "＋ بكرة"}</button>
         {phone && <a href={`tel:${phone}`} aria-label="اتصال" className="grid h-10 w-10 place-items-center rounded-xl border border-[var(--border)]">📞</a>}
+        {d.email && <a href={`mailto:${d.email}`} aria-label={`إيميل ${d.email}`} title={d.email} className="grid h-10 w-10 place-items-center rounded-xl border border-[var(--border)]">✉️</a>}
         <button type="button" onClick={() => setMore(x => !x)} aria-expanded={more} aria-label="خيارات أكتر" className="mr-auto grid h-10 w-10 place-items-center rounded-xl text-lg text-[var(--muted)] hover:bg-[var(--bg)]">⋯</button>
       </div>
       {more && <div className="es-pop flex flex-wrap gap-1.5 border-t border-[var(--border)] bg-[var(--bg)] px-3 py-2.5 text-xs font-bold">

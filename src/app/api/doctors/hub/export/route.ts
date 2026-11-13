@@ -17,7 +17,7 @@ export async function GET(req: Request) {
   const ws = wb.addWorksheet("الأطباء", { views: [{ rightToLeft: true, state: "frozen", ySplit: 1 }] });
   const cols: Array<[string, (r: typeof rows[number]) => unknown, number, string?]> = [
     ["الطبيب", r => r.name, 24], ["الفئة", r => r.classification, 7], ["التخصص", r => r.specialty, 14], ["العيادة", r => r.clinic_name, 24], ["المدينة", r => r.city, 12],
-    ["التليفون", r => r.phone, 14], [`زيارات آخر ${days} يوم`, r => r.visits, 12, "0"], ["مكتملة", r => r.completed, 9, "0"], ["إجمالي الزيارات", r => r.total_visits, 11, "0"],
+    ["التليفون", r => r.phone, 14], ["الإيميل", r => r.email, 26], [`زيارات آخر ${days} يوم`, r => r.visits, 12, "0"], ["مكتملة", r => r.completed, 9, "0"], ["إجمالي الزيارات", r => r.total_visits, 11, "0"],
     ["آخر زيارة", r => r.last_visit ? new Date(new Date(r.last_visit).getTime() + 3 * 3600e3) : null, 16, "yyyy-mm-dd hh:mm"], ["أيام من آخر زيارة", r => r.days_since, 12, "0"],
     ["كل كام يوم", r => r.gap_days, 10, "0"], ["الحالة", r => r.days_since === null ? "لم يُزر" : r.gap_days && r.days_since > r.gap_days ? "متأخر" : "في الميعاد", 11],
     ["مرات الشرح", r => r.presented, 10, "0"], ["نسبة الاهتمام", r => r.presented ? r.interested / r.presented : null, 11, "0%"], ["العينات", r => r.samples, 9, "0"], ["الأوردرات", r => r.orders, 9, "0"],

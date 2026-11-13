@@ -49,6 +49,18 @@ describe("doctor list sync", () => {
     expect(p.remove).toHaveLength(0);
   });
 
+  it("fills in the clinic of a doctor saved earlier without one instead of adding a copy", () => {
+    const p = planSync([row("Rasha Gad", "Mcc", { city: "Al Khobar" })], [ex("7", "Rasha Gad", "")]);
+    expect(p.add).toHaveLength(0);
+    expect(p.update[0].changes.clinic_name).toEqual(["", "Mcc"]);
+  });
+
+  it("does not merge same-name doctors in two different clinics", () => {
+    const p = planSync([row("Ahmed Ali", "Clinic B")], [ex("1", "Ahmed Ali", "Clinic A")]);
+    expect(p.add).toHaveLength(1);
+    expect(p.remove).toHaveLength(1);
+  });
+
   it("flags duplicate rows in the file and uses the first", () => {
     const p = planSync([row("خالد", "س"), row("د. خالد", "س")], []);
     expect(p.add).toHaveLength(1);
@@ -74,6 +86,14 @@ describe("reading the sheet", () => {
     const r = readDoctorSheet(wb);
     expect(r.rows).toEqual([{ line: 3, id: "", name: "أحمد", clinic_name: "النخبة", city: "", specialty: "", classification: "A", phone: "501234567", email: "" }]);
     expect(r.skipped).toEqual([5]);
+  });
+
+  it("reads combined English headers like \"Account / Clinic\" and \"City / Area\"", () => {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("doctor list");
+    ws.addRow(["Doctor Name", "Account / Clinic", "Specialty", "Class", "City / Area", "Email", "Mobile"]);
+    ws.addRow(["Ahmed Soliman", "Hosn clinic", "DERMA", "a", "Al Khobar", "x@y.com", "0545357720"]);
+    expect(readDoctorSheet(wb).rows[0]).toEqual({ line: 2, id: "", name: "Ahmed Soliman", clinic_name: "Hosn clinic", city: "Al Khobar", specialty: "DERMA", classification: "A", phone: "0545357720", email: "x@y.com" });
   });
 
   it("explains when there is no name column", () => {

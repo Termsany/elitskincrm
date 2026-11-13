@@ -103,7 +103,7 @@ export default function DoctorsHub({ isAdmin, canLink = false, reps, initialQ = 
   }), [all, fav]);
   const list = useMemo(() => {
     const t = smart.text.trim().toLowerCase(); const fc = smart.cls || cls, fcity = smart.city || city; const tags = [...smart.tags, ...(tag ? [tag] : [])];
-    const xs = all.filter(d => (!t || `${d.name} ${d.clinic_name} ${d.city} ${d.specialty} ${d.phone}`.toLowerCase().includes(t)) && (!fcity || d.city === fcity) && (!fc || d.classification === fc) && (!clinic || d.clinic_name === clinic)
+    const xs = all.filter(d => (!t || `${d.name} ${d.clinic_name} ${d.city} ${d.specialty} ${d.phone} ${d.email || ""}`.toLowerCase().includes(t)) && (!fcity || d.city === fcity) && (!fc || d.classification === fc) && (!clinic || d.clinic_name === clinic)
       && (!tags.length || (!d.paused && tags.every(x => prio.get(d.id)?.tags.includes(x))))
       && (seg === "all" || (seg === "overdue" && health(d) === "overdue") || (seg === "never" && health(d) === "never") || (seg === "followup" && !!d.next_follow_up)
         || (seg === "interested" && (interestPct(d) ?? 0) >= 50) || (seg === "planned" && !!d.in_plan_next) || (seg === "favorites" && fav.includes(d.id)) || (seg === "paused" && d.paused)));
@@ -270,7 +270,7 @@ function Table({ list, checked, setChecked, fav, toggleFav, onOpen, sort, setSor
           <tbody>{list.map(d => { const ip = interestPct(d); return (
             <tr key={d.id} onClick={() => onOpen(d)} className={`border-t border-[var(--border)] cursor-pointer transition-colors hover:bg-[var(--sky-light)] ${checked.includes(d.id) ? "bg-[var(--sky-light)]" : ""} ${d.paused ? "opacity-60" : ""}`}>
               <td className="p-3" onClick={e => e.stopPropagation()}><input type="checkbox" checked={checked.includes(d.id)} onChange={() => setChecked(x => x.includes(d.id) ? x.filter(y => y !== d.id) : [...x, d.id])} /></td>
-              <td className="p-3"><div className="flex items-center gap-2"><ClassBadge c={d.classification} /><div className="min-w-0"><div className="font-bold text-[var(--navy)]">{d.name}</div><div className="text-[11px] text-[var(--muted)]">{d.specialty || ""}</div></div></div></td>
+              <td className="p-3"><div className="flex items-center gap-2"><ClassBadge c={d.classification} /><div className="min-w-0"><div className="font-bold text-[var(--navy)]">{d.name}</div><div className="text-[11px] text-[var(--muted)]">{d.specialty || ""}</div>{d.email && <a href={`mailto:${d.email}`} onClick={e => e.stopPropagation()} dir="ltr" className="block truncate max-w-[14rem] text-[11px] text-teal-700 hover:underline">{d.email}</a>}</div></div></td>
               <td className="p-3 text-xs"><div>{d.clinic_name || "—"}</div><div className="text-[var(--muted)]">{d.city}</div></td>
               <td className="p-3"><div className="flex flex-wrap gap-1">{d.paused && <PausedPill />}<HealthPill d={d} /></div></td>
               <td className="p-3 font-bold">{d.visits}<span className="text-[10px] text-[var(--muted)] font-normal"> / {d.total_visits}</span></td>
@@ -324,6 +324,10 @@ function QuickView({ d, isAdmin, onClose, onPlan, onEdit, fav, toggleFav, sheet,
           <button onClick={onClose} className="h-9 w-9 rounded-xl border border-[var(--border)]">✕</button>
         </div>
         <div className="grid grid-cols-4 rounded-2xl border border-[var(--border)] text-center"><Stat l="زيارات" v={d.visits} /><Stat l="اهتمام" v={ip === null ? "—" : `${ip}%`} /><Stat l="عينات" v={d.samples} /><Stat l="أوردر" v={d.orders} /></div>
+        {(d.phone || d.email) && <div className="space-y-1 rounded-2xl bg-[var(--bg)] px-3 py-2 text-sm">
+          {d.phone && <div className="flex items-center gap-2"><span className="text-[var(--muted)] text-xs w-12">الجوال</span><a href={`tel:${phone}`} dir="ltr" className="font-bold text-[var(--navy)]">{d.phone}</a></div>}
+          {d.email && <div className="flex items-center gap-2 min-w-0"><span className="text-[var(--muted)] text-xs w-12 shrink-0">الإيميل</span><a href={`mailto:${d.email}`} dir="ltr" className="truncate font-bold text-teal-700 hover:underline">{d.email}</a></div>}
+        </div>}
         {d.gap_days && <div className="text-xs text-[var(--muted)]">فئة {d.classification}: المفروض زيارة كل {d.gap_days} يوم{d.days_since !== null ? ` — آخر زيارة من ${d.days_since} يوم` : " — لسه ما اتزارش"}</div>}
         <div className="grid grid-cols-2 gap-2 text-sm font-bold">
           {!isAdmin && <Link href={`/visits/new?doctorId=${d.id}`} className="col-span-2 rounded-xl bg-[var(--navy)] text-white py-3 text-center">▶ ابدأ زيارة دلوقتي</Link>}
