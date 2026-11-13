@@ -32,8 +32,12 @@ export async function GET() {
   const counts = (await query<{ kind: string; n: number }>("SELECT kind, count(*)::int n FROM task_notifications WHERE user_id=$1 AND is_read=false AND (snoozed_until IS NULL OR snoozed_until <= now()) GROUP BY kind", [user.id])).rows;
   const important = counts.filter(c => levelOf(c.kind) === "important").reduce((s, c) => s + c.n, 0);
   const info = counts.reduce((s, c) => s + c.n, 0) - important;
-  // `unread` stays the badge number other screens read: important only
-  return NextResponse.json({ notifications: rows, unread: important, important, info });
+  // Badge = what is new since the bell was last opened (unread important notifications created after that).
+  const seen = (await query<{ at: string | null; live: Record<string, number> }>("SELECT bell_seen_at at, bell_seen_live live FROM users WHERE id=$1", [user.id]).catch(() => ({ rows: [] }))).rows[0];
+  const seenAt = seen?.at ? Date.parse(seen.at) : 0;
+  const fresh = (rows as Array<{ is_read: boolean; level: string; created_at: string }>).filter(n => !n.is_read && n.level === "important" && Date.parse(String(n.created_at)) > seenAt).length;
+  // `unread` stays the number other screens read: important only
+  return NextResponse.json({ notifications: rows, unread: important, important, info, fresh, seen_live: seen?.live || {} });
 }
 
 export async function PATCH(req: Request) {
@@ -41,6 +45,13 @@ export async function PATCH(req: Request) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const body = await req.json().catch(() => null) as Record<string, unknown> | null;
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (body?.seen) {
+    // The bell was opened: everything in it now counts as seen (not read) — the badge goes back to zero.
+    const live: Record<string, number> = {};
+    if (body.live && typeof body.live === "object") for (const [k, v] of Object.entries(body.live as Record<string, unknown>).slice(0, 30)) if (/^[a-zA-Z]{1,40}$/.test(k)) live[k] = Math.max(0, Math.min(100000, Number(v) || 0));
+    await query("UPDATE users SET bell_seen_at=now(), bell_seen_live=$2 WHERE id=$1", [user.id, JSON.stringify(live)]);
+    return NextResponse.json({ ok: true });
+  }
   if (body?.all) {
     const level = body.level === "info" || body.level === "important" ? body.level : null;
     if (level) await query(`UPDATE task_notifications SET is_read=true, read_at=COALESCE(read_at, now()) WHERE user_id=$1 AND is_read=false AND (kind = ANY($2::text[])) = $3`, [user.id, INFO_KINDS, level === "info"]);

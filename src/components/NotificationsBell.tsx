@@ -19,6 +19,7 @@ export default function NotificationsBell({ role = "sales_rep" }: { role?: strin
   const [hasNew, setHasNew] = useState(false); const [expanded, setExpanded] = useState<string | null>(null);
   const [busy, setBusy] = useState(""); const [msg, setMsg] = useState("");
   const [live, setLive] = useState<Live[]>([]);
+  const [fresh, setFresh] = useState(0); const [seenLive, setSeenLive] = useState<Record<string, number>>({});
   const load = useCallback(async () => {
     const [r, l] = await Promise.all([
       fetch("/api/notifications", { cache: "no-store" }).then(x => x.json()).catch(() => null),
@@ -27,7 +28,8 @@ export default function NotificationsBell({ role = "sales_rep" }: { role?: strin
     if (l) setLive(l.items || []);
     if (r) {
       const n = r.important ?? r.unread ?? 0;
-      setImportant(p => { if (n > p) setHasNew(true); return n; }); setInfo(r.info || 0);
+      setImportant(n); setInfo(r.info || 0);
+      setFresh(p => { const f = r.fresh ?? n; if (f > p) setHasNew(true); return f; }); setSeenLive(r.seen_live || {});
       setList(r.notifications || []);
     }
   }, []);
@@ -40,7 +42,14 @@ export default function NotificationsBell({ role = "sales_rep" }: { role?: strin
     return () => { clearInterval(id); document.removeEventListener("visibilitychange", onVis); window.removeEventListener("es:alerts-changed", onChange); };
   }, [load]);
   useEffect(() => { if (hasNew) { const t = setTimeout(() => setHasNew(false), 2000); return () => clearTimeout(t); } }, [hasNew]);
-  useEffect(() => { if (open) setTab(important || liveTotal || !info ? "important" : "info"); }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!open) return;
+    setTab(important || liveTotal || !info ? "important" : "info");
+    // Opening the bell marks everything in it as seen: the red number clears, the items stay until handled.
+    const snap = Object.fromEntries(live.map(x => [x.key, x.count]));
+    setFresh(0); setSeenLive(snap);
+    void fetch("/api/notifications", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ seen: true, live: snap }) }).catch(() => {});
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const shown = useMemo(() => list.filter(n => (n.level || "important") === tab), [list, tab]);
   const rows = useMemo<Row[]>(() => {
@@ -94,7 +103,9 @@ export default function NotificationsBell({ role = "sales_rep" }: { role?: strin
   </div>;
 
   const liveTotal = live.reduce((a, x) => a + x.count, 0);
-  const badge = important + liveTotal;
+  // Only what is new since the bell was last opened: new important notifications + live items that grew.
+  const freshLive = live.reduce((a, x) => a + Math.max(0, x.count - (seenLive[x.key] ?? 0)), 0);
+  const badge = fresh + freshLive;
   const total = important + info + liveTotal;
   return (
     <div className="relative">
