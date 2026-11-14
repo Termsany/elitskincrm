@@ -27,10 +27,26 @@ export function distribute(c: Cand[], days: string[], perDay = PER_DAY) {
 }
 
 /** Candidates for the week, from the shared ranking (counted as of the week's last day, so follow-ups due that week are in). */
-async function candidates(repId: string, _weekStart: string, weekEnd: string): Promise<Cand[]> {
-  const rows = await rankedDoctors(repId, weekEnd).catch(e => { console.error("auto-plan candidates", e); return []; });
-  return rows.filter(d => !d.paused && d.prio.score >= 20)
-    .map(d => ({ id: d.id, name: d.name, city: d.city || "بدون مدينة", clinic: d.clinic_name || "", cls: (d.classification || "").toUpperCase(), score: d.prio.score, reason: d.prio.reason }));
+async function candidates(repId: string, weekStart: string, weekEnd: string): Promise<Cand[]> {
+  const [rows, missed] = await Promise.all([
+    rankedDoctors(repId, weekEnd).catch(e => { console.error("auto-plan candidates", e); return []; }),
+    missedLastWeek(repId, weekStart).catch(() => new Set<string>()),
+  ]);
+  // visits planned last week and not done come first (unless the doctor is paused this month)
+  return rows.filter(d => !d.paused && (d.prio.score >= 20 || missed.has(d.id)))
+    .map(d => ({ id: d.id, name: d.name, city: d.city || "بدون مدينة", clinic: d.clinic_name || "", cls: (d.classification || "").toUpperCase(),
+      score: missed.has(d.id) ? Math.max(d.prio.score, 100) : d.prio.score, reason: missed.has(d.id) ? "اتأجلت من الأسبوع اللي فات" : d.prio.reason }))
+    .sort((a, b) => b.score - a.score);
+}
+
+/** Doctors in the rep's plan for the week before `weekStart` that the rep never visited that week. */
+export async function missedLastWeek(repId: string, weekStart: string) {
+  const r = await query<{ doctor_id: string }>(`SELECT DISTINCT pi.doctor_id FROM plan_items pi JOIN plans p ON p.id=pi.plan_id
+    WHERE p.user_id=$1 AND p.status::text IN ('approved','pending') AND pi.planned_date BETWEEN $2::date - 7 AND $2::date - 1
+      AND pi.planned_date < (now() AT TIME ZONE 'Asia/Riyadh')::date
+      AND NOT EXISTS (SELECT 1 FROM visits v WHERE v.doctor_id=pi.doctor_id AND v.sales_rep_id=p.user_id AND v.status::text IN ('completed','follow_up')
+        AND (v.visited_at AT TIME ZONE 'Asia/Riyadh')::date BETWEEN $2::date - 7 AND $2::date - 1)`, [repId, weekStart]);
+  return new Set(r.rows.map(x => x.doctor_id));
 }
 
 /** Build next week's draft plan for each active rep that has no plan for that week yet. Returns what was created. */

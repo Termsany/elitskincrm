@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 vi.mock("@/lib/db", () => ({ query: vi.fn(), pool: { connect: vi.fn() } }));
-import { analyzeAccount, type AInv, type ALine } from "@/lib/clinic-account";
+import { analyzeAccount, scopedAccount, type AInv, type ALine } from "@/lib/clinic-account";
 import { managerDenied } from "@/lib/manager-scope";
 
 const inv = (id: number, date: string, net: number, o: Partial<AInv> = {}): AInv => ({ id, client_id: 1, no: String(id), date, due_days: 30, status: 2, net, total: net * 1.15, unpaid: 0, refund: 0, ...o });
@@ -40,5 +40,20 @@ describe("clinic name matching", () => {
   it("matches spelling variants between Daftra and CRM names", () => {
     expect(similarity("شركة برايت الطبي bright medical company", "Bright")).toBeGreaterThanOrEqual(0.5);
     expect(similarity("شركة رونق الطبي rawnaq medical company", "Bright")).toBeLessThan(0.5);
+  });
+});
+
+describe("rep view of a clinic account", () => {
+  it("counts only the rep's own product lines for sales, but keeps the whole balance", () => {
+    const full = [inv(1, "2026-09-01", 5000, { unpaid: 2000, status: 1 }), inv(2, "2026-10-01", 3000)];
+    const lines: ALine[] = [{ invoice_id: 1, item: "PRODUCT A", quantity: 2, net: 1000 }, { invoice_id: 1, item: "OTHER", quantity: 4, net: 4000 }, { invoice_id: 2, item: "OTHER", quantity: 3, net: 3000 }];
+    const sales = { inv: [inv(1, "2026-09-01", 1000, { total: 1000 })], lines: [lines[0]] };
+    const all = scopedAccount({ inv: full, lines }, "2026-10-15");
+    const mine = scopedAccount({ inv: full, lines: [], sales }, "2026-10-15");
+    expect(all.products.map(p => p.item)).toEqual(["OTHER", "PRODUCT A"]);
+    expect(mine.products.map(p => p.item)).toEqual(["PRODUCT A"]);
+    expect(mine.sales.last90).toBe(1000);
+    expect(mine.orders.count).toBe(1);
+    expect(mine.balance.unpaid).toBe(all.balance.unpaid);
   });
 });

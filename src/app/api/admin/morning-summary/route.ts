@@ -7,6 +7,7 @@ import { morningSummary, morningText } from "@/lib/morning-summary";
 import { riyadhToday } from "@/lib/visit-intel";
 import { sendFinanceBrief } from "@/lib/fin-brief";
 import { sendPlanWatch } from "@/lib/fin-watch";
+import { sendWeekWrap } from "@/lib/plan-wrap";
 
 const cronOk = (req: Request) => { const s = process.env.CRON_SECRET?.trim(); if (!s) return false; const a = Buffer.from(req.headers.get("authorization") ?? ""), e = Buffer.from(`Bearer ${s}`); return a.length === e.length && timingSafeEqual(a, e); };
 
@@ -32,5 +33,6 @@ export async function GET(req: Request) {
   // runs in the background so the timer's request returns right away (the AI answer can take a minute)
   void sendFinanceBrief(today, force);
   void sendPlanWatch(today, force);
+  void sendWeekWrap(today);
   return NextResponse.json({ ok: true, sent, text, summary: m, brief: "started" });
 }

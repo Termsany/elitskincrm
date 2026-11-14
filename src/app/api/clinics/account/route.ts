@@ -16,6 +16,6 @@ export async function GET(req: Request) {
     : `SELECT c.id, c.name, c.city FROM clinics c WHERE lower(btrim(c.name))=lower($1)
        ORDER BY EXISTS (SELECT 1 FROM doctors d WHERE d.clinic_id=c.id) DESC, c.active DESC LIMIT 1`, [id || name.slice(0, 200)])).rows[0];
   if (!c) return NextResponse.json({ clinic: null, account: null });
-  const account = await clinicAccount(c.id, riyadhToday()).catch(() => null);
+  const account = await clinicAccount(c.id, riyadhToday(), u.role === "admin" ? null : u.id).catch(() => null);
   return NextResponse.json({ clinic: c, account });
 }

@@ -32,6 +32,7 @@ export default function WeekBoard({ repId, isAdmin = false, embedded = false, in
   const [day, setDay] = useState("");
   const [open, setOpen] = useState<{ id: string; kind: "move" | "remove" } | null>(null);
   const [busy, setBusy] = useState("");
+  const [focus, setFocus] = useState(false); const [fi, setFi] = useState(0);
   const load = useCallback(() => {
     const qs = new URLSearchParams(); if (start) qs.set("start", start); if (repId) qs.set("repId", repId);
     fetch(`/api/plans/week?${qs}`).then(r => r.ok ? r.json() : null).then((j: RepWeek | null) => {
@@ -80,6 +81,7 @@ export default function WeekBoard({ repId, isAdmin = false, embedded = false, in
   const todayIn = w.days.some(d => d.date === w.today);
   const futureDays = (from: string) => w.days.map(d => d.date).filter(d => d > from && d >= w.today);
   const note = w.plans.find(p => p.status === "needs_revision")?.admin_note;
+  const todo = w.items.filter(i => i.date === w.today && i.state !== "done" && !i.excused);
 
   const row = (it: WeekItem) => {
     const isOpen = open?.id === it.id; const targets = futureDays(it.date < w.today ? addDays(w.today, -1) : it.date);
@@ -92,6 +94,7 @@ export default function WeekBoard({ repId, isAdmin = false, embedded = false, in
             {it.pending_change && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10.5px] font-bold text-amber-800">مستني موافقة المدير</span>}</div>
           <div className="truncate text-[11.5px] text-[var(--muted)]" dir="auto">{[it.clinic, it.city].filter(Boolean).join(" · ")}{it.state === "missed" ? ` · كانت يوم ${dayName(it.date)}` : ""}</div>
           {it.state !== "done" && it.reason && <span className={`mt-1.5 inline-block rounded-lg px-2 py-0.5 text-[11px] font-bold ${TONE[it.tone] || TONE.slate}`}>{it.icon} {it.reason}</span>}
+          {it.sales > 0 && <span className="mr-1 mt-1.5 inline-block rounded-lg bg-teal-50 px-2 py-0.5 text-[11px] font-bold text-teal-800">💰 {it.sales.toLocaleString("en-US")} ر.س الشهر ده</span>}
         </div>
         <span className={`shrink-0 text-[11px] font-bold ${it.excused ? "text-amber-700" : it.state === "done" ? "text-emerald-700" : it.state === "missed" ? "text-red-600" : it.state === "today" ? "text-amber-700" : "text-[var(--muted)]"}`}>
           {it.excused ? "⏱ وقت مكتبي" : it.state === "done" ? (it.done_at ? `✓ اتعملت ${it.done_at}` : `✓ اتعملت ${it.done_on ? dayName(it.done_on) : ""}`) : it.state === "missed" ? "فاتت" : it.state === "today" ? "النهارده" : "لسه"}</span>
@@ -148,6 +151,26 @@ export default function WeekBoard({ repId, isAdmin = false, embedded = false, in
         <Kpi label="زيارات فاتتك" value={String(k.missed)} sub={`${k.missed ? "رجّعها أو أجّلها" : "مفيش ✓"}${k.excused ? ` · ${k.excused} اتعذرت بوقت مكتبي` : ""}`} tone={k.missed ? "text-red-600" : "text-emerald-700"} />
         <Kpi label="متوقع تخلص" value={`${k.projected}/${k.planned}`} sub={`بمعدلك ده (${k.rate}%)`} />
       </div>
+      {w.month && w.month.target > 0 && <div className="rounded-[22px] border border-[var(--border)] bg-white p-3.5 shadow-sm">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs"><b className="text-[var(--navy)]">{isAdmin ? "نصيبه" : "نصيبك"} من خطة الشهر</b>
+          <span className="font-bold"><span className={w.month.mtd >= w.month.expected ? "text-emerald-700" : "text-red-600"}>{w.month.mtd.toLocaleString("en-US")}</span> من {w.month.target.toLocaleString("en-US")} ر.س</span></div>
+        <div className="relative mt-2 h-2.5 overflow-hidden rounded-full bg-[var(--bg)]"><div className={`h-full rounded-full transition-all duration-700 ${w.month.mtd >= w.month.expected ? "bg-teal-500" : "bg-amber-400"}`} style={{ width: `${Math.min(100, w.month.mtd / w.month.target * 100)}%` }} />
+          <span className="absolute inset-y-0 w-0.5 bg-[var(--navy)]" style={{ right: `${Math.min(100, w.month.expected / w.month.target * 100)}%` }} title="المفروض لحد النهارده" /></div>
+      </div>}
+      {focus && todo.length > 0 && (() => { const it = todo[Math.min(fi, todo.length - 1)]; return <section className="es-pop rounded-[26px] border-2 border-teal-400 bg-white p-5 shadow-sm">
+        <div className="flex items-center justify-between text-xs text-[var(--muted)]"><b className="text-teal-700">الزيارة {Math.min(fi, todo.length - 1) + 1} من {todo.length}</b><button type="button" onClick={() => setFocus(false)} className="font-bold">✕ اقفل</button></div>
+        <div className="mt-2 text-2xl font-black text-[var(--navy)]" dir="auto">{it.doctor}</div>
+        <div className="text-sm text-[var(--muted)]" dir="auto">{[it.cls && `تصنيف ${it.cls}`, it.clinic, it.city].filter(Boolean).join(" · ")}</div>
+        <div className="mt-2 flex flex-wrap gap-1">{it.reason && <span className={`rounded-lg px-2 py-1 text-xs font-bold ${TONE[it.tone] || TONE.slate}`}>{it.icon} {it.reason}</span>}
+          {it.product && <span className="rounded-lg bg-teal-50 px-2 py-1 text-xs font-bold text-teal-800" dir="auto">{it.product}</span>}
+          {it.sales > 0 && <span className="rounded-lg bg-teal-50 px-2 py-1 text-xs font-bold text-teal-800">💰 {it.sales.toLocaleString("en-US")} ر.س الشهر ده</span>}</div>
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <Link href={`/visits/new?doctorId=${it.doctor_id}${it.product_id ? `&productId=${it.product_id}` : ""}`} className="col-span-2 flex min-h-12 items-center justify-center rounded-2xl bg-[var(--navy)] text-sm font-bold text-white">▶ سجل الزيارة</Link>
+          {it.phone ? <a href={`tel:${it.phone}`} className="flex min-h-12 items-center justify-center rounded-2xl border border-[var(--border)] text-sm font-bold">📞 اتصل</a> : <span className="flex min-h-12 items-center justify-center rounded-2xl border border-dashed border-[var(--border)] text-xs text-[var(--muted)]">مفيش رقم</span>}
+          <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([it.clinic, it.city].filter(Boolean).join(" "))}`} target="_blank" rel="noreferrer" className="flex min-h-12 items-center justify-center rounded-2xl border border-[var(--border)] text-sm font-bold">📍 الخريطة</a>
+        </div>
+        <div className="mt-3 flex justify-between text-xs font-bold"><button type="button" disabled={fi <= 0} onClick={() => setFi(Math.max(0, fi - 1))} className="disabled:opacity-30">› اللي قبلها</button><button type="button" disabled={fi >= todo.length - 1} onClick={() => setFi(fi + 1)} className="disabled:opacity-30">اللي بعدها ‹</button></div>
+      </section>; })()}
       <div className={embedded ? "space-y-4" : "grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_360px]"}>
         <div className="min-w-0 space-y-4">
           {missed.length > 0 && <section className="rounded-[26px] border border-red-200 bg-red-50/40 p-4"><h3 className="mb-2 font-extrabold text-red-700">فاتتك ({missed.length})</h3><ul className="space-y-2">{missed.map(row)}</ul></section>}
@@ -158,7 +181,7 @@ export default function WeekBoard({ repId, isAdmin = false, embedded = false, in
                 <div className="text-[10.5px] text-[var(--muted)]">{d.count ? `✓ ${d.done}/${d.count}` : "فاضي"}{d.cities[0] ? ` · ${d.cities[0]}` : ""}</div>
                 <div className="mt-1 h-1 overflow-hidden rounded-full bg-[var(--bg)]"><div className="h-full rounded-full bg-teal-500 transition-all duration-700" style={{ width: `${d.count ? d.done / d.count * 100 : 0}%` }} /></div>
               </button>); })}</div>
-            <div className="mb-2 flex items-baseline justify-between"><h3 className="font-extrabold text-[var(--navy)]">{day === w.today ? "مسار النهارده" : `يوم ${dayName(day)}`} <span className="text-xs font-normal text-[var(--muted)]">{dm(day)}</span></h3><span className="text-[11px] text-[var(--muted)]">{dayItems.length} زيارة · مترتبين حسب المدينة والعيادة</span></div>
+            <div className="mb-2 flex items-baseline justify-between"><h3 className="font-extrabold text-[var(--navy)]">{day === w.today ? "مسار النهارده" : `يوم ${dayName(day)}`} <span className="text-xs font-normal text-[var(--muted)]">{dm(day)}</span>{!isAdmin && day === w.today && todo.length > 0 && !focus && <button type="button" onClick={() => { setFi(0); setFocus(true); window.scrollTo({ top: 0, behavior: "smooth" }); }} className="mr-2 rounded-xl bg-teal-600 px-3 py-1 text-xs font-bold text-white">▶ ابدأ يومي</button>}</h3><span className="text-[11px] text-[var(--muted)]">{dayItems.length} زيارة · مترتبين حسب المدينة والعيادة</span></div>
             {!dayItems.length && <div className="rounded-2xl border border-dashed border-[var(--border-strong)] p-6 text-center text-sm text-[var(--muted)]">اليوم ده فاضي{w.suggestions.some(s => s.day === day) ? " — شوف الاقتراحات" : ""}</div>}
             {cities.map(c => <div key={c} className="mb-3 last:mb-0"><div className="mb-1.5 text-xs font-extrabold text-[var(--navy)]">{c} <span className="font-normal text-[var(--muted)]">· {dayItems.filter(i => (i.city || "—") === c).length}</span></div>
               <ul className="space-y-2">{dayItems.filter(i => (i.city || "—") === c).map(row)}</ul></div>)}

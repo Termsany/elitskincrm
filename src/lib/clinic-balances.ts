@@ -9,7 +9,8 @@ export type ClinicBalance = { id: string; name: string; unpaid: number; overdue:
  * Same rules as the clinic account card: open = unpaid > 0 and status unpaid/partial; overdue = past its due date.
  * A branch shows its company's balance; `shared` = another clinic with doctors uses the same Daftra customer.
  */
-export async function clinicBalances(today: string): Promise<ClinicBalance[]> {
+/** With repId, the reorder rhythm (`due`, `last_order`) counts only the rep's own products; balances stay whole. */
+export async function clinicBalances(today: string, repId?: string | null): Promise<ClinicBalance[]> {
   const r = await query<ClinicBalance>(`
     WITH m AS (SELECT c.id, c.name, k.client_id FROM clinics c CROSS JOIN LATERAL (
         SELECT b.client_id FROM daftra_client_branches b WHERE b.clinic_id=c.id
@@ -20,9 +21,9 @@ export async function clinicBalances(today: string): Promise<ClinicBalance[]> {
       FROM daftra_invoices i WHERE i.unpaid > 0 AND i.payment_status IN (0,1) GROUP BY i.client_id),
     ord AS (SELECT client_id, max(invoice_date) last_order,
         CASE WHEN count(DISTINCT invoice_date) >= 3 THEN (max(invoice_date) - min(invoice_date))::float8 / (count(DISTINCT invoice_date) - 1) END gap
-      FROM daftra_invoices WHERE payment_status <> 3 AND invoice_date > $1::date - 365 GROUP BY client_id)
+      FROM ${repId ? "daftra_sales_v WHERE rep_id = $2::uuid AND client_id IS NOT NULL AND" : "daftra_invoices WHERE payment_status <> 3 AND"} invoice_date > $1::date - 365 GROUP BY client_id)
     SELECT m.id, max(m.name) AS name, COALESCE(sum(bal.unpaid),0)::float8 unpaid, COALESCE(sum(bal.overdue),0)::float8 overdue, bool_or(sh.n > 1) shared,
       max(ord.last_order)::text last_order, COALESCE(bool_or(ord.gap IS NOT NULL AND ord.last_order + ceil(ord.gap)::int <= $1::date), false) due
-    FROM m JOIN sh USING (client_id) LEFT JOIN bal USING (client_id) LEFT JOIN ord USING (client_id) GROUP BY m.id`, [today]);
+    FROM m JOIN sh USING (client_id) LEFT JOIN bal USING (client_id) LEFT JOIN ord USING (client_id) GROUP BY m.id`, repId ? [today, repId] : [today]);
   return r.rows.map(x => ({ ...x, unpaid: Math.round(x.unpaid), overdue: Math.round(x.overdue), shared: !!x.shared, due: !!x.due }));
 }

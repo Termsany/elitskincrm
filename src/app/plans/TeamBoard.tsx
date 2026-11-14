@@ -41,6 +41,11 @@ export default function TeamBoard() {
     const j = await r.json().catch(() => null); setBusy(""); setAsk(null);
     if (r.ok) { toast(status === "approved" ? "اتعتمدت ✓" : "اتبعت طلب التعديل للمندوب", "success"); load(); } else toast(j?.error || "تعذر", "error");
   }
+  async function approveClean(ids: string[]) {
+    setBusy("bulk"); let ok = 0, fail = 0;
+    for (const id of ids) { const r = await fetch(`/api/plans/${id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ status: "approved", admin_note: "" }) }); if (r.ok) ok++; else fail++; }
+    setBusy(""); toast(`اتعتمد ${ok} خطة ✓${fail ? ` · ${fail} فشلوا` : ""}`, fail && !ok ? "error" : "success"); load();
+  }
   async function review(id: string, ok: boolean) {
     setBusy(id); const r = await fetch(`/api/agenda/requests/${id}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ status: ok ? "approved" : "rejected" }) });
     const j = await r.json().catch(() => null); setBusy("");
@@ -77,7 +82,8 @@ export default function TeamBoard() {
       <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(320px,.8fr)]">
         <div className="min-w-0 space-y-4">
           <section id="decide" className="rounded-[26px] border border-[var(--border)] bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-xl bg-amber-50">⚡</span><h3 className="font-extrabold text-[var(--navy)]">محتاج قرارك</h3>{k.pending > 0 && <span className="rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-bold text-red-700">{k.pending}</span>}</div>
+            <div className="mb-3 flex items-center gap-2"><span className="grid h-8 w-8 place-items-center rounded-xl bg-amber-50">⚡</span><h3 className="font-extrabold text-[var(--navy)]">محتاج قرارك</h3>{k.pending > 0 && <span className="rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-bold text-red-700">{k.pending}</span>}
+              {(() => { const clean = t.plansPending.filter(p => p.checks.every(c => c.ok)).map(p => p.id); return clean.length > 1 && <button type="button" disabled={busy === "bulk"} onClick={() => void approveClean(clean)} className="mr-auto rounded-xl bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">{busy === "bulk" ? "…" : `✓ اعتمد السليمة (${clean.length})`}</button>; })()}</div>
             {!t.plansPending.length && !t.requests.length && <div className="rounded-2xl border border-dashed border-[var(--border-strong)] p-6 text-center text-sm text-[var(--muted)]">✓ مفيش حاجة مستنياك</div>}
             <div className="space-y-2.5">
               {t.plansPending.map(p => <article key={p.id} className="es-card-in rounded-2xl border border-[var(--border)] p-3.5">

@@ -8,7 +8,7 @@ import { Card } from "./kit";
 type Msg = { role: "user" | "assistant"; content: string };
 
 /** Chat with the AI advisor: it reads the period's Daftra numbers on the server and answers in plain Arabic. */
-export function AiAdvisor({ d, range, reload, chips, ask }: { d: FinData; range: [string, string]; reload: () => void; chips: string[]; ask: { q: string; n: number } | null }) {
+export function AiAdvisor({ d, range, reload, chips, ask, endpoint = "/api/admin/finance/ai", placeholder = "اكتب سؤالك عن الأرباح، المصاريف، التحصيل، الأسعار…", canSetup = true }: { d: Pick<FinData, "ai">; range?: [string, string]; reload: () => void; chips: string[]; ask: { q: string; n: number } | null; endpoint?: string; placeholder?: string; canSetup?: boolean }) {
   const [setup, setSetup] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>([]); const [q, setQ] = useState(""); const [busy, setBusy] = useState(false);
   const ctl = useRef<AbortController | null>(null); const end = useRef<HTMLDivElement>(null);
@@ -25,7 +25,7 @@ export function AiAdvisor({ d, range, reload, chips, ask }: { d: FinData; range:
     const put = (c: string) => setMsgs(m => [...m.slice(0, -1), { role: "assistant", content: c }]);
     ctl.current = new AbortController();
     try {
-      const r = await fetch("/api/admin/finance/ai", { method: "POST", headers: { "content-type": "application/json" }, signal: ctl.current.signal, body: JSON.stringify({ from: range[0], to: range[1], messages: history }) });
+      const r = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, signal: ctl.current.signal, body: JSON.stringify({ ...(range ? { from: range[0], to: range[1] } : {}), messages: history }) });
       if (!r.ok || !r.body) { const j = await r.json().catch(() => null); put(`⚠ ${j?.error || "تعذر الوصول للمستشار"}`); return; }
       const reader = r.body.getReader(); const dec = new TextDecoder(); let acc = "";
       for (;;) { const { done, value } = await reader.read(); if (done) break; acc += dec.decode(value, { stream: true }); put(acc); }
@@ -35,15 +35,16 @@ export function AiAdvisor({ d, range, reload, chips, ask }: { d: FinData; range:
   }
 
   sendRef.current = t => void send(t);
+  if (!d.ai && !canSetup) return null;
   if (!d.ai || setup) return <AiSetup onClose={d.ai ? () => setSetup(false) : undefined} onSaved={() => { setSetup(false); reload(); }} />;
   return <Card title="اسأل المستشار الذكي" right={<span className="flex items-center gap-3">{msgs.length > 0 && <button type="button" onClick={() => { ctl.current?.abort(); setMsgs([]); }} className="text-xs font-bold text-[var(--muted)] hover:text-[var(--navy)]">محادثة جديدة</button>}
-    <button type="button" onClick={() => setSetup(true)} aria-label="إعدادات الذكاء الاصطناعي" title="إعدادات الذكاء الاصطناعي" className="flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--border)] text-[var(--muted)] hover:text-[var(--navy)]"><Icon name="pen" size={15} /></button></span>}>
+    {canSetup && <button type="button" onClick={() => setSetup(true)} aria-label="إعدادات الذكاء الاصطناعي" title="إعدادات الذكاء الاصطناعي" className="flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--border)] text-[var(--muted)] hover:text-[var(--navy)]"><Icon name="pen" size={15} /></button>}</span>}>
     {!busy && <div className="mb-3 flex flex-wrap gap-2">{chips.map(a => <button key={a} type="button" onClick={() => void send(a)} className="rounded-full border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-right text-[13px] font-bold text-[var(--navy)] transition hover:border-[var(--sky)]">{a}</button>)}</div>}
     {msgs.length > 0 && <div className="space-y-3">{msgs.map((m, i) => <div key={i} className={m.role === "user" ? "flex justify-start" : "flex justify-end"}>
       <div dir="auto" className={`max-w-[92%] whitespace-pre-wrap break-words rounded-2xl px-4 py-3 text-[14px] leading-7 ${m.role === "user" ? "bg-[var(--navy)] text-white" : "bg-[var(--sky-light)] text-[var(--ink)]"}`}>{m.content || <span className="animate-pulse text-[var(--muted)]">بفكّر في أرقامك…</span>}</div>
     </div>)}<div ref={end} /></div>}
     <form onSubmit={e => { e.preventDefault(); void send(q); }} className="mt-3 flex gap-2">
-      <input value={q} onChange={e => setQ(e.target.value)} placeholder="اكتب سؤالك عن الأرباح، المصاريف، التحصيل، الأسعار…" className="h-12 min-w-0 flex-1 rounded-2xl border border-[var(--border)] px-4 text-[15px]" />
+      <input value={q} onChange={e => setQ(e.target.value)} placeholder={placeholder} className="h-12 min-w-0 flex-1 rounded-2xl border border-[var(--border)] px-4 text-[15px]" />
       {busy ? <button type="button" onClick={() => ctl.current?.abort()} className="h-12 shrink-0 rounded-2xl border border-[var(--border)] px-4 text-sm font-bold">إيقاف</button>
         : <button type="submit" disabled={!q.trim()} className="flex h-12 shrink-0 items-center gap-1.5 rounded-2xl bg-[var(--navy)] px-5 text-sm font-bold text-white disabled:opacity-40"><Icon name="send" size={16} />اسأل</button>}
     </form>

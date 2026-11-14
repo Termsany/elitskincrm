@@ -2,17 +2,18 @@ import { officeByDay } from "@/lib/office-time";
 import { query } from "@/lib/db";
 import type { HubDoctor } from "@/lib/doctors-hub";
 import { rankedDoctors } from "@/lib/doctor-suggest";
-import { clinicBalances, type ClinicBalance } from "@/lib/clinic-balances";
+import type { ClinicBalance } from "@/lib/clinic-balances";
 import type { Prio } from "@/lib/doctor-priority";
 import { addDays, itemState, pace, planChecks, suggestDay, weekDays, type DayLoad, type ItemState, excusedIds } from "@/lib/plan-week-core";
 import { diffSummaryText } from "@/lib/plan-diff";
 import { opsCounts } from "@/lib/plan-changes";
+import { salesPace } from "@/lib/smart";
 
 /**
  * Weekly plan data: one rep's week (items with done/missed, reasons, pace, smart suggestions, next week),
  * and the admin's team board built from the same numbers.
  */
-export type WeekItem = { id: string; date: string; plan_id: string; plan_status: string; doctor_id: string; doctor: string; clinic: string; city: string; cls: string | null; phone: string;
+export type WeekItem = { id: string; date: string; plan_id: string; plan_status: string; doctor_id: string; doctor: string; clinic: string; clinic_id: string | null; city: string; cls: string | null; phone: string; sales: number;
   product_id: string | null; product: string | null; done_at: string | null; done_on: string | null; pending_change: boolean; state: ItemState; reason: string; icon: string; tone: string; excused: boolean };
 export type Suggest = { doctor_id: string; name: string; clinic: string; city: string; cls: string | null; reason: string; icon: string; tone: string; day: string | null; score: number };
 
@@ -27,7 +28,7 @@ export async function repWeek(repId: string, start: string, today: string, opts:
   const [plans, items, visits, next, ctx, office] = await Promise.all([
     query<{ id: string; status: string; period: string; ps: string; pe: string; admin_note: string | null }>(`SELECT id, status::text status, period::text period, period_start::text ps, period_end::text pe, admin_note
       FROM plans WHERE user_id=$1 AND status::text<>'rejected' AND period_start<=$3::date AND period_end>=$2::date ORDER BY period_start`, [repId, start, end]),
-    query<Omit<WeekItem, "state" | "reason" | "icon" | "tone" | "excused">>(`SELECT pi.id, pi.planned_date::text date, pi.plan_id, p.status::text plan_status, d.id doctor_id, d.name doctor, COALESCE(d.clinic_name,'') clinic, COALESCE(d.city,'') city,
+    query<Omit<WeekItem, "state" | "reason" | "icon" | "tone" | "excused" | "sales">>(`SELECT pi.id, pi.planned_date::text date, pi.plan_id, p.status::text plan_status, d.id doctor_id, d.name doctor, COALESCE(d.clinic_name,'') clinic, d.clinic_id, COALESCE(d.city,'') city,
         NULLIF(upper(d.classification),'') cls, COALESCE(d.phone,'') phone, pr.id product_id, pr.name product,
         (SELECT to_char(min(v.visited_at) AT TIME ZONE 'Asia/Riyadh', 'HH24:MI') FROM visits v WHERE v.doctor_id=pi.doctor_id AND v.sales_rep_id=p.user_id AND v.status::text IN ('completed','follow_up')
           AND (v.visited_at AT TIME ZONE 'Asia/Riyadh')::date=pi.planned_date) done_at,
@@ -45,10 +46,17 @@ export async function repWeek(repId: string, start: string, today: string, opts:
     opts.ctx ? Promise.resolve(opts.ctx) : context(repId, today, opts.balances),
     officeByDay(repId, start, end),
   ]);
+  // this month: the rep's target to date and own-product sales per clinic
+  const m1 = `${today.slice(0, 7)}-01`;
+  const [mp, clinicSales] = await Promise.all([
+    salesPace(today, repId).then(p => p[0] || null).catch(() => null),
+    query<{ clinic_id: string; v: number }>(`SELECT clinic_id, sum(value)::float8 v FROM daftra_sales_v WHERE rep_id=$1 AND clinic_id IS NOT NULL AND invoice_date BETWEEN $2::date AND $3::date GROUP BY 1`, [repId, m1, today]).catch(() => ({ rows: [] as Array<{ clinic_id: string; v: number }> })),
+  ]);
+  const cs = new Map(clinicSales.rows.map(r => [r.clinic_id, Math.round(r.v)]));
   const list: WeekItem[] = items.rows.map(i => {
     const done = !!i.done_at || !!i.done_on;
     const p = ctx.prio.get(i.doctor_id);
-    return { ...i, state: itemState(i.date, today, done), reason: p?.reason || "", icon: p?.icon || "", tone: p?.tone || "slate", excused: false };
+    return { ...i, sales: (i.clinic_id && cs.get(i.clinic_id)) || 0, state: itemState(i.date, today, done), reason: p?.reason || "", icon: p?.icon || "", tone: p?.tone || "slate", excused: false };
   });
   const exc = excusedIds(list.map(i => ({ id: i.id, date: i.date, done: i.state === "done" })), office, today);
   for (const i of list) i.excused = exc.has(i.id);
@@ -75,6 +83,7 @@ export async function repWeek(repId: string, start: string, today: string, opts:
   return {
     start, end, today, days: loads.map(l => ({ ...l, done: list.filter(i => i.date === l.date && i.state === "done").length, office: office[l.date] || 0 })),
     plans: plans.rows, items: list, suggestions: sugg, fill,
+    month: mp ? { target: Math.round(mp.target), mtd: Math.round(mp.mtd), expected: Math.round(mp.target * mp.day / mp.days), projected: mp.projected } : null,
     kpi: { ...sp, officeMin: Object.values(office).reduce((a, b) => a + b, 0), aPlanned: aDocs.size, aDone: aDone.size, aDue, unplanned, cancelled, cancelRate: visits.rows.length ? Math.round(cancelled / visits.rows.length * 100) : 0 },
     next: next.rows[0] ? { ...next.rows[0], start: nStart, diffA: next.rows[0].a - aItems.length, diffC: next.rows[0].c - list.filter(i => i.cls === "C").length } : { id: null, status: "none", n: 0, a: 0, c: 0, start: nStart, diffA: 0, diffC: 0 },
   };
@@ -84,11 +93,9 @@ export type RepWeek = Awaited<ReturnType<typeof repWeek>>;
 /** Admin board: every active rep's week, what needs a decision, smart suggestions, and the last 7 working days. */
 export async function teamWeek(start: string, today: string) {
   const days = weekDays(start), end = days[4];
-  const [reps, balances] = await Promise.all([
-    query<{ id: string; name: string; last: string | null }>(`SELECT u.id, u.name, (SELECT max(v.visited_at) FROM visits v WHERE v.sales_rep_id=u.id)::text last FROM users u WHERE u.role='sales_rep' AND u.active ORDER BY u.name`),
-    clinicBalances(today).catch(() => []),
-  ]);
-  const weeks = await Promise.all(reps.rows.map(r => repWeek(r.id, start, today, { balances }).then(w => ({ rep: r, w }))));
+  const reps = await query<{ id: string; name: string; last: string | null }>(`SELECT u.id, u.name, (SELECT max(v.visited_at) FROM visits v WHERE v.sales_rep_id=u.id)::text last FROM users u WHERE u.role='sales_rep' AND u.active ORDER BY u.name`);
+  // each rep's reorder rhythm is their own products, so balances are loaded per rep
+  const weeks = await Promise.all(reps.rows.map(r => repWeek(r.id, start, today).then(w => ({ rep: r, w }))));
   const board = weeks.map(({ rep, w }) => {
     const status = w.plans.length ? (w.plans.some(p => p.status === "pending") ? "pending" : w.plans.some(p => p.status === "needs_revision") ? "needs_revision" : w.plans.some(p => p.status === "draft") ? "draft" : "approved") : "none";
     return { id: rep.id, name: rep.name, last: rep.last, status, ...w.kpi, heat: w.days.map(d => ({ date: d.date, planned: d.count, done: d.done, past: d.date < today })), emptyDays: w.days.filter(d => d.date >= today && d.count === 0).map(d => d.date) };

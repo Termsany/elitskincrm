@@ -1,6 +1,6 @@
 import { query } from "@/lib/db";
 import { planTargets } from "@/lib/plan-link";
-import { analyzeAccount, type AInv, type ALine } from "@/lib/clinic-account";
+import { load as loadAccounts, scopedAccount } from "@/lib/clinic-account";
 import { clinicsOfClientSql } from "@/lib/clinic-groups";
 import { addDays } from "@/lib/fmt";
 
@@ -13,7 +13,7 @@ export type ReorderDue = { clinic_id: string; clinic_name: string; customer: str
 
 /**
  * Clinics whose next Daftra order is due within a week (or a little late, not yet "stopped"), from their own ordering rhythm.
- * For a rep: only clinics where that rep was credited with sales in the last 12 months (their products).
+ * For a rep: only clinics where that rep was credited with sales in the last 12 months, and the rhythm counts only the rep's own products.
  */
 export async function reorderDue(today: string, opts: { repId?: string; ahead?: number } = {}): Promise<ReorderDue[]> {
   const ahead = opts.ahead ?? 7;
@@ -22,18 +22,14 @@ export async function reorderDue(today: string, opts: { repId?: string; ahead?: 
     FROM daftra_client_links l JOIN clinics c ON c.id=l.clinic_id
     ${opts.repId ? "WHERE EXISTS (SELECT 1 FROM daftra_sales_v s WHERE s.clinic_id=l.clinic_id AND s.rep_id=$1 AND s.invoice_date >= now() - interval '365 days')" : ""}`, opts.repId ? [opts.repId] : [])).rows;
   if (!links.length) return [];
-  const ids = links.map(l => Number(l.client_id));
-  const inv = (await query<AInv>(`SELECT id, client_id, no, invoice_date::text date, due_days, payment_status status, net::float8, total::float8, unpaid::float8, refund::float8
-    FROM daftra_invoices WHERE client_id = ANY($1::bigint[])`, [ids])).rows.map(i => ({ ...i, id: Number(i.id), client_id: Number(i.client_id) }));
-  const lines = inv.length ? (await query<ALine>("SELECT invoice_id, item, quantity::float8, net::float8 FROM daftra_invoice_items WHERE invoice_id = ANY($1::bigint[])", [inv.map(i => i.id)])).rows.map(l => ({ ...l, invoice_id: Number(l.invoice_id) })) : [];
+  const data = await loadAccounts(links.map(l => Number(l.client_id)), opts.repId);
   // group customers by clinic (a clinic can have several Daftra customers)
   const byClinic = new Map<string, typeof links>();
   for (const l of links) byClinic.set(l.clinic_id, [...(byClinic.get(l.clinic_id) || []), l]);
   const out: ReorderDue[] = [];
   for (const [clinicId, ls] of byClinic) {
     const cids = new Set(ls.map(l => Number(l.client_id)));
-    const mine = inv.filter(i => cids.has(i.client_id)), set = new Set(mine.map(i => i.id));
-    const a = analyzeAccount(mine, lines.filter(x => set.has(x.invoice_id)), today);
+    const a = scopedAccount(data, today, i => cids.has(i.client_id));
     if (!a.orders.next_expected || !a.orders.usual_gap || a.status === "stopped" || a.orders.count < 2) continue;
     const d = diff(today, a.orders.next_expected);
     if (d > ahead || d < -Math.max(7, Math.round(a.orders.usual_gap / 2))) continue;

@@ -52,13 +52,39 @@ export function analyzeAccount(invoices: AInv[], lines: ALine[], today: string) 
 }
 export type Account = ReturnType<typeof analyzeAccount>;
 
-async function load(clientIds: number[]) {
+/** Invoices + lines for these Daftra customers; with repId also that rep's own-product sales. */
+export async function load(clientIds: number[], repId?: string | null) {
   if (!clientIds.length) return { inv: [] as AInv[], lines: [] as ALine[] };
   const inv = await query<AInv>(`SELECT id, client_id, no, invoice_date::text date, due_days, payment_status status, net::float8, total::float8, unpaid::float8, refund::float8
     FROM daftra_invoices WHERE client_id = ANY($1::bigint[])`, [clientIds]);
   const rows = inv.rows.map(i => ({ ...i, id: Number(i.id), client_id: Number(i.client_id) }));
+  if (repId) return { inv: rows, lines: [] as ALine[], ...(await repLoad(clientIds, repId)) };
   const lines = rows.length ? await query<ALine>("SELECT invoice_id, item, quantity::float8, net::float8 FROM daftra_invoice_items WHERE invoice_id = ANY($1::bigint[])", [rows.map(r => r.id)]) : { rows: [] };
   return { inv: rows, lines: lines.rows.map(l => ({ ...l, invoice_id: Number(l.invoice_id) })) };
+}
+
+/**
+ * A rep's view of the same customers: only the invoice lines of the products the admin assigned to that rep
+ * (the rep's credited share from daftra_sales_v, refunds already applied). Balances still come from the full invoices.
+ */
+async function repLoad(clientIds: number[], repId: string) {
+  const r = await query<{ invoice_id: string; client_id: string; no: string; date: string; item: string; quantity: number; value: number }>(`SELECT invoice_id, client_id, invoice_no no, invoice_date::text date, item,
+      quantity::float8, value::float8 FROM daftra_sales_v WHERE rep_id=$2 AND client_id = ANY($1::bigint[])`, [clientIds, repId]);
+  const by = new Map<number, AInv>();
+  for (const x of r.rows) {
+    const id = Number(x.invoice_id), i = by.get(id) || { id, client_id: Number(x.client_id), no: x.no, date: x.date, due_days: null, status: 2, net: 0, total: 0, unpaid: 0, refund: 0 };
+    i.net = r2(i.net + x.value); i.total = i.net; by.set(id, i);
+  }
+  return { sales: { inv: [...by.values()], lines: r.rows.map(x => ({ invoice_id: Number(x.invoice_id), item: x.item, quantity: x.quantity, net: x.value })) } };
+}
+export type Loaded = Awaited<ReturnType<typeof load>> & { sales?: { inv: AInv[]; lines: ALine[] } };
+
+/** Pure: buying pattern from `sales` (all products, or one rep's products) and balance from the full invoices. */
+export function scopedAccount(l: Loaded, today: string, keep: (i: AInv) => boolean = () => true) {
+  const inv = l.inv.filter(keep), ids = new Set(inv.map(i => i.id)), full = analyzeAccount(inv, l.sales ? [] : l.lines.filter(x => ids.has(x.invoice_id)), today);
+  if (!l.sales) return full;
+  const sInv = l.sales.inv.filter(keep), set = new Set(sInv.map(i => i.id));
+  return { ...analyzeAccount(sInv, l.sales.lines.filter(x => set.has(x.invoice_id)), today), balance: full.balance };
 }
 
 /** The clinic a doctor belongs to (by id, or by exact clinic name when the doctor has no clinic id yet). */
@@ -69,33 +95,33 @@ export async function doctorClinic(doctorId: string) {
 }
 
 /** Account for one clinic, or null when no Daftra customer is linked to it. */
-export async function clinicAccount(clinicId: string, today: string) {
+/** Account for one clinic; for a rep (repId), sales and products count only that rep's assigned products. */
+export async function clinicAccount(clinicId: string, today: string, repId?: string | null) {
   // the clinic's Daftra customer(s): a branch mapping, a direct link, or the clinic created from Daftra
   const ids = (await query<{ client_id: string; name: string }>(`SELECT k.client_id, (SELECT max(client_name) FROM daftra_invoices i WHERE i.client_id=k.client_id) name FROM (
       SELECT b.client_id FROM daftra_client_branches b WHERE b.clinic_id=$1 UNION SELECT l.client_id FROM daftra_client_links l WHERE l.clinic_id=$1
       UNION SELECT c.daftra_client_id FROM clinics c WHERE c.id=$1 AND c.daftra_client_id IS NOT NULL) k`, [clinicId])).rows;
   if (!ids.length) return null;
-  const { inv, lines } = await load(ids.map(i => Number(i.client_id)));
+  const l = await load(ids.map(i => Number(i.client_id)), repId);
   // other branches sharing the same Daftra account (sales and balance are per customer, not per branch)
   const branches = (await query<{ name: string }>(`SELECT DISTINCT c.name FROM unnest($1::bigint[]) x(k) JOIN clinics c ON c.id IN ${clinicsOfClientSql("x.k")}
     WHERE c.id <> $2 AND EXISTS (SELECT 1 FROM doctors d WHERE d.clinic_id=c.id) ORDER BY c.name`, [ids.map(i => Number(i.client_id)), clinicId])).rows.map(r => r.name);
-  return { customers: ids.map(i => i.name || `#${i.client_id}`), branches, ...analyzeAccount(inv, lines, today) };
+  return { customers: ids.map(i => i.name || `#${i.client_id}`), branches, ...scopedAccount(l, today) };
 }
 
 export type Decline = { client_id: number; name: string; doctor_id: string | null; clinic_id: string | null; clinic_name: string | null; rep_id: string | null; rep_name: string | null; status: "stopped" | "declining";
   days_since: number | null; usual_gap: number | null; last90: number; prev90: number; change: number | null; monthly_avg: number; last: string | null; top: string[] };
 
 /** Linked customers that stopped ordering or are buying clearly less — for one rep, or everyone (repId null). */
-export async function decliningClients(repId: string | null, today: string): Promise<Decline[]> {
+export async function decliningClients(repId: string | null, today: string, opts: { ownProducts?: boolean } = {}): Promise<Decline[]> {
   const links = (await query<{ client_id: string; name: string | null; rep_id: string | null; rep_name: string | null; clinic_id: string | null; clinic_name: string | null; doctor_id: string | null }>(`SELECT l.client_id, (SELECT max(client_name) FROM daftra_invoices i WHERE i.client_id = l.client_id) name, l.rep_id, u.name rep_name, l.clinic_id, c.name clinic_name,
       (SELECT d.id FROM doctors d LEFT JOIN visits v ON v.doctor_id = d.id AND v.sales_rep_id = l.rep_id WHERE d.clinic_id IN ${clinicsOfClientSql("l.client_id")} GROUP BY d.id ORDER BY count(v.id) DESC, d.id LIMIT 1) doctor_id
     FROM daftra_client_links l LEFT JOIN users u ON u.id = l.rep_id LEFT JOIN clinics c ON c.id = l.clinic_id ${repId ? "WHERE l.rep_id = $1" : ""}`, repId ? [repId] : [])).rows;
   if (!links.length) return [];
-  const { inv, lines } = await load(links.map(l => Number(l.client_id)));
+  const data = await load(links.map(l => Number(l.client_id)), opts.ownProducts ? repId : null);
   const out: Decline[] = [];
   for (const l of links) {
-    const cid = Number(l.client_id), mine = inv.filter(i => i.client_id === cid);
-    const set = new Set(mine.map(i => i.id)), a = analyzeAccount(mine, lines.filter(x => set.has(x.invoice_id)), today);
+    const cid = Number(l.client_id), a = scopedAccount(data, today, i => i.client_id === cid);
     if (a.status !== "stopped" && a.status !== "declining") continue;
     out.push({ client_id: cid, name: l.name || `#${cid}`, doctor_id: l.doctor_id, clinic_id: l.clinic_id, clinic_name: l.clinic_name, rep_id: l.rep_id, rep_name: l.rep_name, status: a.status,
       days_since: a.orders.days_since, usual_gap: a.orders.usual_gap, last90: a.sales.last90, prev90: a.sales.prev90, change: a.sales.change, monthly_avg: a.sales.monthly_avg, last: a.orders.last, top: a.products.slice(0, 3).map(p => p.item) });

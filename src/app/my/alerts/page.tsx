@@ -10,7 +10,7 @@ export default async function MyAlertsPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (user.role === "admin") redirect("/admin/alerts");
-  const declines = await decliningClients(user.id, riyadhToday()).catch(() => []);
+  const declines = await decliningClients(user.id, riyadhToday(), { ownProducts: user.role === "sales_rep" }).catch(() => []);
   return (
     <AppShell role={user.role} email={user.email} name={user.name} jobTitle={user.job_title} productName={user.product_name} active="/">
       <h1 className="text-2xl font-extrabold text-[var(--navy)]">التنبيهات</h1>

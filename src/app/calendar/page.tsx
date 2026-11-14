@@ -13,7 +13,7 @@ export default async function CalendarPage() {
   const products = await query("SELECT id, name FROM products WHERE active=true ORDER BY sort_order, name");
   return (
     <AppShell role={user.role} email={user.email} name={user.name} jobTitle={user.job_title} productName={user.product_name} active="/plans">
-      <PlanningTabs active="calendar" />
+      <PlanningTabs active="calendar" isAdmin={user.role === "admin"} />
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <h1 className="text-2xl font-extrabold text-[var(--navy)]">الخطة · التقويم</h1>

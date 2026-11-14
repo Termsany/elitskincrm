@@ -31,7 +31,7 @@ export default async function DoctorProfilePage({ params }: { params: Promise<{ 
   ]);
   // Daftra account of the doctor's clinic (balance + buying pattern). Never blocks the page.
   const clinic = await doctorClinic(id).catch(() => null);
-  const account = clinic ? await clinicAccount(clinic.id, riyadhToday()).catch(() => null) : null;
+  const account = clinic ? await clinicAccount(clinic.id, riyadhToday(), user.role === 'admin' ? null : user.id).catch(() => null) : null;
   const timeline = buildDoctorTimeline({ visits: visits.rows, followups: followups.rows, tasks: tasks.rows, plans: plans.rows });
   const isAdmin = user.role === 'admin';
   return <AppShell role={user.role} email={user.email} name={user.name} jobTitle={user.job_title} productName={user.product_name} active="/doctors">
