@@ -37,12 +37,10 @@ export type ActionIn = {
   reps: number; withPlan: number | null; pendingTotal: number;
   insights: Array<{ tone: string; title: string; text: string; href: string }>; morning: Morning | null;
 };
-const k = (n: number) => Math.round(n).toLocaleString("en-US");
 
 /** The few things worth doing right now, most important first (max 3). Only real data — nothing is invented. */
 export function startActions(i: ActionIn): Action[] {
   const out: Action[] = [];
-  if (!i.manager && i.arOverdue > 0) out.push({ id: "ar", icon: "wallet", tone: "red", prio: i.ar60 > 0 ? 100 : 80, title: `حصّل ${k(i.arOverdue)} ر.س متأخرة`, sub: `${i.arInvoices} فاتورة عدّى ميعادها${i.ar60 > 0 ? ` · ${k(i.ar60)} أكتر من 60 يوم` : ""}`, cta: "افتح التحصيل", href: "/daftra-sales?tab=ar" });
   const red = i.insights.find(x => x.tone === "red");
   if (red) out.push({ id: "red", icon: "flag", tone: "red", prio: 95, title: red.title, sub: red.text, cta: "راجعها", href: red.href });
   if (i.withPlan !== null && i.reps > 0 && i.withPlan < i.reps) { const m = i.reps - i.withPlan; out.push({ id: "plans", icon: "plans", tone: "amber", prio: 90, title: `${m} ${m === 1 ? "مندوب" : "مناديب"} مفيش عندهم خطة الأسبوع الجاي`, sub: "تجهيز الخطط بيقترح الأطباء الأهم لكل مندوب وبيبعتها للاعتماد", cta: "جهّز الخطط", run: "autoplan" }); }

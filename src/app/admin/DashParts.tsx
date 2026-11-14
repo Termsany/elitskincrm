@@ -67,16 +67,14 @@ const TONE = {
   amber: { bg: "from-white to-white", ring: "border-[var(--border)]", bar: "#d39a3c", chip: "bg-amber-50 text-amber-800", btn: "bg-[var(--navy)]", icon: "plans" },
   blue: { bg: "from-white to-white", ring: "border-[var(--border)]", bar: "#5b9bd5", chip: "bg-sky-50 text-sky-700", btn: "bg-[var(--navy)]", icon: "check" },
 } as const;
-const SKEY = "elite_dash_snooze";
-function readSnooze(today: string): string[] { try { const j = JSON.parse(localStorage.getItem(SKEY) || "null"); return j?.date === today ? j.ids : []; } catch { return []; } }
 
 /** "ابدأ من هنا": the top actions (real data), each with one big colored button. */
 export function StartHere({ input, today, onDone }: { input: ActionIn; today: string; onDone: () => void }) {
   const toast = useToast(); const undo = useUndo();
   const [snoozed, setSnoozed] = useState<string[]>([]); const [busy, setBusy] = useState(""); const [burst, setBurst] = useState("");
-  useEffect(() => { setSnoozed(readSnooze(today)); }, [today]);
+  useEffect(() => { fetch("/api/me/dash-snooze", { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(j => j && setSnoozed(j.ids || [])).catch(() => {}); }, [today]);
   const all = startActions(input); const list = all.filter(a => !snoozed.includes(a.id));
-  const save = (ids: string[]) => { setSnoozed(ids); try { localStorage.setItem(SKEY, JSON.stringify({ date: today, ids })); } catch { /* ignore */ } };
+  const save = (ids: string[]) => { setSnoozed(ids); void fetch("/api/me/dash-snooze", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ ids }) }).catch(() => {}); };
   const snooze = (id: string) => { const prev = snoozed; save([...snoozed, id]); undo({ text: "اتأجلت للنهارده", undo: () => save(prev) }); };
   async function run(a: Action) {
     if (a.run !== "autoplan") return;
@@ -87,7 +85,7 @@ export function StartHere({ input, today, onDone }: { input: ActionIn; today: st
     toast(j.created.length ? `اتعمل ${j.created.length} مسودة وبعتناها للمناديب` : `مفيش مسودات جديدة: ${j.skipped.map((s: { rep: string; why: string }) => `${s.rep.split(" ")[0]}: ${s.why}`).join(" · ")}`, j.created.length ? "success" : "info");
     onDone();
   }
-  if (!list.length) return <div className="flex items-center gap-2 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800 ring-1 ring-emerald-200"><Icon name="sparkle" size={18} />{all.length ? "أجّلت كل المقترحات النهارده" : "مفيش حاجة مستنياك — كل حاجة ماشية"}{all.length > 0 && <button type="button" className="mr-auto text-xs underline" onClick={() => { setSnoozed([]); try { localStorage.removeItem(SKEY); } catch { /* ignore */ } }}>رجّعهم</button>}</div>;
+  if (!list.length) return <div className="flex items-center gap-2 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800 ring-1 ring-emerald-200"><Icon name="sparkle" size={18} />{all.length ? "أجّلت كل المقترحات النهارده" : "مفيش حاجة مستنياك — كل حاجة ماشية"}{all.length > 0 && <button type="button" className="mr-auto text-xs underline" onClick={() => save([])}>رجّعهم</button>}</div>;
   return <section aria-label="ابدأ من هنا">
     <div className="mb-2 flex items-end justify-between"><div><h2 className="text-lg font-extrabold text-[var(--navy)]">ابدأ من هنا</h2><p className="text-[11px] text-[var(--muted)]">أهم {list.length === 1 ? "حاجة" : `${list.length} حاجات`} تحرّك الشغل دلوقتي</p></div>{snoozed.length > 0 && <span className="rounded-full bg-[var(--bg)] px-2.5 py-1 text-[11px] font-bold text-[var(--muted)]">{snoozed.length} اتأجلوا</span>}</div>
     <div className={`grid gap-3 ${list.length >= 3 ? "lg:grid-cols-3" : list.length === 2 ? "sm:grid-cols-2" : ""}`}>{list.map((a, i) => { const t = TONE[a.tone]; const body = <>{a.cta}<span aria-hidden>‹</span></>; const cls = `dp-cta ${i === 0 ? "dp-first" : ""} flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl text-sm font-extrabold text-white ${t.btn}`;

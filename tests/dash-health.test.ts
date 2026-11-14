@@ -21,13 +21,14 @@ describe("healthScore", () => {
 
 describe("startActions", () => {
   const base = { manager: false, arOverdue: 375596, arInvoices: 24, ar60: 336784, reps: 3, withPlan: 1, pendingTotal: 0, insights: [], morning: null };
-  it("puts overdue money first, then missing plans; pending decisions stay in their own box", () => {
+  it("shows missing plans; overdue money and pending decisions have their own place on the page", () => {
     const a = startActions({ ...base, pendingTotal: 2, insights: [{ tone: "blue", title: "x", text: "y", href: "/z" }] });
-    expect(a.map(x => x.id)).toEqual(["ar", "plans"]);
-    expect(a[1].run).toBe("autoplan");
+    expect(a.map(x => x.id)).toEqual(["plans"]);
+    expect(a[0].run).toBe("autoplan");
   });
   it("never shows company money to a sales manager", () => {
     expect(startActions({ ...base, manager: true }).map(x => x.id)).toEqual(["plans"]);
+    expect(startActions({ ...base }).some(x => x.id === "ar")).toBe(false);
   });
   it("is empty when nothing needs attention", () => {
     expect(startActions({ ...base, arOverdue: 0, withPlan: 3 })).toEqual([]);

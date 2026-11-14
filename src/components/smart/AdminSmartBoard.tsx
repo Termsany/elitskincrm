@@ -1,7 +1,6 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Icon } from "@/components/Icon";
 import { useToast } from "@/components/Toast";
 import type { BrokenPromise, DiscountLine, Pace, ReorderDue } from "@/lib/smart";
 
@@ -13,18 +12,12 @@ const dm = (d: string) => `${Number(d.slice(8, 10))}/${Number(d.slice(5, 7))}`;
 /** Admin home "ذكاء المبيعات": pace per rep, clinics about to reorder, broken payment promises, discounts above the limit, and next week's auto plans. */
 export default function AdminSmartBoard() {
   const toast = useToast();
-  const [d, setD] = useState<D | null>(null); const [tab, setTab] = useState<Tab>("pace"); const [busy, setBusy] = useState(false);
+  const [d, setD] = useState<D | null>(null); const [tab, setTab] = useState<Tab>("pace");
   const [max, setMax] = useState(""); const [all, setAll] = useState(false);
   const load = () => fetch("/api/smart", { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(j => { if (j) { setD(j); setMax(String(j.discounts?.max ?? "")); } }).catch(() => null);
   useEffect(() => { void load(); }, []);
   if (!d) return <div className="es-shimmer h-48 rounded-[28px]" />;
   const behind = d.pace.filter(p => p.behind);
-  async function plans() {
-    setBusy(true); const r = await fetch("/api/plans/auto", { method: "POST" }); const j = await r.json().catch(() => null); setBusy(false);
-    if (!r.ok) { toast(j?.error || "تعذر", "error"); return; }
-    toast(j.created.length ? `اتعمل ${j.created.length} مسودة (${j.created.map((c: { rep: string; visits: number }) => `${c.rep.split(" ")[0]} ${c.visits}`).join("، ")}) — اتبعتت للمناديب` : `مفيش مسودات جديدة: ${j.skipped.map((s: { rep: string; why: string }) => `${s.rep.split(" ")[0]}: ${s.why}`).join(" · ")}`, j.created.length ? "success" : "info");
-    void load();
-  }
   async function saveMax() {
     const r = await fetch("/api/smart", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ max_discount_pct: Number(max) }) });
     const j = await r.json().catch(() => null); if (!r.ok) toast(j?.error || "تعذر الحفظ", "error"); else { toast("اتحفظ الحد ✓", "success"); void load(); }
@@ -37,8 +30,6 @@ export default function AdminSmartBoard() {
   return <section className="es-card-in overflow-hidden rounded-[28px] border border-[var(--border)] bg-white" aria-labelledby="smart-h">
     <div className="flex flex-wrap items-center justify-between gap-2 p-5 pb-3">
       <div className="flex items-center gap-2"><span className="text-xl">💡</span><h2 id="smart-h" className="text-lg font-extrabold text-[var(--navy)]">ذكاء المبيعات</h2></div>
-      <button type="button" disabled={busy} onClick={() => void plans()} className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--navy)] px-3 py-2 text-xs font-bold text-white shadow transition hover:-translate-y-0.5 disabled:opacity-60" title={`الأسبوع اللي يبدأ ${dm(d.nextWeek.start)}`}>
-        <Icon name="calendar" size={14} />{busy ? "بجهّز…" : `جهّز خطط الأسبوع الجاي${d.nextWeek.withPlan ? ` (${d.nextWeek.withPlan} عندهم خطة)` : ""}`}</button>
     </div>
     <div className="flex gap-1.5 overflow-x-auto px-5 pb-3">{tabs.map(([t, l, n, c]) => <button key={t} type="button" onClick={() => { setTab(t); setAll(false); }}
       className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition ${tab === t ? "bg-[var(--navy)] text-white shadow" : "bg-[var(--bg)] text-[var(--muted)] hover:text-[var(--navy)]"}`}>
