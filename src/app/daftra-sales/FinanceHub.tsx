@@ -13,7 +13,7 @@ import { CashTab } from "./cash";
 export type FinData = ReturnType<typeof computeFinance> & { prev?: import("@/lib/fin-ai").PrevKpi; ai?: boolean; audit?: { score: number; open: number; open_high: number } | null; sync: { started_at: string | null; finished_at: string | null; ok: boolean | null; message: string; running: boolean }; today: string };
 export type Tab = "overview" | "sales" | "purchases" | "ar" | "ap" | "pricing" | "pnl" | "advisor" | "plan" | "audit" | "goals" | "cash";
 const TABS: Array<[Tab, string, string]> = [["overview", "الملخص", "dashboard"], ["sales", "المبيعات", "sales"], ["purchases", "المشتريات", "products"], ["ar", "ليا (العملاء)", "time"], ["ap", "عليا (الموردين)", "send"], ["pricing", "المنتجات والتسعير", "coverage"], ["pnl", "الأرباح والمصروفات", "reports"], ["advisor", "المستشار المالي", "sparkle"], ["audit", "مراجعة الحسابات", "check"], ["goals", "الأهداف السنوية", "trophy"], ["cash", "السيولة", "wallet"], ["plan", "خطة الشهر", "plans"]];
-const NO_RANGE: Partial<Record<Tab, string>> = { plan: "خطة شهرية صنف بصنف — مبنية على أسعار الشراء من دفترة وبيعك آخر 6 شهور", goals: "أهداف السنة ومتابعتها شهر بشهر — الفعلي من دفترة", cash: "توقع السيولة للـ 13 أسبوع الجايين — من الفواتير المفتوحة والمصاريف" };
+const NO_RANGE: Partial<Record<Tab, boolean>> = { plan: true, goals: true, cash: true };
 const tz = "Asia/Riyadh";
 const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date());
 const back = (months: number) => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - months); return `${new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(d).slice(0, 7)}-01`; };
@@ -55,7 +55,7 @@ export default function FinanceHub({ subdomain }: { subdomain: string }) {
   return <div className="mt-5 space-y-4">
     <div className="sticky top-0 z-30 -mx-4 space-y-2 bg-[var(--bg)]/95 px-4 pb-2 pt-1 backdrop-blur sm:-mx-5 sm:px-5 lg:-mx-8 lg:px-8">
       <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--border)] bg-white p-2.5">
-        {NO_RANGE[tab] ? <span className="text-xs font-bold text-[var(--muted)]">{NO_RANGE[tab]}</span> : <>
+        {NO_RANGE[tab] ? null : <>
         <div className="flex flex-wrap gap-1 rounded-xl bg-[var(--bg)] p-1">{PRESETS.map(([l, f], i) => <button key={l} type="button" onClick={() => { setPreset(i); setRange(f()); }} className={`rounded-lg px-2.5 py-1.5 text-xs font-bold transition ${preset === i ? "bg-white text-[var(--navy)] shadow-sm" : "text-[var(--muted)] hover:text-[var(--navy)]"}`}>{l}</button>)}</div>
         <div className="flex items-center gap-1 text-xs"><input type="date" value={range[0]} max={range[1]} onChange={e => { setPreset(-1); setRange([e.target.value, range[1]]); }} className="rounded-lg border border-[var(--border)] px-2 py-1.5" /><span className="text-[var(--muted)]">←</span><input type="date" value={range[1]} min={range[0]} onChange={e => { setPreset(-1); setRange([range[0], e.target.value]); }} className="rounded-lg border border-[var(--border)] px-2 py-1.5" /></div>
         </>}
@@ -67,7 +67,7 @@ export default function FinanceHub({ subdomain }: { subdomain: string }) {
       </div>
       <div className="flex gap-1 overflow-x-auto rounded-2xl border border-[var(--border)] bg-white p-1.5">{TABS.map(([k, l, i]) => <button key={k} type="button" onClick={() => go(k)} className={`flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-[13px] font-bold transition ${tab === k ? "bg-[var(--navy)] text-white shadow" : "text-[var(--muted)] hover:bg-[var(--bg)] hover:text-[var(--navy)]"}`}><Icon name={i} size={16} />{l}{k === "advisor" && d && d.advice.some(a => a.level === "danger") && <span className="h-2 w-2 rounded-full bg-red-500" />}{k === "audit" && d?.audit?.open ? <span className={`rounded-full px-1.5 text-[10px] ${tab === k ? "bg-white/20" : d.audit.open_high ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-800"}`}>{d.audit.open}</span> : null}</button>)}</div>
     </div>
-    {d?.books_start && !NO_RANGE[tab] && tab !== "ar" && tab !== "ap" && <div className="flex items-start gap-2 rounded-xl bg-sky-50 p-3 text-[12px] leading-5 text-sky-900 ring-1 ring-sky-200"><Icon name="calendar" size={15} /><span>الأرباح والمصروفات والمستشار والمراجعة محسوبين من <b>{d.books_start}</b> (بداية الحسابات){d.period.from > range[0] ? <> — الفترة اللي اخترتها اتعدّلت لتبدأ من التاريخ ده</> : null}. اللي قبله داخل بس في المديونيات: ليا عند العملاء وعليا للموردين.{d.baseline?.provisional ? " أرقام المتوسط الشهري تقديرية لحد ما أول شهر يقفل." : ""}</span></div>}
+    {d?.books_start && !NO_RANGE[tab] && tab !== "ar" && tab !== "ap" && d.period.from > range[0] && <div className="rounded-xl bg-sky-50 px-3 py-2 text-[12px] font-bold text-sky-900 ring-1 ring-sky-200">الأرقام من {d.books_start} (بداية الحسابات)</div>}
     {d?.sync?.ok === false && <div className="rounded-xl bg-red-50 p-3 text-xs text-red-800 ring-1 ring-red-200">آخر تحديث من دفترة فشل: {d.sync.message}</div>}
     {!d ? <div className="grid gap-3 sm:grid-cols-4">{[0, 1, 2, 3, 4, 5, 6, 7].map(i => <div key={i} className="h-28 animate-pulse rounded-2xl bg-white" />)}</div>
       : <div className={`transition-opacity ${loading ? "opacity-50" : ""}`}>
@@ -84,6 +84,5 @@ export default function FinanceHub({ subdomain }: { subdomain: string }) {
         {tab === "goals" && <GoalsTab />}
         {tab === "cash" && <CashTab go={go} />}
       </div>}
-    <p className="flex items-center justify-center gap-1.5 pb-2 text-center text-[11px] text-[var(--muted)]"><Icon name="check" size={13} />القراءة فقط من دفترة — أي تعديل أو تصنيف هنا يتحفظ في الـ CRM بس وما يغيّرش أي حاجة في دفترة.</p>
   </div>;
 }

@@ -90,8 +90,7 @@ export function AuditTab({ range, subdomain, go }: { range: [string, string]; su
         <Ring v={d.score} />
         <div className="min-w-0 flex-1">
           <h3 className="font-extrabold text-[var(--navy)]">درجة سلامة الحسابات<Hint text="بشغّل 18 فحص زي ما المراجع الخارجي بيعمل: الضريبة، التكرار، الأرقام الناقصة، الخصومات، البيع بخسارة، المصروفات غير المصنفة، المديونيات… كل فحص سليم بيزوّد الدرجة، والفحوص المهمة وزنها أكبر." /></h3>
-          <p className="mt-1 text-[12.5px] leading-6 text-[var(--ink-soft)]">{d.open ? <>فيه <b>{d.open}</b> ملاحظة محتاجة مراجعة{d.open_high ? <> — منها <b className="text-red-700">{d.open_high} مهمة جداً</b></> : null}. افتح كل فحص، اقرأ ليه هو مهم، وصلّح في دفترة أو علّمها إنها سليمة.</> : "كل الفحوص سليمة في الفترة دي. ممتاز."}</p>
-          <p className="mt-1 text-[11px] text-[var(--muted)]">المراجعة بتتسجل في الـ CRM بس — مش بتغيّر حاجة في دفترة. الفترة: {range[0]} ← {range[1]}</p>
+          <p className="mt-1 text-[12.5px] leading-6 text-[var(--ink-soft)]">{d.open ? <>فيه <b>{d.open}</b> ملاحظة محتاجة مراجعة{d.open_high ? <> — منها <b className="text-red-700">{d.open_high} مهمة جداً</b></> : null}</> : "كل الفحوص سليمة في الفترة دي. ممتاز."}</p>
         </div>
         <div className="grid grid-cols-3 gap-2 text-center text-[11px]">{(["high", "medium", "low"] as const).map(s => { const n = d.checks.filter(c => c.severity === s).reduce((t, c) => t + c.findings.filter(f => !f.review).length, 0); return <div key={s} className="rounded-xl bg-[var(--bg)] px-3 py-2"><b className={`block text-lg ${n ? (s === "high" ? "text-red-700" : "text-[var(--navy)]") : "text-emerald-700"}`}>{n}</b>{SEV[s][0]}</div>; })}</div>
       </div>

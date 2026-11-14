@@ -108,7 +108,7 @@ export function GoalsTab() {
           { key: "ac", label: "تحصيل فعلي", value: r => r.actual.collected, render: r => (r.state === "future" || r.state === "excluded") ? "—" : sar(r.actual.collected) },
         ]} /></div>
       </Card>
-    </> : <Card><p className="text-center text-sm text-[var(--muted)]">احفظ الأهداف فوق، وهتابع معاك هنا المحقق مقابل المستهدف كل شهر، وتوقع آخر الشهر، والمطلوب يومياً.</p></Card>}
+    </> : null}
 
     {B && d.levers && sim && <Card title="أسرع طريق لزيادة الربح" hint="محاكاة على متوسط شهرك (آخر 12 شهر). حرّك أي مؤشر وشوف أثره على صافي الربح الشهري.">
       <div className="mb-4 grid grid-cols-2 gap-2 text-center text-[11.5px] lg:grid-cols-4">

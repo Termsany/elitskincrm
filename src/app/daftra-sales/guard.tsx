@@ -33,7 +33,7 @@ export function GuardAndStock({ d, subdomain }: { d: FinData; subdomain: string 
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ color: s.stock_status === "low" ? C.amber : C.red, background: `${s.stock_status === "low" ? C.amber : C.red}1f` }}><Icon name="products" size={18} /></span>
           <div className="min-w-0 flex-1"><div className="truncate text-sm font-bold" dir="auto">{s.name}</div><div className="text-[11px] text-[var(--muted)]">الرصيد {num(s.stock)} · بيتباع ~{num(s.monthly_pace, 1)} شهرياً{s.months_cover !== null && s.stock > 0 ? ` · يكفي ${s.months_cover} شهر` : ""}</div></div>
           <div className="shrink-0 text-left"><Pill text={STOCK[s.stock_status][0]} cls={STOCK[s.stock_status][1]} />{s.reorder_qty > 0 && <div className="mt-1 text-[11px] font-bold text-[var(--navy)]">اطلب {num(s.reorder_qty)}</div>}</div>
-        </div>)}{d.stock_alerts.some(s => s.stock_status === "negative") && <p className="pt-1 text-[11px] leading-5 text-[var(--muted)]">الرصيد بالسالب معناه إن فيه فواتير بيع اتعملت قبل ما فاتورة الشراء أو الجرد يتسجلوا في دفترة.</p>}</div>}
+        </div>)}</div>}
     </Card>
   </div>;
 }

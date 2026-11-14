@@ -27,31 +27,20 @@ function AdviceCard({ a, go }: { a: FinData["advice"][number]; go?: (t: Tab) => 
 /* ═══════════════ الملخص ═══════════════ */
 export function Overview({ d, go, pickMonth, x }: { d: FinData; go: (t: Tab) => void; pickMonth: (m: string) => void; x: X }) {
   const k = d.kpi;
-  const steps: Array<[string, number, string]> = [["صافي المبيعات", k.sales, C.green], ["− تكلفة البضاعة", -k.cogs, C.orange], ["= مجمل الربح", k.gross, C.teal], ["− المصروفات", -k.opex, C.red], ["+ إيرادات أخرى", k.other_income, C.blue], ["= صافي الربح", k.net, k.net >= 0 ? C.green : C.red]];
-  const maxStep = Math.max(1, ...steps.map(s => Math.abs(s[1])));
   return <div className="space-y-4">
+    <PnlStatement d={d} />
+    {k.cost_coverage < 99 && <div className="rounded-xl bg-amber-50 px-3 py-2 text-[12px] font-bold text-amber-900 ring-1 ring-amber-200">{pct(100 - k.cost_coverage)} من المبيعات منتجاتها ملهاش سعر شراء مسجل — تكلفتها مش محسوبة</div>}
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <Kpi label="صافي المبيعات" value={sar(k.sales)} sub={`${k.invoices} فاتورة · ${k.clients} عميل`} icon="sales" color={C.green} hint="كل اللي بعته في الفترة بعد خصم المرتجعات، ومن غير ضريبة القيمة المضافة (الضريبة مش فلوسك، دي للدولة)." onClick={() => go("sales")} />
-      <Kpi label="مجمل الربح" value={sar(k.gross)} sub={`هامش ${pct(k.gross_margin)} من المبيعات`} icon="trophy" color={C.teal} hint="المبيعات ناقص تكلفة شراء البضاعة اللي اتباعت بس. ده الربح قبل المرتبات والإيجار وباقي المصاريف." onClick={() => go("pricing")} />
-      <Kpi label="المصروفات التشغيلية" value={sar(k.opex)} sub="رواتب، تسويق، إيجار…" icon="wallet" color={C.orange} hint="مصاريف تشغيل الشركة من دفترة (حسابات 5xxx). التحويلات للخزينة وسحوبات الشريك مش مصروف ومستبعدة." onClick={() => go("pnl")} />
-      <Kpi label="صافي الربح" value={sar(k.net)} sub={`هامش ${pct(k.net_margin)}`} icon="coverage" color={k.net >= 0 ? C.green : C.red} tone={k.net >= 0 ? "good" : "bad"} hint="اللي فاضل في جيبك فعلاً: مجمل الربح ناقص المصروفات زائد أي إيرادات تانية." onClick={() => go("pnl")} />
       <Kpi label="ليا عند العملاء" value={sar(k.ar)} sub={<span className={k.ar_overdue ? "font-bold text-red-700" : ""}>منها متأخر {sar(k.ar_overdue)}</span>} icon="time" color={C.amber} hint="فلوس العملاء اللي لسه ما دفعوهاش (شاملة الضريبة) — حتى اليوم، مش مرتبطة بالفترة." onClick={() => go("ar")} />
       <Kpi label="عليا للموردين" value={sar(k.ap)} sub={`منها متأخر ${sar(k.ap_overdue)}`} icon="send" color={C.violet} hint="فواتير شراء لسه ما دفعتهاش للموردين — حتى اليوم." onClick={() => go("ap")} />
       <Kpi label="المشتريات" value={sar(k.purchases)} sub={`${k.purchase_invoices} فاتورة شراء`} icon="products" color={C.blue} hint="قيمة البضاعة اللي اشتريتها في الفترة قبل الضريبة. مش كلها تكلفة — اللي لسه في المخزن أصل مش مصروف." onClick={() => go("purchases")} />
       <Kpi label="الضريبة المستحقة (تقديري)" value={sar(k.vat_payable)} sub={`مخرجات ${short(k.vat_out)} − مدخلات ${short(k.vat_in)}`} icon="file" color={C.slate} hint="ضريبة المبيعات اللي حصّلتها ناقص ضريبة المشتريات والمصاريف اللي دفعتها. الرقم ده تقريبي ومراجعته مع المحاسب قبل الإقرار." />
     </div>
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-      <Card title="الربح خطوة بخطوة" hint="إزاي المبيعات بتتحول لصافي ربح." className="lg:col-span-2">
-        <div className="space-y-2.5">{steps.map(([l, v, c]) => <div key={l}><div className="mb-1 flex justify-between text-xs"><span className="font-bold">{l}</span><b style={{ color: c }}>{sar(v)}</b></div><div className="h-2.5 overflow-hidden rounded-full bg-[var(--bg)]"><div className="h-full rounded-full transition-[width] duration-700" style={{ width: `${Math.abs(v) / maxStep * 100}%`, background: c }} /></div></div>)}</div>
-        {k.cost_coverage < 99 && <p className="mt-3 rounded-xl bg-amber-50 p-2 text-[11px] text-amber-900">تنبيه: {pct(100 - k.cost_coverage)} من المبيعات منتجاتها ملهاش سعر شراء مسجل — تكلفتها مش محسوبة.</p>}
-      </Card>
-      <Card title="شهر بشهر" className="lg:col-span-3" right={<ExcelBtn href={x("summary")} />}>
+      <Card title="شهر بشهر" className="lg:col-span-5" right={<ExcelBtn href={x("summary")} />}>
         <MonthChart data={d.monthly} series={[{ key: "sales", label: "مبيعات", color: C.mint }, { key: "gross", label: "مجمل ربح", color: C.teal }, { key: "net", label: "صافي ربح", color: C.green }]} onPick={pickMonth} />
       </Card>
     </div>
-    <Card title="نصايح المستشار المالي" right={<button type="button" onClick={() => go("advisor")} className="text-xs font-bold text-[var(--sky-deep)]">كل النصايح والتخطيط ‹</button>}>
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">{d.advice.slice(0, 3).map((a, i) => <AdviceCard key={i} a={a} go={go} />)}</div>
-    </Card>
   </div>;
 }
 
@@ -102,7 +91,6 @@ export function Purchases({ d, pickMonth, x, subdomain }: { d: FinData; pickMont
     </div>
     <Card title="المشتريات شهر بشهر" right={<ExcelBtn href={x("purchases")} label="تقرير المشتريات Excel" />}>
       <MonthChart data={d.monthly} series={[{ key: "purchases", label: "مشتريات", color: C.blue }, { key: "cogs", label: "تكلفة اللي اتباع", color: C.orange }]} onPick={pickMonth} />
-      <p className="mt-2 text-[11px] text-[var(--muted)]">الفرق بين المشتريات وتكلفة اللي اتباع = بضاعة دخلت المخزن ولسه ما اتباعتش.</p>
     </Card>
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
       <Card title="حسب المورد"><Bars rows={d.purchasesBySupplier.map(s => ({ label: s.name, value: s.net, sub: `${s.n} فاتورة${s.unpaid ? ` · عليك ${sar(s.unpaid)}` : ""}` }))} color={C.violet} /></Card>
@@ -159,11 +147,6 @@ export function Book({ d, kind, x, subdomain }: { d: FinData; kind: "ar" | "ap";
         <a href={daftraUrl(subdomain, isAr ? "sale" : "purchase", o.id)} target="_blank" rel="noreferrer" className="font-bold text-[var(--gold)]" dir="ltr">{o.no}</a><span>فاتورة {o.date}</span><span>استحقاق {o.due}</span>
         <span className={o.days > 0 ? "font-bold text-red-700" : "text-emerald-700"}>{o.days > 0 ? `متأخرة ${o.days} يوم` : `باقي ${-o.days} يوم`}</span><b>{sar(o.unpaid)}</b></div>)}</div>} />
     </Card>
-    {isAr && <Card title="إزاي تحصّل أسرع"><ul className="list-disc space-y-1.5 pr-5 text-[13px] leading-6 text-[var(--ink-soft)]">
-      <li>ابدأ بالفواتير الأقدم من 90 يوم — اتصل بالمسؤول المالي في العميل واتفق على جدول سداد مكتوب.</li>
-      <li>وقّف البيع الآجل لأي عميل عليه فواتير متأخرة أكتر من 60 يوم لحد ما يسدد.</li>
-      <li>خلّي المندوب المسؤول عن العميل يتابع التحصيل — وربط عمولته بالمحصّل مش بالمبيعات بس.</li>
-      <li>لعملاء جدد: خصم صغير (2%) على الدفع خلال 15 يوم أرخص من فلوس متعطلة 4 شهور.</li></ul></Card>}
   </div>;
 }
 
@@ -234,9 +217,7 @@ export function Pnl({ d, pickMonth, x, reload }: { d: FinData; pickMonth: (m: st
   const tot = d.monthly.reduce<Tot>((s, m) => ({ sales: s.sales + Number(m.sales), cogs: s.cogs + Number(m.cogs), gross: s.gross + Number(m.gross), opex: s.opex + Number(m.opex), other: s.other + Number(m.other), net: s.net + Number(m.net) }), { sales: 0, cogs: 0, gross: 0, opex: 0, other: 0, net: 0 });
   const avgOpex = d.baseline?.opex || 0;
   return <div className="space-y-4">
-    <PnlStatement d={d} />
-    {d.kpi.marketing > 0 && <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-      <Kpi label="صافي الربح (الحقيقي)" value={sar(d.kpi.net)} sub={d.kpi.net_margin === null ? "" : `${pct(d.kpi.net_margin)} من المبيعات — بعد كل المصروفات`} icon="wallet" tone={d.kpi.net < 0 ? "bad" : "good"} hint="المبيعات − تكلفة البضاعة − كل المصروفات التشغيلية بما فيها التسويق والفعاليات." />
+    {d.kpi.marketing > 0 && <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <Kpi label="منها تسويق وفعاليات" value={sar(d.kpi.marketing)} sub={d.kpi.sales ? `${pct(d.kpi.marketing / d.kpi.sales * 100)} من المبيعات` : ""} icon="events" color={C.violet} hint="مصروفات حسابات التسويق والدعاية والفعاليات في دفترة. بتتحسب مصروف تشغيلي — ده المعيار المحاسبي الصحيح." />
       <Kpi label="الربح قبل التسويق" value={sar(d.kpi.net_before_marketing)} sub="عشان تعرف التسويق بياخد قد إيه من ربحك" icon="coverage" color={C.teal} tone={d.kpi.net_before_marketing < 0 ? "bad" : undefined} />
     </div>}
@@ -314,11 +295,6 @@ export function Advisor({ d, go, x, reload, range }: { d: FinData; go: (t: Tab) 
   async function saveTarget() { const r = await fetch("/api/admin/finance/settings", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ target_gross_margin: d.settings.target_gross_margin, target_net_margin: nm }) }); const j = await r.json().catch(() => null); if (r.ok) { toast("اتحفظ هدف صافي الربح", "success"); reload(); } else toast(j?.error || "تعذر الحفظ", "error"); }
   return <div className="space-y-4">
     <AiAdvisor d={d} range={range} />
-    <button type="button" onClick={() => go("plan")} className="flex w-full flex-wrap items-center gap-3 rounded-2xl bg-gradient-to-l from-[var(--navy)] to-[#1b6f75] p-4 text-right text-white shadow-lg transition hover:-translate-y-0.5">
-      <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15"><Icon name="plans" size={22} /></span>
-      <span className="min-w-0 flex-1"><b className="block text-[15px]">خطّط الشهر الجاي صنف بصنف</b><span className="text-xs text-white/80">اكتب الرواتب والمصاريف وسعر بيع كل صنف — وأنا أقولك تبيع كام حبة من كل صنف، وكام هتكسب، وتقارن بالفعلي.</span></span>
-      <span className="rounded-xl bg-white px-3 py-2 text-xs font-extrabold text-[var(--navy)]">افتح خطة الشهر ‹</span>
-    </button>
     <Card title="هدف المبيعات والمصاريف المسموحة" hint="الأرقام مبنية على متوسطك الشهري من بداية الحسابات (أول نوفمبر 2026). لحد ما أول شهر يقفل، المتوسط تقديري من الأيام اللي فاتت. حرّك المؤشرات وشوف النتيجة فوراً." right={<ExcelBtn href={x("advisor")} label="تقرير التخطيط Excel" />}>
       {!B ? <div className="text-sm text-[var(--muted)]">محتاج أسبوع على الأقل من بداية الحسابات عشان أحسب متوسطك الشهري.</div> : <>
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

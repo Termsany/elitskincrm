@@ -38,7 +38,7 @@ export function PriceCalc({ d, needed, opexRatio }: { d: FinData; needed: number
       <div className="rounded-2xl bg-amber-50 p-3 ring-1 ring-amber-100"><span className="text-[11px] text-amber-900">أقل سعر يحقق هدفك</span><b className="block text-lg text-amber-800">{sar(tgt, 2)}</b><span className="text-[10.5px] text-amber-900/80">هامش {Math.round(needed * 100)}% بعد الخصم{cover !== null && opexRatio + c < 0.9 ? ` · يغطي المصاريف من ${sar(cover)}` : ""}</span></div>
       <div className="rounded-2xl bg-emerald-50 p-3 ring-1 ring-emerald-200"><span className="text-[11px] text-emerald-900">سعر القائمة المقترح</span><b className="block text-xl text-emerald-700">{sar(rec)}</b><span className="text-[10.5px] text-emerald-900/80">شامل الضريبة {sar(rec === null ? null : rec * 1.15, 2)}</span></div>
       <div className="rounded-2xl bg-[var(--sky-light)] p-3"><span className="text-[11px] text-[var(--muted)]">ربحك في الحبة بعد نصيبها من المصاريف</span><b className="block text-lg text-[var(--navy)]">{sar(rec === null ? null : unit(rec), 2)}</b><span className="text-[10.5px] text-[var(--muted)]">بعد خصم {disc}%: {sar(rec === null ? null : unit(rec * (1 - disc / 100)), 2)}</span></div>
-    </div> : <p className="mt-4 text-center text-xs text-[var(--muted)]">اكتب التكلفة أو اختار منتج عشان أحسب.</p>}
+    </div> : null}
     {cost > 0 && <div className="mt-3 flex flex-wrap items-end gap-3 rounded-2xl bg-[var(--bg)] p-3 text-[12px] leading-6">
       <div className="w-40"><F label="سعر القائمة الحالي" value={list} set={setList} suffix="ر.س" /></div>
       {list > 0 && <div className="min-w-0 flex-1">بسعر {sar(list)}: الهامش {pct(list > 0 ? (1 - landed / list) * 100 : null)}.

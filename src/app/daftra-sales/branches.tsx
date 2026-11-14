@@ -28,7 +28,7 @@ export function BranchLinks() {
   return <section id="branches" className="scroll-mt-24 rounded-2xl border border-[var(--border)] bg-white">
     <div className="flex flex-wrap items-start justify-between gap-2 p-4">
       <div className="min-w-0"><h3 className="font-extrabold text-[var(--navy)]">فروع العملاء</h3>
-        <p className="text-[12px] leading-6 text-[var(--muted)]">العميل في دفترة اسم واحد، لكن في البرنامج ممكن يكون كذا فرع في أماكن مختلفة وبأطباء مختلفين (زي «الحسن والجمال» = HOSN yarmouk و HOSN Dahran…). اربط الفروع بالعميل عشان حسابه ومشترياته يظهروا عند أطباء كل الفروع، والتقارير تقارن زيارات كل الفروع بمبيعات العميل. الاقتراحات الخضرا اسمها مطابق، والصفرا «؟» تشابه في النطق بس — اتأكد منها.</p></div>
+</div>
       {sugg > 0 && <button type="button" disabled={busy} onClick={() => void accept()} className="shrink-0 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white disabled:opacity-60">✓ اقبل كل الاقتراحات ({sugg})</button>}
     </div>
     <div className="flex flex-wrap items-center gap-2 border-y border-[var(--border)] bg-[var(--bg)] px-4 py-2 text-[11.5px]">
