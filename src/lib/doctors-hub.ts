@@ -40,7 +40,7 @@ export async function hubDoctors(u: { id: string; role: string }, days: number, 
     pres AS (SELECT v.doctor_id, count(*)::int presented, count(*) FILTER (WHERE pp.reaction='interested')::int interested, count(*) FILTER (WHERE pp.reaction='not_interested')::int not_interested
       FROM v JOIN visit_presented_products pp ON pp.visit_id=v.id WHERE v.visited_at > now() - make_interval(days => $1::int) GROUP BY v.doctor_id),
     fu AS (SELECT DISTINCT ON (doctor_id) doctor_id, due::text next_follow_up, NULLIF(btrim(note),'') follow_up_note FROM (
-        SELECT v.doctor_id, v.follow_up_at due, v.follow_up_note note FROM v WHERE v.follow_up_at >= (now() AT TIME ZONE 'Asia/Riyadh')::date - 30
+        SELECT v.doctor_id, v.follow_up_at due, v.follow_up_note note FROM v WHERE v.follow_up_done_at IS NULL AND v.follow_up_at >= (now() AT TIME ZONE 'Asia/Riyadh')::date - 30
           AND NOT EXISTS (SELECT 1 FROM visits v2 WHERE v2.doctor_id=v.doctor_id AND v2.sales_rep_id=v.sales_rep_id AND v2.visited_at>v.visited_at AND v2.status='completed')
         UNION ALL SELECT f.doctor_id, f.due_at, COALESCE(NULLIF(btrim(f.note),''), f.title) FROM doctor_followups f WHERE f.completed_at IS NULL AND COALESCE(f.status,'') NOT IN ('done','completed','closed','cancelled') ${scope ? `AND f.sales_rep_id=$${vals.length}` : ""}
       ) x ORDER BY doctor_id, due),

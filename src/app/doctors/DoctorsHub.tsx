@@ -153,7 +153,7 @@ export default function DoctorsHub({ isAdmin, canLink = false, reps, initialQ = 
     const j = await r.json().catch(() => null);
     if (!r.ok) { toast(j?.error || "تعذر الحفظ", "error"); setReload(n => n + 1); return; }
     alertsChanged();
-    toast(paused ? `⏸ ${ids.length === 1 ? "الطبيب" : `${ids.length} أطباء`} Inactive لشهر ${monthName} — مش هيتحسبوا في التغطية` : `▶ ${ids.length === 1 ? "الطبيب رجع" : `${ids.length} أطباء رجعوا`} Active`, "success");
+    toast(paused ? `⏸ ${ids.length === 1 ? "الطبيب" : `${ids.length} أطباء`} اتوقفوا لشهر ${monthName}` : `▶ ${ids.length === 1 ? "الطبيب رجع" : `${ids.length} أطباء رجعوا`} للمتابعة`, "success");
     setChecked([]);
   }
   async function saveForm() {
@@ -171,7 +171,7 @@ export default function DoctorsHub({ isAdmin, canLink = false, reps, initialQ = 
   const exportUrl = (ids?: string[]) => { const qs = new URLSearchParams({ days: String(days) }); if (isAdmin && repId) qs.set("repId", repId); if (ids?.length) qs.set("ids", ids.join(",")); return `/api/doctors/hub/export?${qs}`; };
   const effView = mode === "desktop" ? view : "cards";
 
-  const SEGS: Array<[Seg, string, string]> = [["all", "الكل", ""], ["overdue", "متأخرين", "text-red-700"], ["never", "ما اتزاروش", ""], ["followup", "متابعات", "text-amber-700"], ["interested", "مهتمين", "text-emerald-700"], ["planned", "في الخطة", ""], ["favorites", "★ المفضلة", ""], ...(canPause ? [["paused", "⏸ Inactive الشهر ده", "text-slate-600"] as [Seg, string, string]] : [])];
+  const SEGS: Array<[Seg, string, string]> = [["all", "الكل", ""], ["overdue", "متأخرين", "text-red-700"], ["never", "ما اتزاروش", ""], ["followup", "متابعات", "text-amber-700"], ["interested", "مهتمين", "text-emerald-700"], ["planned", "في الخطة", ""], ["favorites", "★ المفضلة", ""], ...(canPause ? [["paused", "⏸ وقّف الشهر ده", "text-slate-600"] as [Seg, string, string]] : [])];
   const TABS: Array<[Tab, string]> = [["doctors", "الأطباء"], ["clinics", "العيادات"], ["insights", "الأداء والتحليل"], ["requests", isAdmin ? `طلبات التعديل${pending ? ` (${pending})` : ""}` : `طلباتي${pending ? ` (${pending})` : ""}`], ...(canLink ? [["merge", "دمج المكرر"] as [Tab, string], ["import", "رفع إكسيل"] as [Tab, string]] : [])];
 
   return (
@@ -214,7 +214,7 @@ export default function DoctorsHub({ isAdmin, canLink = false, reps, initialQ = 
       {!rows && tab !== "requests" && tab !== "merge" && tab !== "import" && <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">{[0, 1, 2, 3, 4, 5].map(i => <div key={i} className="h-32 rounded-3xl bg-white animate-pulse" />)}</div>}
 
       {rows && tab === "doctors" && <>
-        {canPause && mode !== "phone" && Number(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh", day: "numeric" }).format(new Date())) <= 7 && !counts.paused && <div className="dz-in flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--sky-border)] bg-[var(--sky-light)] px-4 py-3 text-sm"><span className="text-lg">🗓️</span><span className="flex-1"><b className="text-[var(--navy)]">بداية شهر {monthName}:</b> حدد الأطباء اللي مش هتزورهم الشهر ده واعملهم <b>Inactive</b> — كده التغطية تتحسب على الأطباء الحقيقيين بس.</span><span className="text-[11px] text-[var(--muted)]">علّم عليهم من الجدول ← «Inactive الشهر ده»</span></div>}
+        {canPause && mode !== "phone" && Number(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh", day: "numeric" }).format(new Date())) <= 7 && !counts.paused && <div className="dz-in flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--sky-border)] bg-[var(--sky-light)] px-4 py-3 text-sm"><span className="text-lg">🗓️</span><span className="flex-1"><b className="text-[var(--navy)]">بداية شهر {monthName}:</b> حدد الأطباء اللي مش هتزورهم الشهر ده ووقّفهم.</span><span className="text-[11px] text-[var(--muted)]">علّم عليهم ← «وقّف الشهر ده»</span></div>}
         {checked.length > 0 && <BulkBar n={checked.length} onPlan={d => void addToPlan(checked, d)} exportHref={exportUrl(checked)} onClear={() => setChecked([])} needRep={isAdmin && !repId} onPause={canPause ? (p => void setPaused(checked, p)) : undefined} />}
         <SmartTiles counts={tileCounts} active={tag} onPick={t => { setTag(t); if (t) setSeg("all"); }} loading={!bal} />
         {effView === "table" ? <Table list={list} checked={checked} setChecked={setChecked} fav={fav} toggleFav={toggleFav} onOpen={setSel} sort={sort} setSort={setSort} />
@@ -251,7 +251,7 @@ export default function DoctorsHub({ isAdmin, canLink = false, reps, initialQ = 
 }
 
 // ───────────── pieces ─────────────
-const PausedPill = () => <span className="inline-flex items-center gap-1 rounded-full bg-slate-800 px-2 py-0.5 text-[11px] font-bold text-white" title="خارج حساب التغطية الشهر ده">⏸ Inactive الشهر ده</span>;
+const PausedPill = () => <span className="inline-flex items-center gap-1 rounded-full bg-slate-800 px-2 py-0.5 text-[11px] font-bold text-white" title="خارج حساب التغطية الشهر ده">⏸ وقّف الشهر ده</span>;
 function HealthPill({ d }: { d: HubDoctor }) {
   const h = health(d); const m = H[h];
   return <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${m.pill}`}><span className={`h-1.5 w-1.5 rounded-full ${m.dot}`} />{m.label}{d.days_since !== null ? ` · ${d.days_since} يوم` : ""}</span>;
@@ -300,8 +300,8 @@ function BulkBar({ n, onPlan, exportHref, onClear, needRep, onPause }: { n: numb
         <span className="text-xs text-white/80">إضافة للخطة يوم</span>
         <input type="date" value={d} min={today()} onChange={e => setD(e.target.value)} className="rounded-lg text-[var(--ink)] px-2 py-1.5 text-sm" />
         <button onClick={() => onPlan(d)} disabled={needRep} title={needRep ? "اختار المندوب من فوق" : ""} className="rounded-lg bg-white text-[var(--navy)] px-3 py-1.5 text-sm font-bold disabled:opacity-40">إضافة</button>
-        {onPause && <button onClick={() => onPause(true)} className="rounded-lg bg-white/15 px-3 py-1.5 text-sm font-bold hover:bg-white/25" title="مش هتزورهم الشهر ده — يتشالوا من حساب التغطية">⏸ Inactive الشهر ده</button>}
-        {onPause && <button onClick={() => onPause(false)} className="rounded-lg bg-white/15 px-3 py-1.5 text-sm font-bold hover:bg-white/25">▶ Active</button>}
+        {onPause && <button onClick={() => onPause(true)} className="rounded-lg bg-white/15 px-3 py-1.5 text-sm font-bold hover:bg-white/25" title="مش هتزورهم الشهر ده — يتشالوا من حساب التغطية">⏸ وقّف الشهر ده</button>}
+        {onPause && <button onClick={() => onPause(false)} className="rounded-lg bg-white/15 px-3 py-1.5 text-sm font-bold hover:bg-white/25">▶ رجّعهم</button>}
         <a href={exportHref} className="rounded-lg border border-white/40 px-3 py-1.5 text-sm font-bold">Excel</a>
         <button onClick={onClear} className="rounded-lg px-2 text-white/80">✕</button>
       </div>
@@ -337,7 +337,7 @@ function QuickView({ d, isAdmin, onClose, onPlan, onEdit, fav, toggleFav, sheet,
           {!isAdmin && <Link href={`/visits/new?doctorId=${d.id}`} className="col-span-2 rounded-xl bg-[var(--navy)] text-white py-3 text-center">▶ ابدأ زيارة دلوقتي</Link>}
           {phone && <a href={`tel:${phone}`} className="rounded-xl border border-[var(--border)] py-2.5 text-center">📞 اتصال</a>}
           <Link href={`/doctors/${d.id}`} className="rounded-xl border border-[var(--border)] py-2.5 text-center">الملف الكامل</Link>
-          {onPause && <button onClick={() => onPause(!d.paused)} className={`col-span-2 flex items-center justify-center gap-2 rounded-xl py-2.5 transition ${d.paused ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-100" : "bg-slate-100 text-slate-700 ring-1 ring-slate-200 hover:bg-slate-200"}`}>{d.paused ? `▶ رجّعه Active لشهر ${monthName}` : `⏸ Inactive لشهر ${monthName} — مش هزوره`}<span className="text-[10.5px] font-normal opacity-70">{d.paused ? "هيرجع في حساب التغطية" : "مش هيتحسب في التغطية"}</span></button>}
+          {onPause && <button onClick={() => onPause(!d.paused)} className={`col-span-2 flex items-center justify-center gap-2 rounded-xl py-2.5 transition ${d.paused ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-100" : "bg-slate-100 text-slate-700 ring-1 ring-slate-200 hover:bg-slate-200"}`}>{d.paused ? `▶ رجّعه لشهر ${monthName}` : `⏸ وقّفه لشهر ${monthName}`}<span className="text-[10.5px] font-normal opacity-70">{d.paused ? "هيرجع في حساب التغطية" : "مش هيتحسب في التغطية"}</span></button>}
           <button onClick={onEdit} className="rounded-xl border border-[var(--border)] py-2.5">{isAdmin ? "تعديل البيانات" : "طلب تعديل"}</button>
           {isAdmin && <Link href={`/admin/reports?type=visits&from=${addDays(today(), -89)}`} className="rounded-xl border border-[var(--border)] py-2.5 text-center">التقارير</Link>}
         </div>

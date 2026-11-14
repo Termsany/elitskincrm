@@ -31,9 +31,17 @@ export async function GET(req: Request) {
   if (from) { conds.push(`v.visited_at >= $${idx}`); vals.push(new Date(from)); idx++; }
   if (to) { conds.push(`v.visited_at <= $${idx}`); vals.push(new Date(to)); idx++; }
   if (q) { conds.push(`(d.name ILIKE $${idx} OR d.clinic_name ILIKE $${idx} OR v.notes ILIKE $${idx})`); vals.push(`%${q}%`); idx++; }
+  // quick flags for the rep's list
+  const flag = searchParams.get("flag");
+  if (flag === "followup") conds.push(`v.follow_up_at IS NOT NULL AND v.follow_up_done_at IS NULL AND NOT EXISTS (SELECT 1 FROM visits v2 WHERE v2.doctor_id=v.doctor_id AND v2.sales_rep_id=v.sales_rep_id AND v2.visited_at>v.visited_at AND v2.status::text IN ('completed','follow_up'))`);
+  if (flag === "order") conds.push(`EXISTS (SELECT 1 FROM visit_items x WHERE x.visit_id=v.id AND x.kind='order')`);
+  if (flag === "sample") conds.push(`EXISTS (SELECT 1 FROM visit_items x WHERE x.visit_id=v.id AND x.kind='sample')`);
+  if (flag === "noresult") conds.push(`v.status::text IN ('completed','follow_up') AND v.follow_up_at IS NULL AND length(btrim(COALESCE(v.notes,''))) < 20 AND NOT EXISTS (SELECT 1 FROM visit_items x WHERE x.visit_id=v.id) AND NOT EXISTS (SELECT 1 FROM visit_presented_products x WHERE x.visit_id=v.id)`);
   const where = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
   const rows = await query(
-    `SELECT v.id, v.visited_at, v.notes, v.status, v.sales_rep_id, u.name rep_name, d.name doctor_name, d.clinic_name, d.city,
+    `SELECT v.id, v.visited_at, (v.visited_at AT TIME ZONE 'Asia/Riyadh')::date::text AS day, v.notes, v.status, v.sales_rep_id, u.name rep_name, v.doctor_id, d.name doctor_name, d.clinic_name, d.city, NULLIF(upper(d.classification),'') cls,
+            v.follow_up_at::text follow_up_at, COALESCE(v.follow_up_note,'') follow_up_note,
+            (v.follow_up_at IS NOT NULL AND v.follow_up_done_at IS NULL AND NOT EXISTS (SELECT 1 FROM visits v2 WHERE v2.doctor_id=v.doctor_id AND v2.sales_rep_id=v.sales_rep_id AND v2.visited_at>v.visited_at AND v2.status::text IN ('completed','follow_up'))) follow_up_open,
             COALESCE(json_agg(json_build_object('id', vi.id, 'product_id', vi.product_id, 'product_name', p.name, 'kind', vi.kind, 'quantity', vi.quantity, 'approval_status', vi.approval_status, 'approval_note', vi.approval_note, 'sample_purpose', vi.sample_purpose) ORDER BY vi.kind) FILTER (WHERE vi.id IS NOT NULL), '[]'::json) items,
             COALESCE((SELECT json_agg(json_build_object('product_id',pp.product_id,'product_name',pr.name,'reaction',pp.reaction) ORDER BY pr.name) FROM visit_presented_products pp JOIN products pr ON pr.id=pp.product_id WHERE pp.visit_id=v.id),'[]'::json) presented,
             COALESCE((SELECT json_agg(json_build_object('id',va.id,'file_name',va.file_name,'mime_type',va.mime_type,'size_bytes',va.size_bytes) ORDER BY va.created_at DESC) FROM visit_attachments va WHERE va.visit_id=v.id),'[]'::json) attachments
@@ -43,7 +51,7 @@ export async function GET(req: Request) {
      LEFT JOIN visit_items vi ON vi.visit_id=v.id
      LEFT JOIN products p ON p.id=vi.product_id
      ${where}
-     GROUP BY v.id, u.name, d.name, d.clinic_name, d.city
+     GROUP BY v.id, u.name, d.name, d.clinic_name, d.city, d.classification
      ORDER BY v.visited_at DESC
      LIMIT $${idx} OFFSET $${idx+1}`,
     [...vals, limit, offset]

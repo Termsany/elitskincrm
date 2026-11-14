@@ -47,7 +47,7 @@ export async function agenda(u: Who, from: string, to: string, repId: string | n
   const followups = await query(`SELECT * FROM (
       SELECT 'visit:'||v.id id, v.follow_up_at::text date, COALESCE(v.follow_up_note,'') note, v.sales_rep_id rep_id, u.name rep_name, d.id doctor_id, d.name doctor_name, d.clinic_name,
         EXISTS(SELECT 1 FROM visits v2 WHERE v2.doctor_id=v.doctor_id AND v2.sales_rep_id=v.sales_rep_id AND v2.visited_at>v.visited_at AND v2.status='completed') done
-      FROM visits v JOIN doctors d ON d.id=v.doctor_id JOIN users u ON u.id=v.sales_rep_id WHERE v.follow_up_at IS NOT NULL
+      FROM visits v JOIN doctors d ON d.id=v.doctor_id JOIN users u ON u.id=v.sales_rep_id WHERE v.follow_up_at IS NOT NULL AND v.follow_up_done_at IS NULL
       UNION ALL
       SELECT 'doctor:'||f.id, f.due_at::text, concat_ws(' — ', NULLIF(f.title,''), NULLIF(f.note,'')), f.sales_rep_id, u.name, d.id, d.name, d.clinic_name,
         (f.completed_at IS NOT NULL OR f.status IN ('done','completed','closed'))

@@ -29,7 +29,7 @@ export const TILES: TileDef[] = [
 export function SmartTiles({ counts, active, onPick, loading }: { counts: Record<string, number>; active: Tag | ""; onPick: (t: Tag | "") => void; loading: boolean }) {
   return (
     <section aria-label="النهارده" className="-mx-1">
-      <div className="mb-2 flex items-baseline gap-2 px-1"><h2 className="text-base font-extrabold text-[var(--navy)]">النهارده</h2><span className="text-[11px] text-[var(--muted)]">دوس على أي كارت يفلتر القايمة</span>
+      <div className="mb-2 flex items-baseline gap-2 px-1"><h2 className="text-base font-extrabold text-[var(--navy)]">النهارده</h2>
         {active && <button type="button" onClick={() => onPick("")} className="mr-auto text-xs font-bold text-[var(--navy)] underline-offset-2 hover:underline">مسح الفلتر ✕</button>}</div>
       <div className="flex snap-x gap-2 overflow-x-auto px-1 pb-1">
         {TILES.map((t, i) => { const on = active === t.tag; const n = counts[t.tag] ?? 0; return (
@@ -66,6 +66,7 @@ export function SmartCard({ d, p, b, months, today, fav, toggleFav, onOpen, sele
           <div className="mt-0.5 truncate text-xs text-[var(--muted)]" dir="auto">{[d.specialty, d.clinic_name, d.city].filter(Boolean).join(" · ")}</div>
           {d.email && <div className="mt-0.5 truncate text-[11px] text-teal-700" dir="ltr">{d.email}</div>}
           <div className={`mt-2 text-[13px] font-bold leading-6 ${TONE[p.tone]}`}>{p.icon} {p.reason}</div>
+          {d.last_note && <div className="mt-1 line-clamp-1 text-[12px] text-[var(--ink-soft)]" dir="auto">«{d.last_note}»</div>}
           <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
             <span className="flex items-center gap-1" aria-label="زيارات آخر 6 شهور">{months.map((m, i) => { const on = seen.has(m); const cur = i === months.length - 1; return <span key={m} title={m} className={`h-2.5 w-2.5 rounded-full ${on ? "bg-teal-500" : cur ? "bg-slate-200" : d.days_since === null ? "bg-slate-200" : "bg-white ring-2 ring-red-300"}`} />; })}</span>
             <span className="text-[11px] text-[var(--muted)]">{d.days_since === null ? "لم تتم زيارة" : d.days_since === 0 ? "اتزار النهارده" : `آخر زيارة من ${d.days_since} يوم`}</span>
@@ -86,7 +87,7 @@ export function SmartCard({ d, p, b, months, today, fav, toggleFav, onOpen, sele
       </div>
       {more && <div className="es-pop flex flex-wrap gap-1.5 border-t border-[var(--border)] bg-[var(--bg)] px-3 py-2.5 text-xs font-bold">
         <button type="button" onClick={toggleFav} className="rounded-lg bg-white px-3 py-2">{fav ? "★ شيل من المفضلة" : "☆ أضف للمفضلة"}</button>
-        {onPause && <button type="button" onClick={() => onPause(!d.paused)} className="rounded-lg bg-white px-3 py-2">{d.paused ? `▶ Active لشهر ${monthName}` : `⏸ Inactive لشهر ${monthName}`}</button>}
+        {onPause && <button type="button" onClick={() => onPause(!d.paused)} className="rounded-lg bg-white px-3 py-2">{d.paused ? `▶ رجّعه لشهر ${monthName}` : `⏸ وقّفه لشهر ${monthName}`}</button>}
         <button type="button" onClick={onEdit} className="rounded-lg bg-white px-3 py-2">{isAdmin ? "تعديل البيانات" : "طلب تعديل"}</button>
         <Link href={`/doctors/${d.id}`} className="rounded-lg bg-white px-3 py-2">الملف الكامل</Link>
       </div>}

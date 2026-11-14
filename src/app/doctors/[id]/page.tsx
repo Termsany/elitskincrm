@@ -5,7 +5,9 @@ import { getCurrentUser } from '@/lib/session';
 import { query } from '@/lib/db';
 import { doctorProfileQueries } from '@/lib/doctor-profile';
 import { buildDoctorTimeline, type Followup } from '@/lib/doctor-timeline';
-import DoctorFollowups from '@/components/DoctorFollowups';
+import DoctorActions from './DoctorActions';
+import { rankedDoctors } from '@/lib/doctor-suggest';
+import { openFollowups } from '@/lib/followups';
 import ClinicAccountCard from '@/components/ClinicAccountCard';
 import { clinicAccount, doctorClinic } from '@/lib/clinic-account';
 import { riyadhToday } from '@/lib/finance';
@@ -34,9 +36,25 @@ export default async function DoctorProfilePage({ params }: { params: Promise<{ 
   const account = clinic ? await clinicAccount(clinic.id, riyadhToday(), user.role === 'admin' ? null : user.id).catch(() => null) : null;
   const timeline = buildDoctorTimeline({ visits: visits.rows, followups: followups.rows, tasks: tasks.rows, plans: plans.rows });
   const isAdmin = user.role === 'admin';
+  const today = riyadhToday();
+  // the rep's next step with this doctor: same ranking as the doctors list, open follow-ups, and the product to start a visit with
+  const rep = isAdmin ? null : await (async () => {
+    const [ranked, fu, prod] = await Promise.all([
+      rankedDoctors(user.id, today).then(r => r.find(d => d.id === id) || null).catch(() => null),
+      openFollowups(user.id, id).catch(() => []),
+      query<{ p: string | null }>(`SELECT COALESCE(
+          (SELECT pi.product_id FROM plan_items pi JOIN plans pl ON pl.id=pi.plan_id WHERE pl.user_id=$1 AND pi.doctor_id=$2 AND pl.status::text<>'rejected' AND pi.planned_date >= $3::date AND pi.product_id IS NOT NULL ORDER BY pi.planned_date LIMIT 1),
+          (SELECT pp.product_id FROM visit_presented_products pp JOIN visits v ON v.id=pp.visit_id WHERE v.sales_rep_id=$1 AND v.doctor_id=$2 ORDER BY v.visited_at DESC, (pp.reaction='interested') DESC LIMIT 1),
+          (SELECT assigned_product_id FROM users WHERE id=$1))::text p`, [user.id, id, today]).then(r => r.rows[0]?.p || null).catch(() => null),
+    ]);
+    return { ranked, fu, prod };
+  })();
+  const r = rep?.ranked;
   return <AppShell role={user.role} email={user.email} name={user.name} jobTitle={user.job_title} productName={user.product_name} active="/doctors">
-    <DoctorProfile doctor={doctor} summary={summary.rows[0]} timeline={timeline} isAdmin={isAdmin} />
-    <ClinicAccountCard clinic={clinic} account={account ? JSON.parse(JSON.stringify(account)) : null} isAdmin={isAdmin} />
-    {!isAdmin && <DoctorFollowups doctorId={id} />}
+    <DoctorProfile doctor={doctor} summary={summary.rows[0]} timeline={timeline} isAdmin={isAdmin}
+      next={r ? { reason: r.prio.reason, icon: r.prio.icon, tone: r.prio.tone, days: r.days_since, paused: r.paused } : null}
+      actions={rep ? <DoctorActions doctorId={id} name={doctor.name} phone={doctor.phone || ''} clinic={doctor.clinic_name || ''} city={doctor.city || ''} productId={rep.prod} inPlan={r?.in_plan_next || null}
+        paused={!!r?.paused} followups={JSON.parse(JSON.stringify(rep.fu))} today={today} active={doctor.status === 'active'} /> : null}
+      account={<ClinicAccountCard clinic={clinic} account={account ? JSON.parse(JSON.stringify(account)) : null} isAdmin={isAdmin} />} />
   </AppShell>;
 }

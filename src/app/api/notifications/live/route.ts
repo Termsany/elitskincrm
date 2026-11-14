@@ -33,7 +33,7 @@ export async function GET() {
     const fu = await one(`SELECT count(DISTINCT doctor_id)::int n FROM (
         SELECT f.doctor_id FROM doctor_followups f WHERE f.sales_rep_id=$1 AND f.completed_at IS NULL AND COALESCE(f.status,'') NOT IN ('done','completed','closed','cancelled') AND f.due_at::date <= ${TODAY}
         UNION ALL
-        SELECT v.doctor_id FROM visits v WHERE v.sales_rep_id=$1 AND v.follow_up_at IS NOT NULL AND v.follow_up_at::date <= ${TODAY} AND v.follow_up_at::date >= ${TODAY} - 30
+        SELECT v.doctor_id FROM visits v WHERE v.sales_rep_id=$1 AND v.follow_up_at IS NOT NULL AND v.follow_up_done_at IS NULL AND v.follow_up_at::date <= ${TODAY} AND v.follow_up_at::date >= ${TODAY} - 30
           AND NOT EXISTS (SELECT 1 FROM visits v2 WHERE v2.doctor_id=v.doctor_id AND v2.sales_rep_id=v.sales_rep_id AND v2.visited_at>v.visited_at AND v2.status='completed')
       ) x JOIN doctors d ON d.id=x.doctor_id AND COALESCE(d.status,'active')='active'`, [u.id]);
     if (fu) items.push({ key: "followups", icon: "🔁", text: "متابعات ميعادها النهارده أو فات", href: "/doctors?tag=followup", count: fu, tone: "amber" });

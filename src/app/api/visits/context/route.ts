@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { openFollowups } from "@/lib/followups";
 import { getCurrentUser } from "@/lib/session";
 import { query } from "@/lib/db";
 import { UUID_RE } from "@/lib/fmt";
@@ -20,12 +21,8 @@ export async function GET(req: Request) {
       COALESCE((SELECT sum(vi.quantity) FROM visit_items vi WHERE vi.visit_id=v.id AND vi.kind='sample'),0)::int samples
     FROM visits v JOIN users u ON u.id=v.sales_rep_id WHERE v.doctor_id=$1 ORDER BY v.visited_at DESC LIMIT 5`, [id, u.id])).rows;
 
-  const followups = (await query(`SELECT * FROM (
-      SELECT v.follow_up_at::text due, COALESCE(v.follow_up_note,'') note FROM visits v WHERE v.doctor_id=$1 AND v.sales_rep_id=$2 AND v.follow_up_at IS NOT NULL
-        AND NOT EXISTS(SELECT 1 FROM visits v2 WHERE v2.doctor_id=v.doctor_id AND v2.sales_rep_id=v.sales_rep_id AND v2.visited_at>v.visited_at AND v2.status='completed')
-      UNION ALL
-      SELECT f.due_at::text, concat_ws(' — ', NULLIF(f.title,''), NULLIF(f.note,'')) FROM doctor_followups f WHERE f.doctor_id=$1 AND f.sales_rep_id=$2
-        AND f.completed_at IS NULL AND COALESCE(f.status,'') NOT IN ('done','completed','closed')) x ORDER BY due LIMIT 5`, [id, u.id])).rows;
+  // open follow-ups with their id, so the visit form can close them
+  const followups = (await openFollowups(u.id, id)).slice(0, 5).map(f => ({ id: f.id, source: f.source, due: f.due, note: f.note }));
 
   const plan = (await query(`SELECT pi.id, pi.priority, COALESCE(pi.note,'') note, pi.product_id, pr.name product_name
     FROM plan_items pi JOIN plans p ON p.id=pi.plan_id LEFT JOIN products pr ON pr.id=pi.product_id

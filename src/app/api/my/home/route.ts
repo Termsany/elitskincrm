@@ -24,7 +24,7 @@ export async function GET() {
       FROM plan_items pi JOIN plans p ON p.id=pi.plan_id JOIN doctors d ON d.id=pi.doctor_id
       WHERE p.user_id=$1 AND p.status='approved' AND pi.planned_date=$2::date ORDER BY COALESCE(d.city,''), pi.sort_order NULLS LAST, d.name`, [u.id, today]),
     query<{ n: number }>(`SELECT count(*)::int n FROM (
-        SELECT v.doctor_id FROM visits v WHERE v.sales_rep_id=$1 AND v.follow_up_at IS NOT NULL AND v.follow_up_at::date <= $2::date AND v.status::text<>'cancelled'
+        SELECT v.doctor_id FROM visits v WHERE v.sales_rep_id=$1 AND v.follow_up_at IS NOT NULL AND v.follow_up_done_at IS NULL AND v.follow_up_at::date <= $2::date AND v.status::text<>'cancelled'
           AND NOT EXISTS (SELECT 1 FROM visits v2 WHERE v2.doctor_id=v.doctor_id AND v2.sales_rep_id=v.sales_rep_id AND v2.visited_at > v.visited_at AND v2.status::text='completed')
         UNION SELECT f.doctor_id FROM doctor_followups f WHERE f.sales_rep_id=$1 AND f.completed_at IS NULL AND f.due_at::date <= $2::date) x`, [u.id, today]).catch(() => ({ rows: [{ n: 0 }] })),
     rankedDoctors(u.id, today).catch(() => []),
