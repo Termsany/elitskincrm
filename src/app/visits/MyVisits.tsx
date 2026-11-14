@@ -76,6 +76,8 @@ export default function MyVisits() {
     const samples = v.items.filter(i => i.kind === "sample"), orders = v.items.filter(i => i.kind === "order");
     const best = v.presented.find(p => p.reaction === "interested")?.product_id || v.presented[0]?.product_id || "";
     const isOpen = open === v.id, editable = canEditVisit({ isAdmin: false, userId: v.sales_rep_id, visit: v });
+    // a visit that happened but recorded nothing (no product, sample, order, follow-up, and a short note)
+    const noResult = v.status !== "cancelled" && v.status !== "planned" && !v.presented.length && !v.items.length && !v.follow_up_at && v.notes.trim().length < 20;
     return <li key={v.id} className={`rounded-[20px] border bg-white p-3.5 transition ${v.status === "cancelled" ? "border-red-100 opacity-75" : "border-[var(--border)]"}`}>
       <button type="button" onClick={() => setOpen(isOpen ? "" : v.id)} className="flex w-full items-start gap-3 text-right">
         <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl text-xs font-extrabold ${CLS[v.cls || ""] || "bg-slate-100 text-slate-600"}`}>{v.cls || "—"}</span>
@@ -84,6 +86,7 @@ export default function MyVisits() {
           <span className="block truncate text-[12px] text-[var(--muted)]" dir="auto">{[v.clinic_name, v.city].filter(Boolean).join(" · ")}</span>
           <span className="mt-1.5 flex flex-wrap gap-1">
             {v.status === "cancelled" && <span className="rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-bold text-red-700">ملغية</span>}
+            {noResult && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-900">⚠ كمّلها</span>}
             {v.presented.map(p => <span key={p.product_id} className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${RX[p.reaction] || RX.neutral}`} dir="auto">{p.product_name} · {REACTION_LABELS[p.reaction] || p.reaction}</span>)}
             {samples.length > 0 && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800">🎁 {samples.reduce((s, i) => s + i.quantity, 0)} عينة</span>}
             {orders.length > 0 && <span className="rounded-full bg-teal-50 px-2 py-0.5 text-[11px] font-bold text-teal-800">🧾 طلب {orders.map(o => `${o.product_name} ×${o.quantity}`).join("، ")}</span>}
@@ -93,7 +96,9 @@ export default function MyVisits() {
         </span>
       </button>
       {isOpen && <div className="es-pop mt-3 space-y-2 border-t border-[var(--border)] pt-3">
-        {v.follow_up_note && <p className="rounded-xl bg-sky-50 px-3 py-2 text-[12.5px] text-sky-900" dir="auto">↻ {v.follow_up_note}</p>}
+        {v.follow_up_open && v.follow_up_at ? <ul><FollowupRow f={{ id: v.id, source: "visit", due: v.follow_up_at, note: v.follow_up_note || "متابعة الزيارة دي" }} today={today} onChanged={refresh} /></ul>
+          : v.follow_up_note ? <p className="rounded-xl bg-sky-50 px-3 py-2 text-[12.5px] text-sky-900" dir="auto">↻ {v.follow_up_note}</p> : null}
+        {noResult && editable && <button type="button" onClick={() => setEdit({ v, notes: v.notes, status: v.status, follow: v.follow_up_at || "" })} className="w-full rounded-xl bg-amber-50 px-3 py-2.5 text-right text-[13px] font-bold text-amber-900 ring-1 ring-amber-200">⚠ كمّلها: اكتب حصل إيه أو حط متابعة</button>}
         {v.attachments.length > 0 && <div className="flex flex-wrap gap-1.5">{v.attachments.map(a => <a key={a.id} href={`/api/visits/${v.id}/attachments/${a.id}`} target="_blank" rel="noreferrer" className="rounded-lg bg-[var(--bg)] px-2.5 py-1 text-[11.5px] font-bold text-[var(--navy)]">📎 {a.file_name}</a>)}</div>}
         <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
           <Link href={`/visits/new?doctorId=${v.doctor_id}${best ? `&productId=${best}` : ""}`} className="flex min-h-11 items-center justify-center rounded-xl bg-[var(--navy)] px-4 text-sm font-bold text-white">▶ زيارة جديدة</Link>

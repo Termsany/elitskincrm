@@ -1,10 +1,12 @@
 "use client";
+import { clinicLines, LINE_TEXT, LINE_TONE } from "@/lib/clinic-line";
+import { planDays } from "@/app/plans/AreaBoard";
+import { addDays, DAY_AR, weekday } from "@/lib/plan-week-core";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { HubDoctor } from "@/lib/doctors-hub";
 import type { ClinicBalance } from "@/lib/clinic-balances";
 import type { Prio, Tag, Tone } from "@/lib/doctor-priority";
-import { sar } from "@/lib/fmt";
 
 const short = (d: string) => `${Number(d.slice(8, 10))}/${Number(d.slice(5, 7))}`;
 const TONE: Record<Tone, string> = { red: "text-red-700", amber: "text-amber-800", teal: "text-teal-700", gold: "text-amber-700", slate: "text-slate-600", navy: "text-[var(--navy)]", green: "text-emerald-700" };
@@ -45,13 +47,14 @@ export function SmartTiles({ counts, active, onPick, loading }: { counts: Record
 
 export function SmartCard({ d, p, b, months, today, fav, toggleFav, onOpen, selected, isAdmin, checked, onCheck, onTomorrow, added, onPause, onEdit, monthName }: {
   d: HubDoctor; p: Prio; b: ClinicBalance | null | undefined; months: string[]; today: string; fav: boolean; toggleFav: () => void; onOpen: () => void; selected: boolean; isAdmin: boolean;
-  checked: boolean; onCheck: () => void; onTomorrow: () => void; added: boolean; onPause?: (v: boolean) => void; onEdit: () => void; monthName: string;
+  checked: boolean; onCheck: () => void; onTomorrow: (date?: string) => void; added: boolean; onPause?: (v: boolean) => void; onEdit: () => void; monthName: string;
 }) {
-  const [more, setMore] = useState(false);
+  const [more, setMore] = useState(false); const [pick, setPick] = useState(false);
   const phone = (d.phone || "").replace(/\s/g, "");
   const seen = new Set(d.months6 || []);
-  const money = !b ? null : b.overdue > 0 ? ["text-red-700", `💰 العيادة: متأخر ${sar(b.overdue)}`] : b.due ? ["text-amber-700", "📦 العيادة جه ميعاد طلبها"]
-    : b.last_order ? ["text-emerald-700", `📈 آخر طلب للعيادة من ${Math.max(0, Math.round((Date.parse(`${today}T12:00:00Z`) - Date.parse(`${b.last_order}T12:00:00Z`)) / 864e5))} يوم`] : null;
+  const line = !b ? null : clinicLines({ overdue: b.overdue, due: b.due, days_since: b.last_order ? Math.max(0, Math.round((Date.parse(`${today}T12:00:00Z`) - Date.parse(`${b.last_order}T12:00:00Z`)) / 864e5)) : null })[0] || null;
+  // the priority line already says "reorder due" — don't say it twice
+  const money = line && !(line.text === "جه ميعاد طلبها" && p.tags.includes("reorder")) ? [LINE_TEXT[line.tone], line.text] : null;
   return (
     <article className={`rounded-[26px] border bg-white shadow-sm transition ${selected ? "border-teal-400 ring-2 ring-teal-100" : "border-[var(--border)] hover:shadow-md"} ${d.paused ? "opacity-60" : ""}`}>
       <div className="flex items-start gap-3 p-4 pb-3">
@@ -80,11 +83,14 @@ export function SmartCard({ d, p, b, months, today, fav, toggleFav, onOpen, sele
       <div className="flex items-center gap-2 border-t border-[var(--border)] px-3 py-2.5">
         {!isAdmin ? <Link href={`/visits/new?doctorId=${d.id}`} className="flex min-h-10 items-center rounded-xl bg-[var(--navy)] px-4 text-sm font-bold text-white">▶ سجل زيارة</Link>
           : <Link href={`/doctors/${d.id}`} className="flex min-h-10 items-center rounded-xl bg-[var(--navy)] px-4 text-sm font-bold text-white">الملف</Link>}
-        <button type="button" onClick={onTomorrow} disabled={added} className={`flex min-h-10 items-center rounded-xl border px-3 text-sm font-bold transition ${added ? "es-pop border-emerald-200 bg-emerald-50 text-emerald-700" : "border-[var(--border)] text-[var(--navy)] hover:border-teal-400"}`}>{added ? "✓ مضاف لبكرة" : "＋ بكرة"}</button>
+        <button type="button" onClick={() => setPick(x => !x)} disabled={added} className={`flex min-h-10 items-center rounded-xl border px-3 text-sm font-bold transition ${added ? "es-pop border-emerald-200 bg-emerald-50 text-emerald-700" : "border-[var(--border)] text-[var(--navy)] hover:border-teal-400"}`}>{added ? "✓ اتضاف للخطة" : "＋ للخطة"}</button>
         {phone && <a href={`tel:${phone}`} aria-label="اتصال" className="grid h-10 w-10 place-items-center rounded-xl border border-[var(--border)]">📞</a>}
         {d.email && <a href={`mailto:${d.email}`} aria-label={`إيميل ${d.email}`} title={d.email} className="grid h-10 w-10 place-items-center rounded-xl border border-[var(--border)]">✉️</a>}
         <button type="button" onClick={() => setMore(x => !x)} aria-expanded={more} aria-label="خيارات أكتر" className="mr-auto grid h-10 w-10 place-items-center rounded-xl text-lg text-[var(--muted)] hover:bg-[var(--bg)]">⋯</button>
       </div>
+      {pick && !added && <div className="es-pop flex flex-wrap gap-1.5 border-t border-[var(--border)] bg-[var(--sky-light)] px-3 py-2.5">
+        {planDays(today).map(day => <button key={day} type="button" onClick={() => { setPick(false); onTomorrow(day); }} className="rounded-lg bg-white px-3 py-2 text-xs font-bold text-[var(--navy)]">{day === today ? "النهارده" : day === addDays(today, 1) ? "بكرة" : DAY_AR[weekday(day)]} <span className="font-normal text-[var(--muted)]">{Number(day.slice(8, 10))}/{Number(day.slice(5, 7))}</span></button>)}
+      </div>}
       {more && <div className="es-pop flex flex-wrap gap-1.5 border-t border-[var(--border)] bg-[var(--bg)] px-3 py-2.5 text-xs font-bold">
         <button type="button" onClick={toggleFav} className="rounded-lg bg-white px-3 py-2">{fav ? "★ شيل من المفضلة" : "☆ أضف للمفضلة"}</button>
         {onPause && <button type="button" onClick={() => onPause(!d.paused)} className="rounded-lg bg-white px-3 py-2">{d.paused ? `▶ رجّعه لشهر ${monthName}` : `⏸ وقّفه لشهر ${monthName}`}</button>}
@@ -136,7 +142,7 @@ export function TeamCoverage({ rows, reps }: { rows: HubDoctor[]; reps: Array<{ 
   );
 }
 
-type Acc = { balance: { unpaid: number; overdue: number; oldest: number | null }; orders: { last: string | null; days_since: number | null; next_expected: string | null }; products: Array<{ item: string; net: number }>; branches?: string[] };
+type Acc = { status?: string; sales?: { change: number | null }; balance: { unpaid: number; overdue: number; oldest: number | null }; orders: { last: string | null; days_since: number | null; next_expected: string | null }; products: Array<{ item: string; net: number }>; branches?: string[] };
 /** Doctor preview: the clinic's Daftra account in three lines. */
 export function ClinicMini({ clinicId, clinicName }: { clinicId: string | null; clinicName: string | null }) {
   const [a, setA] = useState<Acc | null | undefined>(undefined);
@@ -149,13 +155,9 @@ export function ClinicMini({ clinicId, clinicName }: { clinicId: string | null; 
   }, [clinicId, clinicName]);
   if (a === undefined) return <div className="es-shimmer h-20 rounded-2xl" />;
   if (!a) return null;
-  const b = a.balance;
+  const lines = clinicLines({ overdue: a.balance.overdue, unpaid: a.balance.unpaid, oldest: a.balance.oldest, status: a.status, days_since: a.orders.days_since, change: a.sales?.change ?? null, top: a.products.map(p => p.item) });
+  if (!lines.length) return null;
   return (
-    <div className="rounded-2xl border border-[var(--border)] p-3 text-sm">
-      <div className="mb-1.5 flex items-center justify-between"><b className="text-[var(--navy)]">حساب العيادة</b>{a.branches?.length ? <span className="text-[10.5px] text-[var(--muted)]">🏢 مشترك مع {a.branches.length} فروع</span> : null}</div>
-      <div className={`text-[12.5px] font-bold ${b.overdue > 0 ? "text-red-700" : b.unpaid > 0 ? "text-sky-800" : "text-emerald-700"}`}>{b.overdue > 0 ? `متأخر ${sar(b.overdue)}${b.oldest ? ` من ${b.oldest} يوم` : ""} — اسأل عن السداد الأول` : b.unpaid > 0 ? `عليها ${sar(b.unpaid)} لسه ما جاش ميعادها` : "✓ مفيش مديونية"}</div>
-      <div className="mt-1 text-[11.5px] text-[var(--muted)]">{a.orders.last ? `آخر طلب من ${a.orders.days_since} يوم${a.orders.next_expected ? ` · المتوقع ${short(a.orders.next_expected)}` : ""}` : "لسه ما طلبتش"}</div>
-      {a.products.length > 0 && <div className="mt-1.5 truncate text-[11.5px]" dir="auto">بتشتري: {a.products.slice(0, 3).map(p => p.item).join(" · ")}</div>}
-    </div>
+    <div className="space-y-1.5">{lines.map(l => <div key={l.text} className={`rounded-xl px-3 py-2 text-[12.5px] font-bold ring-1 ${LINE_TONE[l.tone]}`} dir="auto">{l.text}</div>)}</div>
   );
 }

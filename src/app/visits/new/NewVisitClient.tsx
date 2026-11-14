@@ -283,7 +283,8 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
 
   // ───────────── smart context, today's plan, catalog ─────────────
   const [mode, setMode] = useState<"phone" | "tablet" | "desktop">("desktop");
-  useEffect(() => { const f = () => setMode(window.innerWidth < 1024 ? "phone" : "desktop"); f(); window.addEventListener("resize", f); return () => window.removeEventListener("resize", f); }, []);
+  const [wide, setWide] = useState(false);
+  useEffect(() => { const f = () => { setMode(window.innerWidth < 1024 ? "phone" : "desktop"); setWide(window.innerWidth >= 768); }; f(); window.addEventListener("resize", f); return () => window.removeEventListener("resize", f); }, []);
   const [wiz, setWiz] = useState(initialDoctor ? 1 : 0);
   const [outcome, setOutcome] = useState(""); const [fuLabel, setFuLabel] = useState(""); const [fuCustom, setFuCustom] = useState(false);
   const [notesTouched, setNotesTouched] = useState(false); const [samplesYes, setSamplesYes] = useState(false);
@@ -365,7 +366,7 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
   const [detectOff, setDetectOff] = useState("");
   const sampleTotal = sampleState.items.reduce((a, x) => a + x.quantity, 0);
 
-  if (done) return <SuccessScreen doctor={selectedDoctor?.name || ""} doctorId={doctorId} presented={presented.length} samples={sampleTotal} followUp={followUpAt} next={nextPlan} onNew={() => { window.location.href = "/visits/new"; }} />;
+  if (done) return <SuccessScreen doctor={selectedDoctor?.name || ""} doctorId={doctorId} next={nextPlan} onNew={() => { window.location.href = "/visits/new"; }} />;
 
   const phone = mode === "phone";
   const eyebrow = (n: number) => phone && n === 1 ? "الخطوة 1" : undefined;
@@ -583,7 +584,8 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
     const review: Array<[string, string, number]> = [["الطبيب", selectedDoctor?.name || "—", 0], ["المنتجات", presented.length ? presented.map(x => `${pname(x.productId)} ${REACTION_ICONS[x.reaction]}`).join("، ") : "مفيش", 1], ["النتيجة", oc ? `${oc.icon} ${oc.label}` : status === "completed" ? "✓ تمت" : "—", 2],
       ...(sampleStepOn ? [["العينات", sampleTotal ? sampleState.items.map(i => `${pname(i.productId)} ×${i.quantity}`).join("، ") : "مفيش", 3] as [string, string, number]] : []), ["المتابعة", followUpAt ? fuText : "مفيش", 4]];
     return (
-      <form id="nv-form" onSubmit={submit} className="mx-auto mt-1 max-w-2xl space-y-3 pb-28">
+      <form id="nv-form" onSubmit={submit} className={`mt-1 pb-28 ${wide ? "grid grid-cols-[minmax(0,1fr)_260px] items-start gap-4" : "mx-auto max-w-2xl"}`}>
+        <div className="min-w-0 space-y-3">
         {header}
         <div>
           <div className="flex items-center gap-2">
@@ -601,7 +603,7 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
           {wiz === 1 && <section className="space-y-3 pb-36">
             {q("الخطوة 2", "شرحت إيه للدكتور؟")}
             {ctx?.brief && <div className="rounded-2xl bg-[var(--navy)] px-3 py-3 text-[13px] font-bold leading-6 text-white">💡 {ctx.brief}</div>}
-            {ctx && <QuickBrief ctx={ctx} doctorId={doctorId} onChanged={() => setCtxN(n => n + 1)} />}
+            {ctx && <QuickBrief ctx={ctx} doctorId={doctorId} onChanged={() => setCtxN(n => n + 1)} onSame={samePresented} already={presented.map(x => x.productId)} />}
             {contextCard && <details className="rounded-[22px] border border-[var(--border)] bg-white px-4 py-3"><summary className="cursor-pointer text-sm font-extrabold text-[var(--navy)]">كل تفاصيل الطبيب</summary><div className="mt-3">{contextCard}</div></details>}
             <button type="button" onClick={() => void presentFrom()} className="nv-tap flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-l from-[var(--navy)] to-[#156067] text-base font-extrabold text-white shadow-lg">▶ اعرض البروشور للدكتور</button>
             {productsView.map((p, i) => { const sel = presented.find(x => x.productId === p.id); const b = p.cat?.brochures?.[0];
@@ -685,6 +687,12 @@ export default function NewVisitClient({ doctors, products, assignedProductId, r
               <button type="submit" form="nv-form" disabled={!canSave} className="nv-glow flex min-h-14 w-full items-center justify-center rounded-2xl bg-[#c9a24a] text-lg font-extrabold text-[#0b2a2f] shadow-xl transition active:scale-[.98] disabled:opacity-50">{saveLabel}</button></div></div>, document.body)}
           </section>}
         </div>
+        </div>
+        {wide && <aside className="sticky top-4 space-y-2 rounded-[22px] border border-[var(--border)] bg-white p-3 shadow-sm">
+          <b className="block px-1 text-sm text-[var(--navy)]">ملخص الزيارة</b>
+          {review.map(([l, v, st]) => <button key={l} type="button" disabled={locked} onClick={() => setWiz(st)} className={`block w-full rounded-xl px-3 py-2 text-right transition ${wiz === st ? "bg-teal-50 ring-1 ring-teal-300" : "hover:bg-[var(--bg)]"}`}>
+            <span className="block text-[11px] text-[var(--muted)]">{l}</span><span className="block text-[13px] font-bold leading-5" dir="auto">{v}</span></button>)}
+        </aside>}
         <style>{NV_CSS}</style>
       </form>
     );
@@ -801,8 +809,7 @@ function ContextCard({ ctx, loading, products, onPresent, doctorId, onSame, alre
   );
 }
 
-function SuccessScreen({ doctor, doctorId, presented, samples, followUp, next: planNext, onNew }: { doctor: string; doctorId: string; presented: number; samples: number; followUp: string; next: TodayItem | null; onNew: () => void }) {
-  const fu = followUp ? followUp.slice(5).split("-").reverse().join("/") : "—";
+function SuccessScreen({ doctor, doctorId, next: planNext, onNew }: { doctor: string; doctorId: string; next: TodayItem | null; onNew: () => void }) {
   const [near, setNear] = useState<{ doctor_id: string; doctor_name: string; clinic_name: string; reason: string } | null>(null);
   useEffect(() => { if (planNext) return; fetch(`/api/my/next-doctor?after=${doctorId}`).then(r => r.ok ? r.json() : null).then(j => j?.next && setNear(j.next)).catch(() => {}); }, [planNext, doctorId]);
   const next = planNext || (near ? { id: "", doctor_id: near.doctor_id, doctor_name: near.doctor_name, clinic_name: near.clinic_name, product_id: null, product_name: near.reason, done: false } : null);
@@ -810,7 +817,6 @@ function SuccessScreen({ doctor, doctorId, presented, samples, followUp, next: p
     <div className="mx-auto mt-6 max-w-md space-y-5 text-center">
       <div className="mx-auto grid h-24 w-24 animate-[pop_.45s_ease-out] place-items-center rounded-full bg-emerald-50 text-5xl text-emerald-600">✓</div>
       <div><div className="text-2xl font-extrabold text-[var(--navy)]">اتسجلت الزيارة</div><div className="mt-1 text-sm text-[var(--muted)]" dir="auto">{doctor}</div></div>
-      <div className="grid grid-cols-3 gap-2">{([[presented, "منتج اتعرض"], [samples, "عينة"], [fu, "متابعة"]] as const).map(([v, l]) => <div key={l} className="rounded-2xl border border-[var(--border)] bg-white p-3"><b className="block text-lg text-[var(--navy)]">{v}</b><span className="text-[11px] text-[var(--muted)]">{l}</span></div>)}</div>
       {next ? <div className="rounded-[26px] border border-[var(--border)] bg-white p-4 text-right">
         <p className="text-xs font-bold text-teal-600">{planNext ? "الزيارة الجاية في خطتك" : "أكتر حد محتاج زيارة"}</p>
         <p className="mt-1 font-extrabold" dir="auto">{next.doctor_name}</p>
@@ -829,12 +835,13 @@ function SuccessScreen({ doctor, doctorId, presented, samples, followUp, next: p
 }
 
 /** The three things to know before going in: what happened last time, what was promised, and the clinic's overdue money. */
-function QuickBrief({ ctx, doctorId, onChanged }: { ctx: VisitContext; doctorId: string; onChanged: () => void }) {
+function QuickBrief({ ctx, doctorId, onChanged, onSame, already }: { ctx: VisitContext; doctorId: string; onChanged: () => void; onSame: (ids: string[]) => void; already: string[] }) {
   const last = ctx.history[0];
   if (!last && !ctx.followups.length) return <ClinicHint doctorId={doctorId} />;
   return <section className="space-y-2 rounded-[22px] border border-teal-200 bg-white p-3.5">
     {last && <div className="text-[13px] leading-6" dir="auto"><b className="text-[var(--navy)]">آخر مرة{ctx.daysSince !== null ? ` (من ${ctx.daysSince} يوم)` : ""}: </b>
       {last.presented.map(p => `${p.name} ${RX[p.reaction] || ""}`).join("، ")}{last.presented.length && last.notes ? " — " : ""}<span className="text-[var(--ink-soft)]">{last.notes ? last.notes.slice(0, 140) : ""}</span></div>}
+    {last && last.presented.some(p => !already.includes(p.product_id)) && <button type="button" onClick={() => onSame(last.presented.map(p => p.product_id))} className="min-h-11 w-full rounded-xl border border-[var(--border)] bg-white text-sm font-bold text-[var(--navy)] transition hover:border-teal-500">↺ نفس منتجات المرة اللي فاتت</button>}
     {ctx.followups.slice(0, 2).map(f => <FollowupRow key={f.source + f.id} f={f} today={riyadhToday()} onChanged={onChanged} />)}
     <ClinicHint doctorId={doctorId} />
   </section>;

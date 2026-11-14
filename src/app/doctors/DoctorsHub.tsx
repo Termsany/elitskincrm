@@ -136,9 +136,9 @@ export default function DoctorsHub({ isAdmin, canLink = false, reps, initialQ = 
     setChecked([]); setReload(n => n + 1); alertsChanged();
   }
   const canPause = !isAdmin || !!repId;
-  async function tomorrow(d: HubDoctor) {
+  async function tomorrow(d: HubDoctor, day?: string) {
     if (isAdmin && !repId) { toast("اختار المندوب من فوق الأول", "info"); return; }
-    const date = nextWorkDay(todayStr);
+    const date = day || nextWorkDay(todayStr);
     const r = await fetch("/api/agenda/plan-items", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ date, doctorId: d.id, repId: isAdmin ? repId : undefined }) });
     const j = await r.json().catch(() => null);
     if (!r.ok && r.status !== 202) { toast(j?.error || "تعذر الإضافة", "error"); return; }
@@ -214,17 +214,17 @@ export default function DoctorsHub({ isAdmin, canLink = false, reps, initialQ = 
       {!rows && tab !== "requests" && tab !== "merge" && tab !== "import" && <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">{[0, 1, 2, 3, 4, 5].map(i => <div key={i} className="h-32 rounded-3xl bg-white animate-pulse" />)}</div>}
 
       {rows && tab === "doctors" && <>
-        {canPause && mode !== "phone" && Number(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh", day: "numeric" }).format(new Date())) <= 7 && !counts.paused && <div className="dz-in flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--sky-border)] bg-[var(--sky-light)] px-4 py-3 text-sm"><span className="text-lg">🗓️</span><span className="flex-1"><b className="text-[var(--navy)]">بداية شهر {monthName}:</b> حدد الأطباء اللي مش هتزورهم الشهر ده ووقّفهم.</span><span className="text-[11px] text-[var(--muted)]">علّم عليهم ← «وقّف الشهر ده»</span></div>}
+        {canPause && mode !== "phone" && Number(new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Riyadh", day: "numeric" }).format(new Date())) <= 7 && !counts.paused && <div className="dz-in flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--sky-border)] bg-[var(--sky-light)] px-4 py-3 text-sm"><span className="text-lg">🗓️</span><span className="flex-1"><b className="text-[var(--navy)]">بداية شهر {monthName}:</b> حدد الأطباء اللي مش هتزورهم الشهر ده ووقّفهم.</span></div>}
         {checked.length > 0 && <BulkBar n={checked.length} onPlan={d => void addToPlan(checked, d)} exportHref={exportUrl(checked)} onClear={() => setChecked([])} needRep={isAdmin && !repId} onPause={canPause ? (p => void setPaused(checked, p)) : undefined} />}
         <SmartTiles counts={tileCounts} active={tag} onPick={t => { setTag(t); if (t) setSeg("all"); }} loading={!bal} />
         {effView === "table" ? <Table list={list} checked={checked} setChecked={setChecked} fav={fav} toggleFav={toggleFav} onOpen={setSel} sort={sort} setSort={setSort} />
           : <div className={mode === "desktop" ? "grid grid-cols-[minmax(0,1fr)_380px] items-start gap-4" : "space-y-3"}>
             <div className="min-w-0 space-y-3">
               {mode !== "desktop" && !isAdmin && <PlanWeekCard list={all} prio={prio} />}
-              {list.length > 0 && <div className="flex items-baseline gap-2 px-1"><h2 className="text-base font-extrabold text-[var(--navy)]">{sort.k === "priority" ? "الأولوية للزيارة" : "الأطباء"}</h2><span className="rounded-full bg-[var(--bg)] px-2 py-0.5 text-[11px] font-bold">{list.length} من {all.length}</span>{sort.k === "priority" && <span className="text-[11px] text-[var(--muted)]">مرتبين حسب المتابعات والتأخير وفرص الطلب</span>}</div>}
+              {list.length > 0 && <div className="flex items-baseline gap-2 px-1"><h2 className="text-base font-extrabold text-[var(--navy)]">{sort.k === "priority" ? "الأولوية للزيارة" : "الأطباء"}</h2><span className="rounded-full bg-[var(--bg)] px-2 py-0.5 text-[11px] font-bold">{list.length} من {all.length}</span></div>}
               {list.slice(0, limit).map((d, i) => <div key={d.id} className="es-card-in" style={{ animationDelay: `${Math.min(i, 8) * 35}ms` }}><SmartCard d={d} p={prio.get(d.id)!} b={balOf(d)} months={months} today={todayStr} fav={fav.includes(d.id)} toggleFav={() => toggleFav(d.id)}
                 onOpen={() => setSel(d)} selected={mode === "desktop" && sel?.id === d.id} isAdmin={isAdmin} checked={checked.includes(d.id)} onCheck={() => setChecked(x => x.includes(d.id) ? x.filter(y => y !== d.id) : [...x, d.id])}
-                onTomorrow={() => void tomorrow(d)} added={added.includes(d.id)} onPause={canPause ? (p => void setPaused([d.id], p)) : undefined} onEdit={() => openForm(d)} monthName={monthName} /></div>)}
+                onTomorrow={day => void tomorrow(d, day)} added={added.includes(d.id)} onPause={canPause ? (p => void setPaused([d.id], p)) : undefined} onEdit={() => openForm(d)} monthName={monthName} /></div>)}
             </div>
             {mode === "desktop" && <aside className="sticky top-[9.5rem] space-y-3">
               {sel ? <QuickView key={sel.id} inline d={sel} isAdmin={isAdmin} onClose={() => setSel(null)} onPlan={date => { void addToPlan([sel.id], date); }} onEdit={() => openForm(sel)} fav={fav.includes(sel.id)} toggleFav={() => toggleFav(sel.id)} sheet={false} onPause={canPause ? (p => { void setPaused([sel.id], p); setSel({ ...sel, paused: p }); }) : undefined} monthName={monthName} />
