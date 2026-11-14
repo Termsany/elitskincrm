@@ -95,7 +95,7 @@ export default function NotificationsBell({ role = "sales_rep" }: { role?: strin
   const item = (n: N, inner = false) => <div key={n.id} className={`flex items-start gap-2 p-3 text-sm transition hover:bg-sky-50 ${!n.is_read ? "bg-amber-50/70" : ""} ${inner ? "pr-6" : ""}`}>
     {!n.is_read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" />}
     <button type="button" onClick={() => void openNotification(n)} className="min-w-0 flex-1 text-right">
-      <div className={`leading-6 ${n.is_read ? "text-[var(--muted)]" : "font-semibold"}`}>{n.message}</div>
+      <div className={`whitespace-pre-line leading-6 ${n.is_read ? "text-[var(--muted)]" : "font-semibold"}`}>{n.message}</div>
       {(n.task_title || n.plan_title) && <div className="text-xs text-[var(--muted)]">{n.task_title || n.plan_title}</div>}
       <div className="mt-0.5 text-[11px] text-[var(--muted)]">{rel(n.created_at)}</div>
     </button>

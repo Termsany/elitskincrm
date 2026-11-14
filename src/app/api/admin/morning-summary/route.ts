@@ -5,6 +5,7 @@ import { query } from "@/lib/db";
 import { inbox } from "@/lib/admin-dashboard";
 import { morningSummary, morningText } from "@/lib/morning-summary";
 import { riyadhToday } from "@/lib/visit-intel";
+import { sendFinanceBrief } from "@/lib/fin-brief";
 
 const cronOk = (req: Request) => { const s = process.env.CRON_SECRET?.trim(); if (!s) return false; const a = Buffer.from(req.headers.get("authorization") ?? ""), e = Buffer.from(`Bearer ${s}`); return a.length === e.length && timingSafeEqual(a, e); };
 
@@ -26,5 +27,8 @@ export async function GET(req: Request) {
     await query("INSERT INTO task_notifications(user_id,task_id,kind,message,action_url,notification_date) VALUES($1,NULL,'morning_summary',$2,'/admin',$3::date)", [a.id, text, today]);
     sent++;
   }
-  return NextResponse.json({ ok: true, sent, text, summary: m });
+  // the AI money brief rides on the same daily job (skipped when Daftra or the AI provider isn't connected)
+  // runs in the background so the timer's request returns right away (the AI answer can take a minute)
+  void sendFinanceBrief(today, force);
+  return NextResponse.json({ ok: true, sent, text, summary: m, brief: "started" });
 }

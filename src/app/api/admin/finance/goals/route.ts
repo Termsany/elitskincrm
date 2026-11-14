@@ -32,7 +32,7 @@ export async function GET(req: Request) {
   const goals = await loadGoals(year);
   const yFin = computeFinance(inp, `${year}-01-01`, `${year}-12-31`);
   const meta = await query<{ updated_at: string }>("SELECT updated_at::text FROM fin_goals WHERE year=$1", [year]);
-  return NextResponse.json({ year, today, goals, updated_at: meta.rows[0]?.updated_at || null, suggestion: sug.goals, basis: sug.basis,
+  return NextResponse.json({ year, today, fixed: inp.fixed, goals, updated_at: meta.rows[0]?.updated_at || null, suggestion: sug.goals, basis: sug.basis,
     seasonal: seasonalWeights(prevYear.monthly), scorecard: goals ? scorecard(goals, year, yFin, today) : null, preview: scorecard(goals || sug.goals, year, yFin, today),
     levers: levers(yFin.baseline), baseline: yFin.baseline, rep_targets: await repTargets(year), years: (await query<{ year: number }>("SELECT year FROM fin_goals ORDER BY year")).rows.map(r => r.year) });
 }

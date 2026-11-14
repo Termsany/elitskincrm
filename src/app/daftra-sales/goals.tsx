@@ -1,4 +1,5 @@
 "use client";
+import { FixedCosts } from "./fixed";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { useToast } from "@/components/Toast";
@@ -7,7 +8,7 @@ import { sar, pct, MONTHS, C, Hint, Kpi, Card, MonthChart, Table } from "./kit";
 import { riyadhToday } from "@/lib/fmt";
 
 type SC = ReturnType<typeof Scorecard>;
-type Data = { year: number; today: string; goals: Goals | null; updated_at: string | null; suggestion: Goals; basis: ReturnType<typeof suggestGoals>["basis"]; seasonal: number[]; scorecard: SC | null; preview: SC; levers: ReturnType<typeof Levers>; rep_targets?: { reps: Array<{ id: string; name: string; annual: number; locked: boolean }>; total: number }; baseline: { sales: number; cogs: number; opex: number; other: number; net: number } | null; years: number[] };
+type Data = { year: number; today: string; fixed: import("@/lib/finance").Fixed[]; goals: Goals | null; updated_at: string | null; suggestion: Goals; basis: ReturnType<typeof suggestGoals>["basis"]; seasonal: number[]; scorecard: SC | null; preview: SC; levers: ReturnType<typeof Levers>; rep_targets?: { reps: Array<{ id: string; name: string; annual: number; locked: boolean }>; total: number }; baseline: { sales: number; cogs: number; opex: number; other: number; net: number } | null; years: number[] };
 const isEqual = (w: number[]) => w.every(x => Math.abs(x - 1 / 12) < 1e-6);
 
 function Num({ label, hint, value, onChange, suffix, step = 1 }: { label: string; hint?: string; value: number; onChange: (v: number) => void; suffix: string; step?: number }) {
@@ -124,6 +125,7 @@ export function GoalsTab() {
         {lv.price > 0 && lv.volume >= -lv.price && <span className="block text-[12px] text-[var(--muted)]">ملاحظة: رفع السعر ممكن يقلل الكمية شوية — جرّب تنزّل الكميات بنفس النسبة وهتلاقي إنك لسه كسبان غالباً.</span>}
         {(lv.price || lv.volume || lv.cogs || lv.opex) ? <button type="button" onClick={() => setLv({ price: 0, volume: 0, cogs: 0, opex: 0 })} className="mt-1 text-xs font-bold text-[var(--navy)] hover:underline">رجّع الصفر</button> : null}</div>
     </Card>}
+    <FixedCosts fixed={d.fixed} today={d.today} reload={() => void load()} />
   </div>;
 }
 

@@ -13,7 +13,7 @@ async function autoResolve(userId: string) {
       OR (n.entity_type='sign_request' AND n.kind='sign_request' AND EXISTS (SELECT 1 FROM sign_requests s WHERE s.id::text=n.entity_id AND s.status<>'pending'))
       OR (n.order_item_id IS NOT NULL AND EXISTS (SELECT 1 FROM visit_items vi WHERE vi.id=n.order_item_id AND vi.approval_status::text<>'pending'))
       OR (n.kind = ANY($2::text[]) AND n.created_at < now() - interval '14 days')
-      OR (n.kind IN ('morning_summary','smart_daily') AND n.created_at < now() - interval '20 hours')
+      OR (n.kind IN ('morning_summary','smart_daily','finance_brief') AND n.created_at < now() - interval '20 hours')
       OR (n.kind='plan_draft' AND n.plan_id IS NOT NULL AND EXISTS (SELECT 1 FROM plans p WHERE p.id=n.plan_id AND p.status::text<>'draft'))
       OR (n.kind='password_reset_request' AND NOT EXISTS (SELECT 1 FROM password_reset_requests r WHERE r.handled_at IS NULL))
       OR (n.task_id IS NOT NULL AND n.kind IN ('assigned','reminder','overdue','update') AND EXISTS (SELECT 1 FROM tasks t WHERE t.id=n.task_id AND (t.archived OR t.status::text NOT IN ('pending','in_progress'))))
