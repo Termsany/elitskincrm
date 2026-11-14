@@ -15,14 +15,7 @@ async function runSync() {
       return { ok: false, error: db.cache.lastError };
     }
     const pulled = await daftra.pullAll();
-    db.cache.clients = pulled.clients;
-    db.cache.suppliers = pulled.suppliers;
-    db.cache.receivables = pulled.receivables;
-    db.cache.payables = pulled.payables;
-    db.cache.sales = pulled.sales;
-    db.cache.purchases = pulled.purchases;
-    db.cache.sampleInvoice = pulled.sampleInvoice;
-    db.cache.samplePurchase = pulled.samplePurchase;
+    for (const k of ['clients', 'receivables', 'sales', 'salesCount', 'daily', 'clientStats', 'statsMonth', 'sampleInvoice']) db.cache[k] = pulled[k];
     db.cache.lastSync = new Date().toISOString();
     db.cache.lastError = null;
     store.save();

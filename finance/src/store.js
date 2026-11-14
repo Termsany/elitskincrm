@@ -12,20 +12,22 @@ const DEFAULT = {
     daftraApikey: '',
     daftraDomain: 'daftara.com',
     anthropicKey: '',
+    currency: '',
     syncEveryMinutes: 60
   },
-  expenses: [],        // المصاريف (محلية — مش في دفترة)
+  goals: {},           // { '2026': { annual: 1200000, monthly: { '2026-01': 100000, ... } } }
+  plans: {},           // { '2026-11': { items: [ {id,type,text,clientId,clientName,amount,done,base,src} ] } }
   cache: {             // آخر نسخة مسحوبة من دفترة
-    clients: [],
-    suppliers: [],
-    receivables: [],   // فواتير العملاء غير المسددة
-    payables: [],      // فواتير الموردين غير المسددة
+    clients: [],       // [{id,name,phone}]
+    receivables: [],   // فواتير العملاء غير المسددة [{who,name,inv,amount,due,date}]
     sales: {},         // { 'YYYY-MM': total }
-    purchases: {},     // { 'YYYY-MM': total }
+    salesCount: {},    // { 'YYYY-MM': عدد الفواتير }
+    daily: {},         // { 'YYYY-MM-DD': total } لآخر ~70 يوم
+    clientStats: [],   // [{id,name,phone,t12,cm,count,last,avg}]
+    statsMonth: null,  // الشهر الذي حُسب عليه cm
     lastSync: null,
     lastError: null,
-    sampleInvoice: null,
-    samplePurchase: null
+    sampleInvoice: null
   },
   seq: 1
 };
@@ -41,8 +43,7 @@ function load() {
   if (fs.existsSync(FILE)) {
     try {
       db = JSON.parse(fs.readFileSync(FILE, 'utf8'));
-      // ضمان وجود كل المفاتيح
-      db = Object.assign({}, DEFAULT, db);
+      db = Object.assign({}, JSON.parse(JSON.stringify(DEFAULT)), db);
       db.cache = Object.assign({}, DEFAULT.cache, db.cache);
       db.settings = Object.assign({}, DEFAULT.settings, db.settings);
       return db;
@@ -56,20 +57,14 @@ function load() {
   return db;
 }
 
-let saveTimer = null;
 function save() {
   ensureDir();
-  // كتابة ذرّية
-  const tmp = FILE + '.tmp';
+  const tmp = FILE + '.tmp';       // كتابة ذرّية
   fs.writeFileSync(tmp, JSON.stringify(db, null, 2));
   fs.renameSync(tmp, FILE);
-}
-function saveSoon() {
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(save, 300);
 }
 
 function get() { if (!db) load(); return db; }
 function nextId() { const d = get(); return d.seq++; }
 
-module.exports = { load, save, saveSoon, get, nextId, FILE };
+module.exports = { load, save, get, nextId, FILE };

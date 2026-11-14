@@ -41,16 +41,53 @@ async function req(p, opts = {}, cookie) {
 
   const sync = await req('/api/sync', { method: 'POST' }, cookie);
   assert.ok(sync.json.ok, 'sync: ' + JSON.stringify(sync.json));
-  assert.deepStrictEqual(sync.json.counts, { clients: 3, suppliers: 2, invoices: 5, purchases: 3 });
+  const inv = mock.invoices.map(x => x.Invoice).filter(i => !i.draft);
+  const open = inv.filter(i => i.summary_paid < i.summary_total);
+  assert.deepStrictEqual(sync.json.counts, { clients: 12, invoices: inv.length, open: open.length }, 'counts (draft excluded, all pages)');
 
-  const d = (await req('/api/data', {}, cookie)).json;
-  assert.strictEqual(d.receivables.length, 3, 'open receivables');
-  assert.strictEqual(d.receivables.reduce((s, r) => s + r.amount, 0), 38500 + 20000 + 27500);
-  assert.strictEqual(d.payables.length, 2, 'open payables');
+  let d = (await req('/api/data', {}, cookie)).json;
+  assert.strictEqual(d.rec.all, Math.round(open.reduce((s, i) => s + i.summary_total - i.summary_paid, 0)), 'receivables total');
+  const m = d.month.month;
+  assert.strictEqual(d.month.sales, Math.round(inv.filter(i => i.date.startsWith(m)).reduce((s, i) => s + i.summary_total, 0)), 'month sales');
+  assert.strictEqual(d.month.target, 0, 'no target yet');
+  assert.ok(d.clients.dormant.length >= 3, 'dormant clients found');
+  assert.ok(d.clients.notThisMonth.length >= 1, 'active clients missing this month');
 
-  const e = await req('/api/expenses', { method: 'POST', body: JSON.stringify({ name: 'إيجار', amount: 5000, cat: 'إيجار', type: 'fixed', start: '2026-01' }) }, cookie);
-  assert.ok(e.json.ok, 'add expense');
-  assert.strictEqual((await req('/api/ai', { method: 'POST', body: '{}' }, cookie)).json.source, 'rules', 'ai fallback');
+  // الأهداف: سنوي يتوزع، وشهر يدوي يغلب
+  const y = m.slice(0, 4);
+  let g = (await req('/api/goals/' + y, { method: 'POST', body: JSON.stringify({ annual: 3600000 }) }, cookie)).json;
+  assert.ok(Math.abs(g.months.reduce((s, x) => s + x.target, 0) - 3600000) <= 12, 'annual distributed over months');
+  g = (await req('/api/goals/' + y, { method: 'POST', body: JSON.stringify({ monthly: { [m]: 400000 } }) }, cookie)).json;
+  assert.strictEqual(g.months.find(x => x.month === m).target, 400000, 'manual month target');
+  assert.ok(Math.abs(g.months.reduce((s, x) => s + x.target, 0) - 3600000) <= 12, 'other months rebalance');
+  d = (await req('/api/data', {}, cookie)).json;
+  assert.strictEqual(d.month.target, 400000);
+  assert.ok(d.month.need > 0 && d.month.perDay > 0, 'gap and daily pace');
+
+  // الخطة الذكية
+  const sug = (await req('/api/plan/suggest', { method: 'POST', body: '{}' }, cookie)).json;
+  assert.ok(sug.items.some(i => i.type === 'collect') && sug.items.some(i => i.type === 'sell'), 'suggest has collect + sell');
+  assert.ok(sug.strategy.length > 20, 'strategy text');
+  const ap = (await req('/api/plan/apply', { method: 'POST', body: JSON.stringify({ strategy: sug.strategy, source: sug.source, items: sug.items }) }, cookie)).json;
+  assert.strictEqual(ap.added, sug.items.length, 'apply adds all');
+  const again = (await req('/api/plan/apply', { method: 'POST', body: JSON.stringify({ items: sug.items }) }, cookie)).json;
+  assert.strictEqual(again.added, 0, 'no duplicate plan items');
+  d = (await req('/api/data', {}, cookie)).json;
+  assert.strictEqual(d.plan.totals.count, sug.items.length);
+  const col = d.plan.items.find(i => i.type === 'collect');
+  assert.strictEqual(col.now, col.base, 'collect progress starts at zero');
+  const bad = await req('/api/plan/items', { method: 'POST', body: JSON.stringify({ type: 'sell', clientId: 9999 }) }, cookie);
+  assert.strictEqual(bad.status, 400, 'unknown client rejected');
+  const task = (await req('/api/plan/items', { method: 'POST', body: JSON.stringify({ type: 'task', text: 'زيارة عيادات الشمال' }) }, cookie)).json.item;
+  await req('/api/plan/items/' + task.id, { method: 'PATCH', body: '{"done":true}' }, cookie);
+  d = (await req('/api/data', {}, cookie)).json;
+  assert.strictEqual(d.plan.totals.done, 1, 'task marked done');
+  await req('/api/plan/items/' + task.id, { method: 'DELETE' }, cookie);
+  assert.strictEqual((await req('/api/data', {}, cookie)).json.plan.totals.count, sug.items.length, 'task deleted');
+
+  const a = (await req('/api/ai', { method: 'POST', body: '{}' }, cookie)).json;
+  assert.strictEqual(a.source, 'rules', 'ai fallback');
+  assert.ok(a.insights.length >= 2, 'rule insights');
 
   for (let i = 0; i < 8; i++) await req('/api/login', { method: 'POST', body: '{"password":"nope"}' });
   assert.strictEqual((await req('/api/login', { method: 'POST', body: '{"password":"test-password-123"}' })).status, 429, 'rate limit');

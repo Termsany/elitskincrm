@@ -3,42 +3,52 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0f5c5c">
 <title>المتابعة المالية — Elite Skin</title>
 <style>
-:root{--bg:#f4f1ec;--card:#fff;--ink:#1d2a2e;--mut:#6b7a7f;--line:#e4dfd6;--pri:#0f5c5c;--pri2:#e3f0ee;--r:#c8372d;--rb:#fbe6e3;--y:#b7860b;--yb:#fdf3d3;--g:#1f7a4a;--gb:#dff3e7;--ai:#5b3fa6;--aib:#efeafa}
+:root{--bg:#f4f1ec;--card:#fff;--ink:#1d2a2e;--mut:#6b7a7f;--line:#e4dfd6;--pri:#0f5c5c;--pri2:#e3f0ee;--r:#c8372d;--rb:#fbe6e3;--y:#b7860b;--yb:#fdf3d3;--g:#1f7a4a;--gb:#dff3e7;--ai:#5b3fa6;--aib:#efeafa;--gold:#d9a441}
 *{box-sizing:border-box}
+html,body{overflow-x:hidden}
 body{margin:0;font-family:"Segoe UI",Tahoma,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:14px;line-height:1.6}
-button,input,select{font-family:inherit;font-size:14px}
+button,input,select,textarea{font-family:inherit;font-size:14px}
 .app{display:flex;min-height:100vh}
-.side{width:200px;background:var(--pri);color:#fff;padding:16px 10px;flex-shrink:0;display:flex;flex-direction:column}
-.side h1{font-size:16px;margin:0 8px 4px}
+.side{width:210px;background:var(--pri);color:#fff;padding:16px 10px;flex-shrink:0;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.side h1{font-size:16px;margin:0 8px 2px}
 .side small{display:block;margin:0 8px 16px;opacity:.7;font-size:11px}
-.nav{display:block;width:100%;text-align:right;background:none;border:0;color:#fff;padding:9px 12px;border-radius:8px;cursor:pointer;opacity:.85;margin-bottom:2px}
+.nav{display:flex;align-items:center;justify-content:space-between;width:100%;text-align:right;background:none;border:0;color:#fff;padding:9px 12px;border-radius:8px;cursor:pointer;opacity:.88;margin-bottom:2px}
 .nav:hover{background:rgba(255,255,255,.1)}
 .nav.on{background:#fff;color:var(--pri);opacity:1;font-weight:600}
-.side .foot{margin-top:auto;font-size:11px;opacity:.75;padding:8px}
-.main{flex:1;padding:20px 24px;min-width:0}
-.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.nav .bd{background:var(--r);color:#fff;border-radius:10px;font-size:11px;padding:0 7px;min-width:20px;text-align:center}
+.nav.on .bd{background:var(--rb);color:var(--r)}
+.side .foot{margin-top:auto;font-size:11px;opacity:.8;padding:8px}
+.main{flex:1;padding:20px 24px 40px;min-width:0}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
 .top h2{margin:0;font-size:21px}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.btn{border:1px solid var(--line);background:#fff;color:var(--ink);padding:7px 13px;border-radius:8px;cursor:pointer}
+.btn{border:1px solid var(--line);background:#fff;color:var(--ink);padding:7px 13px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;text-decoration:none;white-space:nowrap;transition:.12s}
 .btn:hover{border-color:var(--pri)}
+.btn:active{transform:scale(.97)}
 .btn.p{background:var(--pri);color:#fff;border-color:var(--pri)}
 .btn.ai{background:var(--ai);color:#fff;border-color:var(--ai)}
+.btn.wa{background:#1f9d55;color:#fff;border-color:#1f9d55}
+.btn.ok{background:var(--gb);color:var(--g);border-color:var(--gb);cursor:default}
 .btn.sm{padding:3px 9px;font-size:12px}
-.btn:disabled{opacity:.5;cursor:default}
-.btn.big{padding:14px 18px;font-size:15px;font-weight:600;flex:1;min-width:230px;text-align:right}
-.btn.big span{display:block;font-weight:400;font-size:12px;opacity:.85}
-.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-bottom:14px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
-.kpi{cursor:pointer;transition:.15s}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--mut)}
+.btn:disabled{opacity:.55;cursor:default}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));margin-bottom:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;min-width:0}
+.kpi{cursor:pointer;transition:.15s;position:relative}
 .kpi:hover{border-color:var(--pri);transform:translateY(-2px)}
 .kpi .l{color:var(--mut);font-size:12px}
-.kpi .v{font-size:21px;font-weight:700;margin:2px 0}
+.kpi .v{font-size:20px;overflow-wrap:anywhere;font-weight:700;margin:2px 0}
 .kpi .d{font-size:12px}
-.up{color:var(--g)}.dn{color:var(--r)}
-.two{display:grid;grid-template-columns:1.5fr 1fr;gap:12px;margin-bottom:14px}
-@media(max-width:900px){.two{grid-template-columns:1fr}.app{flex-direction:column}.side{width:auto;padding:8px}.side h1,.side small,.side .foot{display:none}#nav{display:flex;gap:4px;overflow-x:auto}.nav{width:auto;white-space:nowrap;margin:0;padding:7px 11px}.main{padding:14px}}
+.kpi .go{position:absolute;left:12px;top:12px;color:var(--mut);font-size:12px}
+.up{color:var(--g)}.dn{color:var(--r)}.wn{color:var(--y)}
+.two{display:grid;grid-template-columns:1.4fr 1fr;gap:12px;margin-bottom:14px}
+.hero{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:center}
+.hero h3{margin:0 0 4px}
+.hero .big{font-size:26px;font-weight:700}
+.status{display:inline-block;padding:2px 10px;border-radius:20px;font-size:12px;font-weight:600}
 h3{margin:0 0 10px;font-size:15px}
 table{width:100%;border-collapse:collapse}
 th,td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
@@ -49,29 +59,47 @@ tr.click{cursor:pointer}tr.click:hover{background:#faf8f4}
 .tag{display:inline-block;padding:1px 9px;border-radius:20px;font-size:12px;font-weight:600}
 .r{background:var(--rb);color:var(--r)}.y{background:var(--yb);color:var(--y)}.g{background:var(--gb);color:var(--g)}
 .b{background:var(--pri2);color:var(--pri)}.pu{background:var(--aib);color:var(--ai)}
-tr.sr td:first-child{border-right:4px solid var(--r)}tr.sy td:first-child{border-right:4px solid var(--y)}tr.sg td:first-child{border-right:4px solid var(--g)}
 .chip{border:1px solid var(--line);background:#fff;border-radius:20px;padding:5px 13px;cursor:pointer}
 .chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
-.bar{height:8px;background:#eee9e0;border-radius:5px;overflow:hidden}.bar i{display:block;height:100%;background:var(--pri)}
-.ins{border-right:4px solid var(--ai);background:var(--aib);padding:10px 14px;border-radius:8px;margin-bottom:8px}
+.bar{height:8px;background:#eee9e0;border-radius:5px;overflow:hidden;position:relative}.bar i{display:block;height:100%;background:var(--pri);border-radius:5px}
+.bar.gld i{background:var(--gold)}.bar.grn i{background:var(--g)}
+.ins{border-right:4px solid var(--ai);background:var(--aib);padding:10px 14px;border-radius:8px;margin-bottom:8px;display:flex;gap:10px;align-items:flex-start;justify-content:space-between}
 .ins.warn{border-color:var(--r);background:var(--rb)}.ins.good{border-color:var(--g);background:var(--gb)}
 .ins b{display:block}
 .note{font-size:12px;color:var(--mut)}
-.ov{position:fixed;inset:0;background:rgba(20,30,32,.45);display:flex;align-items:flex-start;justify-content:center;padding:40px 14px;overflow:auto;z-index:9}
+.act{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.act:last-child{border-bottom:0}
+.act .t{min-width:0;flex:1 1 220px}
+.act .t b{display:block}
+.ico{width:34px;height:34px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.plan-it{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.plan-it:last-child{border-bottom:0}
+.plan-it.done .tt{text-decoration:line-through;color:var(--mut)}
+.chk{width:24px;height:24px;border-radius:7px;border:2px solid var(--line);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff}
+.chk.on{background:var(--g);border-color:var(--g)}
+.ov{position:fixed;inset:0;background:rgba(20,30,32,.45);display:flex;align-items:flex-start;justify-content:center;padding:30px 12px;overflow:auto;z-index:9}
 .mod{background:#fff;border-radius:14px;padding:20px;width:100%;max-width:760px}
 .mod .top{margin-bottom:10px}
 label{display:block;font-size:12px;color:var(--mut);margin-bottom:3px}
-input,select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff}
+input,select,textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:#fff}
+input:focus,select:focus{outline:2px solid var(--pri2);border-color:var(--pri)}
 .form{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end}
 .err{color:var(--r);font-size:12px;margin-top:6px}
 .banner{padding:7px 12px;border-radius:8px;font-size:12px;margin-bottom:14px}
 .banner.warn{background:var(--rb);color:var(--r)}.banner.info{background:var(--yb);color:#6b4e00}.banner.ok{background:var(--gb);color:var(--g)}
-.chat{max-height:340px;overflow:auto;margin-bottom:10px}
-.q{background:var(--pri2);padding:8px 12px;border-radius:10px;margin:8px 0;width:fit-content}
+.chat{max-height:420px;overflow:auto;margin-bottom:10px}
+.q{background:var(--pri2);padding:8px 12px;border-radius:10px;margin:8px 0;width:fit-content;max-width:100%}
 .spin{display:inline-block;width:14px;height:14px;border:2px solid #ccc;border-top-color:var(--ai);border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
 @keyframes sp{to{transform:rotate(360deg)}}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:9px 16px;border-radius:10px;z-index:20;font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,.2);max-width:90vw}
 .login{max-width:360px;margin:12vh auto;background:#fff;border:1px solid var(--line);border-radius:16px;padding:28px}
 .login h1{font-size:20px;margin:0 0 4px}.login p{margin:0 0 18px;color:var(--mut)}
+.mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.mcell{border:1px solid var(--line);border-radius:10px;padding:10px}
+.mcell.cur{border-color:var(--pri);box-shadow:0 0 0 2px var(--pri2)}
+.mcell input{padding:5px 8px;font-size:13px}
+.strategy{background:var(--aib);border-radius:10px;padding:12px 14px;margin-bottom:12px;white-space:pre-line}
+@media(max-width:900px){.two,.hero{grid-template-columns:1fr}.hero svg{margin:0 auto}.app{flex-direction:column}.side{width:auto;height:auto;padding:8px;position:sticky;top:0;z-index:5}.side h1,.side small,.side .foot{display:none}#nav{display:flex;gap:4px;overflow-x:auto}.nav{width:auto;white-space:nowrap;margin:0;padding:7px 11px;gap:6px}.main{padding:14px 16px 40px}.plan-it{grid-template-columns:auto 1fr}.plan-it .acts{grid-column:1/-1}}
 @media print{body{background:#fff}.side,.noprint,.banner{display:none!important}.main{padding:0}.ov{position:static;background:none;padding:0}.mod{max-width:none;padding:0}body.printing .page{display:none}}
 </style>
 </head>
@@ -80,238 +108,284 @@ input,select{width:100%;padding:8px 10px;border:1px solid var(--line);border-rad
 <div id="modal"></div>
 <script>
 const $=id=>document.getElementById(id);
-const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const MN=['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
-const TYPE={fixed:['ثابت متكرر','b'],temp:['مؤقت بمدة','pu'],once:['مرة واحدة','g']};
-const STL={r:'متأخر أكثر من شهر',y:'متأخر أقل من شهر',g:'في موعده'};
-let D=null, TODAY=new Date(), CM='';
-const S={page:'dash',month:'',recF:'all',payF:'all',recTab:'debts',payTab:'debts',chat:[],busy:false};
+let D=null;
+const S={page:'dash',recF:'all',recTab:'clients',chat:[],insights:null,insBusy:false,goalYear:null,salesTab:'months'};
 
 const f=n=>Math.round(n||0).toLocaleString('en-US');
 const m$=n=>f(n)+' '+(D?D.currency:'');
+const k$=n=>{n=Math.round(n||0);const a=Math.abs(n);return (a>=1e6?(n/1e6).toFixed(a>=1e7?0:1)+'M':a>=1e4?Math.round(n/1e3)+'K':f(n))};
 const ml=m=>MN[+m.slice(5)-1]+' '+m.slice(0,4);
-const addM=(m,k)=>{const d=new Date(+m.slice(0,4),+m.slice(5)-1+k,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')};
-const pct=(a,b)=>b?((a-b)/b*100):0;
-let MONTHS=[];
-function calcMonths(){MONTHS=[];for(let i=5;i>=0;i--)MONTHS.push(addM(CM,-i))}
+const P=x=>x==null?'—':Math.round(x*100)+'%';
+const days=d=>Math.floor((new Date(D.today)-new Date(d))/864e5);
+const st=d=>{const l=days(d.due);return l>30?'r':l>0?'y':'g'};
+const STL={r:'متأخر أكثر من شهر',y:'متأخر أقل من شهر',g:'في موعده'};
+const client=id=>(D.clientsList||[]).find(c=>String(c.id)===String(id))||{name:'',phone:''};
+const owedBy=id=>D.receivables.filter(d=>String(d.who)===String(id));
+const inPlan=(type,id)=>D.plan.items.some(i=>i.type===type&&String(i.clientId)===String(id));
+const pcls=x=>x==null?'b':x>=1?'g':x>=.9?'y':'r';
 
-/* مصاريف */
-function active(e,m){if(e.type==='fixed')return e.start<=m&&(!e.stop||m<e.stop);if(e.type==='temp')return e.start<=m&&m<=e.end;return(e.date||'').slice(0,7)===m}
-const expItems=m=>D.expenses.filter(e=>active(e,m));
-const expTotal=m=>expItems(m).reduce((s,e)=>s+(+e.amount||0),0);
-const catTotal=(m,c)=>expItems(m).filter(e=>e.cat===c).reduce((s,e)=>s+(+e.amount||0),0);
-const sales=m=>D.sales[m]||0, purch=m=>D.purchases[m]||0;
-const profit=m=>sales(m)-purch(m)-expTotal(m);
-function remaining(e){const from=e.start>CM?e.start:CM;const n=Math.max(0,((e.end.slice(0,4)-from.slice(0,4))*12+(e.end.slice(5)-from.slice(5)))+1);return{n,amount:n*e.amount}}
+function toast(t){const el=document.createElement('div');el.className='toast';el.textContent=t;document.body.appendChild(el);setTimeout(()=>el.remove(),2600)}
 
-/* مديونيات */
-const late=d=>Math.floor((TODAY-new Date(d.due))/864e5);
-const st=d=>{const l=late(d);return l>30?'r':l>0?'y':'g'};
-const list=k=>k==='rec'?D.receivables:D.payables;
-const people=k=>k==='rec'?D.clients:D.suppliers;
-const who=(k,id)=>people(k).find(p=>String(p.id)===String(id))||{name:'',phone:''};
-const tot=(k,s)=>list(k).filter(d=>!s||st(d)===s).reduce((x,d)=>x+d.amount,0);
-const bal=(k,id)=>list(k).filter(d=>String(d.who)===String(id)).reduce((x,d)=>x+d.amount,0);
-
-/* API */
+/* ===== API ===== */
 async function api(path,opts){const r=await fetch(path,Object.assign({headers:{'Content-Type':'application/json'}},opts));
   if(r.status===401){location.reload();return}
   const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||('HTTP '+r.status));return j}
-async function loadData(){D=await api('/api/data');CM=D.today.slice(0,7);TODAY=new Date(D.today);calcMonths();if(!S.month)S.month=CM}
+async function loadData(){D=await api('/api/data');if(!S.goalYear)S.goalYear=D.today.slice(0,4)}
+async function refresh(){await loadData();render()}
+// زر ذكي: يقفل نفسه ويعرض حالة التحميل لحد ما الأمر يخلص
+async function busy(btn,label,fn){const old=btn?btn.innerHTML:'';if(btn){btn.disabled=true;btn.innerHTML='<span class="spin"></span> '+label}
+  try{return await fn()}catch(e){toast(e.message)}finally{if(btn&&btn.isConnected){btn.disabled=false;btn.innerHTML=old}}}
 
-/* رسم بياني */
-function chart(){const W=560,H=210,p=30,bw=26,vals=MONTHS.map(sales),max=Math.max(1,...vals)*1.1,y=v=>H-p-(v/max)*(H-p-12),gw=(W-p)/MONTHS.length;
-  let s='',pts=[];MONTHS.forEach((m,i)=>{const x=p+i*gw+gw/2,c=purch(m)+expTotal(m);pts.push(x+','+y(profit(m)>0?profit(m):0));
-    s+=`<rect x="${x-bw-2}" y="${y(sales(m))}" width="${bw}" height="${Math.max(0,H-p-y(sales(m)))}" rx="4" fill="#0f5c5c"><title>مبيعات ${ml(m)}: ${f(sales(m))}</title></rect><rect x="${x+2}" y="${y(c)}" width="${bw}" height="${Math.max(0,H-p-y(c))}" rx="4" fill="#d9a441"><title>تكاليف ${ml(m)}: ${f(c)}</title></rect><text x="${x}" y="${H-10}" text-anchor="middle" font-size="11" fill="#6b7a7f">${MN[+m.slice(5)-1]}</text>`});
-  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%">${s}<polyline points="${pts.join(' ')}" fill="none" stroke="#5b3fa6" stroke-width="2.5"/>${pts.map(q=>`<circle cx="${q.split(',')[0]}" cy="${q.split(',')[1]}" r="3.5" fill="#5b3fa6"/>`).join('')}</svg><div class="row note"><span style="color:#0f5c5c">■ المبيعات</span><span style="color:#d9a441">■ المشتريات + المصاريف</span><span style="color:#5b3fa6">● صافي الربح</span></div>`}
+/* ===== تواصل ===== */
+function intl(p){let d=String(p||'').replace(/\D/g,'');if(!d)return'';if(d.startsWith('00'))d=d.slice(2);
+  else if(d.length===10&&d.startsWith('05'))d='966'+d.slice(1);else if(d.length===11&&d.startsWith('01'))d='20'+d.slice(1);return d}
+function waMsg(kind,id){const c=client(id),list=owedBy(id),tot=list.reduce((s,d)=>s+d.amount,0);
+  if(kind==='collect')return `السلام عليكم ${c.name}،\nتذكير ودّي بمستحقات بقيمة ${m$(tot)} (${list.map(d=>d.inv).join('، ')}).\nيسعدنا التواصل لترتيب السداد. شكرًا لتعاونكم 🌿\nElite Skin`;
+  return `السلام عليكم ${c.name}،\nوحشتونا! حابين نطمن على احتياجاتكم من منتجات Elite Skin ونرتب لكم الطلبية الجاية.\nمتاحين لأي استفسار 🌿`}
+function contactBtns(id,kind){const c=client(id),p=intl(c.phone);if(!p)return '<span class="note">لا يوجد رقم</span>';
+  return `<a class="btn sm wa" target="_blank" rel="noopener" href="https://wa.me/${p}?text=${encodeURIComponent(waMsg(kind,id))}">واتساب</a><a class="btn sm" href="tel:+${p}">اتصال</a>`}
+function planBtn(type,id,amount,why){if(inPlan(type,id))return `<button class="btn sm ok" onclick="go('plan')">✓ في الخطة</button>`;
+  return `<button class="btn sm" onclick="addToPlan(this,'${type}',${JSON.stringify(String(id)).replace(/"/g,'&quot;')},${Math.round(amount||0)},'${esc(why||'')}')">+ للخطة</button>`}
+async function addToPlan(btn,type,clientId,amount,why){await busy(btn,'',async()=>{await api('/api/plan/items',{method:'POST',body:JSON.stringify({type,clientId,amount,why})});
+  toast('اتضاف لخطة الشهر');await loadData();btn.outerHTML=planBtn(type,clientId)})}
 
-/* AI */
-const insHtml=a=>(a||[]).map(i=>`<div class="ins ${i.type==='idea'?'':i.type}"><b>${esc(i.title)}</b>${esc(i.body)}</div>`).join('')||'<p class="note">مفيش ملاحظات.</p>';
-async function aiModal(scope,title){modal(`<div class="top"><h3>تحليل AI: ${title}</h3><button class="btn noprint" onclick="closeM()">إغلاق</button></div><p><span class="spin"></span> جاري التحليل...</p>`);
-  try{const r=await api('/api/ai',{method:'POST',body:JSON.stringify({scope})});
-    modal(`<div class="top"><h3>تحليل AI: ${title}</h3><button class="btn noprint" onclick="closeM()">إغلاق</button></div>${r.summary?`<p><b>${esc(r.summary)}</b></p>`:''}${insHtml(r.insights)}<p class="note">${r.source==='ai'?'تحليل بالذكاء الاصطناعي من بياناتك الحقيقية.':esc(r.note||'تحليل بقواعد ثابتة.')}</p>`);
-  }catch(e){modal(`<div class="top"><h3>تحليل AI</h3><button class="btn" onclick="closeM()">إغلاق</button></div><p class="err">${esc(e.message)}</p>`)}}
-async function ask(q){q=(q||($('q')?$('q').value:'')).trim();if(!q)return;const idx=S.chat.push({q,a:'<span class="spin"></span>'})-1;render();
-  try{const r=await api('/api/ai',{method:'POST',body:JSON.stringify({question:q})});S.chat[idx].a=(r.summary?`<p><b>${esc(r.summary)}</b></p>`:'')+insHtml(r.insights)}
-  catch(e){S.chat[idx].a=`<p class="err">${esc(e.message)}</p>`}render();const c=document.querySelector('.chat');if(c)c.scrollTop=c.scrollHeight}
+/* ===== الصفحات ===== */
+const PAGES=[['dash','الرئيسية'],['sales','المبيعات'],['rec','المديونيات'],['goals','الأهداف'],['plan','خطة الشهر'],['ai','المساعد الذكي'],['settings','الإعدادات']];
+function badge(p){if(p==='rec'){const n=D.debtors.filter(d=>d.maxLate>30).length;return n?`<span class="bd">${n}</span>`:''}
+  if(p==='plan'){const t=D.plan.totals,n=t.count-t.done;return n?`<span class="bd" style="background:var(--ai)">${n}</span>`:''}
+  if(p==='goals'&&!D.month.target)return '<span class="bd" style="background:var(--y)">!</span>';return ''}
+function go(p,extra){S.page=p;Object.assign(S,extra||{});closeM();render();window.scrollTo(0,0)}
+const head=(t,btns)=>`<div class="top"><h2>${t}</h2><div class="row noprint">${btns||''}</div></div>`;
+function statusBanner(){if(!D.daftraConfigured)return `<div class="banner warn">دفترة غير مربوطة. <a href="#" onclick="go('settings');return false">افتح الإعدادات</a> وأضف الساب دومين والمفتاح.</div>`;
+  if(D.lastError)return `<div class="banner warn">آخر مزامنة فشلت: ${esc(D.lastError)}</div>`;
+  return `<div class="banner ok">مربوط بدفترة · آخر تحديث: ${D.lastSync?new Date(D.lastSync).toLocaleString('ar-EG'):'—'}</div>`}
+const syncBtn=()=>`<button class="btn" onclick="doSync(this)">↻ تحديث من دفترة</button>`;
 
-/* صفحات */
-const PAGES=[['dash','الرئيسية'],['exp','المصاريف'],['rec','العملاء'],['pay','الموردين'],['trade','البيع والشراء'],['pl','الربح والخسارة'],['ai','المساعد الذكي'],['settings','الإعدادات']];
-function go(p,extra){S.page=p;Object.assign(S,extra||{});render();window.scrollTo(0,0)}
-function head(t,btns){return `<div class="top"><h2>${t}</h2><div class="row noprint">${btns||''}</div></div>`}
-function delta(a,b,inv){if(!b)return'';const d=pct(a,b),good=inv?d<=0:d>=0;return `<span class="${good?'up':'dn'}">${d>=0?'▲':'▼'} ${Math.abs(d).toFixed(1)}% عن الشهر السابق</span>`}
-function statusBanner(){if(!D.daftraConfigured)return `<div class="banner warn">دفترة غير مربوطة. افتح <a href="#" onclick="go('settings');return false" style="color:inherit;font-weight:700">الإعدادات</a> وأضف الساب دومين ومفتاح الـ API.</div>`;
-  if(D.lastError)return `<div class="banner warn">خطأ في المزامنة: ${esc(D.lastError)}</div>`;
-  const t=D.lastSync?new Date(D.lastSync):null;return `<div class="banner ok">مربوط بدفترة. آخر تحديث: ${t?t.toLocaleString('ar-EG'):'—'}${D.aiConfigured?'':' · الذكاء الاصطناعي غير مفعّل (أضف ANTHROPIC_API_KEY)'}</div>`}
+/* رسوم */
+function ring(p,size=124){const r=52,c=2*Math.PI*r,v=Math.max(0,Math.min(1,p||0)),col=p==null?'#c9c2b6':p>=1?'#1f7a4a':p>=.9?'#b7860b':'#0f5c5c';
+  return `<svg width="${size}" height="${size}" viewBox="0 0 124 124"><circle cx="62" cy="62" r="${r}" fill="none" stroke="#eee9e0" stroke-width="12"/><circle cx="62" cy="62" r="${r}" fill="none" stroke="${col}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${c*v} ${c}" transform="rotate(-90 62 62)"/><text x="62" y="60" text-anchor="middle" font-size="24" font-weight="700" fill="#1d2a2e">${p==null?'—':Math.round(p*100)+'%'}</text><text x="62" y="80" text-anchor="middle" font-size="11" fill="#6b7a7f">من الهدف</text></svg>`}
+function trendChart(rows){const W=900,H=230,p=26,max=Math.max(1,...rows.map(r=>Math.max(r.sales,r.target)))*1.1,y=v=>H-p-(v/max)*(H-p-10),gw=(W-10)/rows.length,bw=Math.min(28,gw*.6);
+  let s='';rows.forEach((r,i)=>{const x=5+i*gw+gw/2,col=!r.target?'#0f5c5c':r.sales>=r.target?'#1f7a4a':'#d9a441';
+    s+=`<g style="cursor:pointer" onclick="go('sales')"><rect x="${x-bw/2}" y="${y(r.sales)}" width="${bw}" height="${Math.max(0,H-p-y(r.sales))}" rx="4" fill="${col}"><title>${ml(r.month)}: ${f(r.sales)}${r.target?' / هدف '+f(r.target):''}</title></rect>${r.target?`<line x1="${x-bw/2-3}" x2="${x+bw/2+3}" y1="${y(r.target)}" y2="${y(r.target)}" stroke="#1d2a2e" stroke-width="2"/>`:''}<text x="${x}" y="${H-8}" text-anchor="middle" font-size="10" fill="#6b7a7f">${MN[+r.month.slice(5)-1].slice(0,4)}</text></g>`});
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-height:260px">${s}</svg><div class="row note"><span style="color:#1f7a4a">■ حقق الهدف</span><span style="color:#d9a441">■ أقل من الهدف</span><span>━ الهدف</span></div>`}
+function dailyChart(){const M=D.month,W=900,H=230,p=24,dd=D.daily;let cum=0;const pts=[];dd.forEach(d=>{if(!d.future){cum+=d.sales;pts.push([d.day,cum])}});
+  const max=Math.max(1,M.target,M.projection,cum)*1.08,x=d=>8+(d-1)/(M.daysInMonth-1)*(W-16),y=v=>H-p-(v/max)*(H-p-10);
+  const line=pts.map(q=>x(q[0])+','+y(q[1])).join(' ');const last=pts[pts.length-1]||[1,0];
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-height:260px">${M.target?`<line x1="${x(1)}" y1="${y(0)}" x2="${x(M.daysInMonth)}" y2="${y(M.target)}" stroke="#1d2a2e" stroke-dasharray="5 4" stroke-width="1.5"/><text x="${x(M.daysInMonth)}" y="${y(M.target)-6}" font-size="11" fill="#1d2a2e">الهدف</text>`:''}
+  <line x1="${x(last[0])}" y1="${y(last[1])}" x2="${x(M.daysInMonth)}" y2="${y(M.projection)}" stroke="#5b3fa6" stroke-dasharray="3 4" stroke-width="2"/>
+  <polyline points="${line}" fill="none" stroke="#0f5c5c" stroke-width="3"/><circle cx="${x(last[0])}" cy="${y(last[1])}" r="4.5" fill="#0f5c5c"/>
+  ${[1,10,20,M.daysInMonth].map(d=>`<text x="${x(d)}" y="${H-6}" text-anchor="middle" font-size="10" fill="#6b7a7f">${d}</text>`).join('')}</svg>
+  <div class="row note"><span style="color:#0f5c5c">━ المبيعات التراكمية</span><span style="color:#5b3fa6">┅ المتوقع لآخر الشهر</span>${M.target?'<span>┅ مسار الهدف</span>':''}</div>`}
 
-function pDash(){const m=CM,pm=addM(m,-1),next=[0,1,2].map(k=>addM(m,k));
-  const cats=D.cats.map(c=>[c,catTotal(m,c)]).filter(x=>x[1]).sort((a,b)=>b[1]-a[1]).slice(0,5),mx=cats[0]?cats[0][1]:1;
-  return head('الرئيسية — '+ml(m),`<button class="btn" onclick="doSync(this)">تحديث من دفترة</button><button class="btn ai" onclick="aiModal('all','كل العمليات')">تحليل AI شامل</button>`)+statusBanner()+
-  `<div class="row" style="margin-bottom:14px"><button class="btn big p" onclick="go('rec',{recTab:'debts',recF:'all'})">تقرير مديونيات العملاء<span>المطلوب تحصيله: ${m$(tot('rec'))} | متأخر: ${m$(tot('rec','r')+tot('rec','y'))}</span></button>
-  <button class="btn big" style="background:var(--ink);color:#fff" onclick="go('pay',{payTab:'debts',payF:'all'})">تقرير مستحقات الموردين<span>المطلوب سداده: ${m$(tot('pay'))} | متأخر: ${m$(tot('pay','r')+tot('pay','y'))}</span></button></div>
+/* ---------- الرئيسية ---------- */
+function nextActions(){const out=[];const M=D.month;
+  if(!M.target)out.push({ico:'🎯',c:'y',t:'حدد هدف الشهر والسنة',d:'من غير هدف البرنامج مش هيقدر يحسب الفجوة ولا يبني الخطة.',b:`<button class="btn sm p" onclick="go('goals')">حدد الهدف</button>`});
+  for(const d of D.debtors.filter(x=>x.overdue>0).slice(0,3))out.push({ico:'💰',c:d.maxLate>30?'r':'y',t:`حصّل ${m$(d.overdue)} من ${esc(d.name)}`,d:`متأخر ${d.maxLate} يوم · إجمالي عليه ${m$(d.total)}`,b:contactBtns(d.id,'collect')+planBtn('collect',d.id,d.total,'متأخر '+d.maxLate+' يوم')+`<button class="btn sm" onclick="stmt('${esc(d.id)}')">كشف</button>`});
+  for(const c of D.clients.dormant.slice(0,2))out.push({ico:'😴',c:'b',t:`رجّع ${esc(c.name)}`,d:`آخر شراء من ${c.idle} يوم · اشترى ${m$(c.t12)} آخر سنة · متوسط فاتورته ${m$(c.avg)}`,b:contactBtns(c.id,'sell')+planBtn('sell',c.id,c.avg,'عميل نايم')});
+  if(M.target&&M.need>0&&!D.plan.items.length)out.splice(M.target?0:1,0,{ico:'🧭',c:'pu',t:`فاضل ${m$(M.need)} على هدف الشهر`,d:`${m$(M.perDay)} يوميًا لمدة ${M.daysLeft} يوم. خلّي البرنامج يبنيلك خطة تقفل الفجوة.`,b:`<button class="btn sm ai" onclick="suggestPlan(this)">✨ اعمل خطة</button>`});
+  return out.slice(0,6)}
+function pDash(){const M=D.month,Y=D.year,R=D.rec,PL=D.plan.totals;
+  const vsLM=M.lastMonthSameDay?(M.sales-M.lastMonthSameDay)/M.lastMonthSameDay:null;
+  const stat=M.target?(M.projectedPct>=1?['g','ماشي فوق الهدف']:M.projectedPct>=.9?['y','قريب من الهدف']:['r','أقل من الهدف']):['b','بدون هدف'];
+  const acts=nextActions();
+  return head(`الرئيسية — ${ml(M.month)}`,syncBtn()+`<button class="btn ai" onclick="go('ai');runInsights()">✨ تحليل شامل</button>`)+statusBanner()+
+  `<div class="card" style="margin-bottom:14px"><div class="hero">${ring(M.progress)}<div>
+    <h3>هدف الشهر <span class="status ${stat[0]}">${stat[1]}</span></h3>
+    <div class="big">${m$(M.sales)} <span class="note" style="font-size:14px">${M.target?'من '+m$(M.target):''}</span></div>
+    ${M.target?`<div class="bar" style="margin:8px 0 4px;max-width:520px"><i style="width:${Math.min(100,(M.progress||0)*100)}%"></i><span style="position:absolute;top:-3px;bottom:-3px;width:2px;background:#1d2a2e;right:${Math.min(100,M.expectedByNow/M.target*100)}%" title="المفروض لحد النهارده"></span></div>
+    <div class="note">المفروض لحد النهارده ${m$(M.expectedByNow)} · المتوقع لآخر الشهر <b class="${pcls(M.projectedPct)==='g'?'up':pcls(M.projectedPct)==='y'?'wn':'dn'}">${m$(M.projection)} (${P(M.projectedPct)})</b></div>
+    ${M.need>0?`<div style="margin-top:6px">محتاج <b>${m$(M.perDay)}</b> يوميًا في الـ ${M.daysLeft} يوم الباقيين</div>`:'<div class="up" style="margin-top:6px"><b>🎉 الهدف اتحقق!</b></div>'}`
+    :'<p class="note">حدد هدف عشان تعرف إنت فين.</p>'}
+    <div class="row" style="margin-top:10px">${M.need>0||!M.target?`<button class="btn ai" onclick="suggestPlan(this)">✨ اعمل خطة تقفل الفجوة</button>`:''}<button class="btn" onclick="go('goals')">${M.target?'عدّل الهدف':'حدد الهدف'}</button></div>
+  </div></div></div>
   <div class="grid">
-   <div class="card kpi" onclick="go('trade')"><div class="l">المبيعات</div><div class="v">${m$(sales(m))}</div><div class="d">${delta(sales(m),sales(pm))}</div></div>
-   <div class="card kpi" onclick="go('trade')"><div class="l">المشتريات</div><div class="v">${m$(purch(m))}</div><div class="d">${delta(purch(m),purch(pm),1)}</div></div>
-   <div class="card kpi" onclick="go('exp',{month:'${m}'})"><div class="l">المصاريف</div><div class="v">${m$(expTotal(m))}</div><div class="d">${delta(expTotal(m),expTotal(pm),1)}</div></div>
-   <div class="card kpi" onclick="go('pl')"><div class="l">صافي الربح</div><div class="v ${profit(m)<0?'dn':''}">${m$(profit(m))}</div><div class="d">${delta(profit(m),profit(pm))}</div></div>
+    <div class="card kpi" onclick="go('sales')"><span class="go">←</span><div class="l">مبيعات الشهر</div><div class="v">${m$(M.sales)}</div><div class="d">${M.invoices} فاتورة · ${vsLM==null?'':`<span class="${vsLM>=0?'up':'dn'}">${vsLM>=0?'▲':'▼'} ${Math.abs(Math.round(vsLM*100))}%</span> عن نفس اليوم الشهر اللي فات`}</div></div>
+    <div class="card kpi" onclick="go('goals')"><span class="go">←</span><div class="l">الهدف السنوي ${Y.year}</div><div class="v">${Y.annual?P(Y.progress):'—'}</div><div class="d">${Y.annual?`${k$(Y.ytd)} من ${k$(Y.annual)} · متوقع <span class="${pcls(Y.projectedPct)==='g'?'up':'dn'}">${P(Y.projectedPct)}</span>`:'اضغط لتحديد الهدف'}</div></div>
+    <div class="card kpi" onclick="go('rec',{recF:'all'})"><span class="go">←</span><div class="l">مديونيات العملاء</div><div class="v">${m$(R.all)}</div><div class="d"><span class="dn">${m$(R.overdue)} متأخرة</span>${R.dso!=null?` · متوسط التحصيل ${R.dso} يوم`:''}</div></div>
+    <div class="card kpi" onclick="go('plan')"><span class="go">←</span><div class="l">خطة الشهر</div><div class="v">${PL.count?PL.done+' / '+PL.count:'—'}</div><div class="d">${PL.count?`اتحصّل ${k$(PL.collected)} · اتباع ${k$(PL.sold)}`:'لسه مفيش خطة'}</div></div>
   </div>
-  <div class="two"><div class="card"><h3>آخر 6 شهور</h3>${chart()}</div>
-   <div class="card"><h3>أعلى بنود الصرف — ${ml(m)}</h3>${cats.length?cats.map(c=>`<div style="margin-bottom:9px;cursor:pointer" onclick="catModal('${esc(c[0])}','${m}')"><div class="row" style="justify-content:space-between"><span>${c[0]}</span><b>${m$(c[1])}</b></div><div class="bar"><i style="width:${c[1]/mx*100}%"></i></div></div>`).join(''):'<p class="note">لا توجد مصاريف مسجلة هذا الشهر. أضفها من صفحة المصاريف.</p>'}</div></div>
-  <div class="two"><div class="card"><h3>توقع السيولة (الالتزامات المؤكدة)</h3><table><tr><th>الشهر</th><th class="n">داخل</th><th class="n">خارج</th><th class="n">الصافي</th></tr>${next.map((x,i)=>{const inn=list('rec').filter(d=>d.due.slice(0,7)===x||(i===0&&d.due.slice(0,7)<x)).reduce((s,d)=>s+d.amount,0),out=list('pay').filter(d=>d.due.slice(0,7)===x||(i===0&&d.due.slice(0,7)<x)).reduce((s,d)=>s+d.amount,0)+(i?expTotal(x):0);return `<tr><td>${MN[+x.slice(5)-1]}</td><td class="n">${f(inn)}</td><td class="n">${f(out)}</td><td class="n ${inn-out<0?'dn':'up'}"><b>${f(inn-out)}</b></td></tr>`}).join('')}</table><p class="note">داخل: فواتير العملاء المستحقة. خارج: فواتير الموردين والمصاريف المتكررة. المبيعات الجديدة غير محسوبة.</p></div>
-   <div class="card"><h3>نظرة سريعة</h3><table>
-   <tr><td>عملاء عليهم مديونية</td><td class="n"><b>${new Set(list('rec').map(d=>d.who)).size}</b></td></tr>
-   <tr><td>موردون لهم مستحقات</td><td class="n"><b>${new Set(list('pay').map(d=>d.who)).size}</b></td></tr>
-   <tr><td>فواتير عملاء مفتوحة</td><td class="n"><b>${list('rec').length}</b></td></tr>
-   <tr><td>فواتير موردين مفتوحة</td><td class="n"><b>${list('pay').length}</b></td></tr>
-   <tr><td>صافي المركز (ليك − عليك)</td><td class="n"><b class="${tot('rec')-tot('pay')<0?'dn':'up'}">${m$(tot('rec')-tot('pay'))}</b></td></tr></table></div></div>`}
+  <div class="two">
+    <div class="card"><div class="top" style="margin-bottom:4px"><h3 style="margin:0">الخطوة الجاية</h3><span class="note">مرتبة حسب التأثير على الهدف والسيولة</span></div>
+      ${acts.map(a=>`<div class="act"><span class="ico ${a.c}">${a.ico}</span><div class="t"><b>${a.t}</b><span class="note">${a.d}</span></div><div class="row">${a.b}</div></div>`).join('')||'<p class="note">مفيش حاجة عاجلة 👌</p>'}</div>
+    <div class="card"><div class="top" style="margin-bottom:6px"><h3 style="margin:0">رأي المساعد الذكي</h3><button class="btn sm ai" onclick="runInsights(this)">${S.insights?'↻ تحديث':'✨ حلّل'}</button></div><div id="insbox">${insBox()}</div></div>
+  </div>
+  <div class="card"><div class="top" style="margin-bottom:4px"><h3 style="margin:0">آخر 12 شهر: المبيعات مقابل الهدف</h3><button class="btn sm" onclick="go('sales')">التفاصيل</button></div>${trendChart(D.trend)}</div>`}
 
-function pExp(){const m=S.month,opts=[...MONTHS,addM(CM,1),addM(CM,2),addM(CM,3)],it=expItems(m);
-  return head('المصاريف',`<select style="width:auto" onchange="S.month=this.value;render()">${opts.map(x=>`<option value="${x}"${x===m?' selected':''}>${ml(x)}${x>CM?' (متوقع)':''}</option>`).join('')}</select><button class="btn ai" onclick="aiModal('exp','المصاريف')">تحليل AI</button><button class="btn p" onclick="expForm()">+ مصروف جديد</button>`)+
-  `<div class="grid"><div class="card"><div class="note">إجمالي ${ml(m)}</div><b style="font-size:21px">${m$(expTotal(m))}</b></div>
-  ${['fixed','temp','once'].map(t=>`<div class="card"><div class="note">${TYPE[t][0]}</div><b style="font-size:18px">${m$(it.filter(e=>e.type===t).reduce((s,e)=>s+(+e.amount),0))}</b></div>`).join('')}</div>
-  <div class="card tw"><table><tr><th>البند</th><th>التصنيف</th><th>النوع</th><th>المدة</th><th class="n">المبلغ</th><th class="noprint"></th></tr>
-  ${it.map(e=>{let d='مستمر من '+ml(e.start||CM),a=`<button class="btn sm" onclick="stopExp(${e.id})">إيقاف</button>`;
-    if(e.type==='fixed'&&e.stop){d='ينتهي بنهاية '+ml(addM(e.stop,-1));a=''}
-    if(e.type==='temp'){const r=remaining(e);d=`حتى ${ml(e.end)} | باقي ${r.n} دفعة (${m$(r.amount)})`;a=`<button class="btn sm" onclick="delExp(${e.id})">حذف</button>`}
-    if(e.type==='once'){d=e.date;a=`<button class="btn sm" onclick="delExp(${e.id})">حذف</button>`}
-    return `<tr><td>${esc(e.name)}</td><td>${esc(e.cat)}</td><td><span class="tag ${TYPE[e.type][1]}">${TYPE[e.type][0]}</span></td><td>${d}</td><td class="n"><b>${f(e.amount)}</b></td><td class="noprint">${a}</td></tr>`}).join('')||'<tr><td colspan="6">لا توجد مصاريف في هذا الشهر.</td></tr>'}
-  </table></div><p class="note">المصاريف تُحفظ في البرنامج (مش في دفترة). الثابت والمؤقت يظهران في توقع السيولة تلقائيًا.</p>`}
-function expForm(){modal(`<div class="top"><h3>مصروف جديد</h3><button class="btn" onclick="closeM()">إلغاء</button></div>
-  <div class="form"><div><label>اسم البند</label><input id="en"></div><div><label>التصنيف</label><select id="ec">${D.cats.map(c=>`<option>${c}</option>`).join('')}</select></div>
-  <div><label>المبلغ</label><input id="ea" type="number" min="1"></div>
-  <div><label>النوع</label><select id="et" onchange="expFields()"><option value="fixed">ثابت يتكرر كل شهر</option><option value="temp">مؤقت بمدة وينتهي</option><option value="once">مرة واحدة</option></select></div>
-  <div id="f1"></div><div id="f2"></div></div><div class="err" id="ee"></div><p><button class="btn p" id="esave" onclick="saveExp()">حفظ</button></p>`);expFields()}
-function expFields(){const t=$('et').value;
-  $('f1').innerHTML=t==='once'?`<label>التاريخ</label><input id="ed" type="date" value="${D.today}">`:`<label>يبدأ من شهر</label><input id="es" type="month" value="${CM}">`;
-  $('f2').innerHTML=t==='temp'?`<label>آخر شهر</label><input id="ex" type="month" value="${addM(CM,5)}">`:''}
-async function saveExp(){const b={name:$('en').value,cat:$('ec').value,amount:$('ea').value,type:$('et').value};
-  if(b.type==='once')b.date=$('ed').value;else{b.start=$('es').value;if(b.type==='temp')b.end=$('ex').value}
-  $('esave').disabled=true;
-  try{await api('/api/expenses',{method:'POST',body:JSON.stringify(b)});if(b.type==='once')S.month=b.date.slice(0,7);else S.month=b.start;await loadData();closeM();render()}
-  catch(e){$('ee').textContent=e.message;$('esave').disabled=false}}
-async function stopExp(id){await api('/api/expenses/'+id+'/stop',{method:'POST',body:JSON.stringify({from:addM(S.month>CM?S.month:CM,1)})});await loadData();render()}
-async function delExp(id){if(!confirm('حذف هذا المصروف؟'))return;await api('/api/expenses/'+id,{method:'DELETE'});await loadData();render()}
-function catModal(c,m){const items=expItems(m).filter(e=>e.cat===c);modal(`<div class="top"><h3>${esc(c)} — ${ml(m)}</h3><button class="btn" onclick="closeM()">إغلاق</button></div><table>${items.map(e=>`<tr><td>${esc(e.name)}</td><td><span class="tag ${TYPE[e.type][1]}">${TYPE[e.type][0]}</span></td><td class="n"><b>${m$(e.amount)}</b></td></tr>`).join('')||'<tr><td>لا يوجد.</td></tr>'}</table><p class="note">متوسط آخر 3 شهور قبله: ${m$([1,2,3].reduce((s,k)=>s+catTotal(addM(m,-k),c),0)/3)}</p>`)}
+/* ---------- AI ---------- */
+const PG={sales:'المبيعات',rec:'المديونيات',goals:'الأهداف',plan:'الخطة'};
+const insHtml=a=>(a||[]).map(i=>`<div class="ins ${i.type==='idea'?'':esc(i.type)}"><div><b>${esc(i.title)}</b>${esc(i.body)}</div>${PG[i.action]?`<button class="btn sm noprint" onclick="go('${i.action}')">${PG[i.action]} ←</button>`:''}</div>`).join('')||'<p class="note">مفيش ملاحظات.</p>';
+function insBox(){if(S.insBusy)return '<p><span class="spin"></span> بيحلل المبيعات والمديونيات والأهداف والخطة مع بعض...</p>';
+  if(!S.insights)return '<p class="note">اضغط "حلّل" والمساعد يقرأ الأربعة مع بعض ويقولك تعمل إيه.</p>';
+  const r=S.insights;return (r.summary?`<p style="margin-top:0">${esc(r.summary)}</p>`:'')+insHtml(r.insights)+(r.note?`<p class="note">${esc(r.note)}</p>`:'')}
+async function runInsights(btn,scope){S.insBusy=true;const b=$('insbox');if(b)b.innerHTML=insBox();if(btn)btn.disabled=true;
+  try{S.insights=await api('/api/ai',{method:'POST',body:JSON.stringify({scope:scope||'all'})})}catch(e){S.insights={insights:[],note:e.message}}
+  S.insBusy=false;const b2=$('insbox');if(b2)b2.innerHTML=insBox();if(btn)btn.disabled=false}
+async function aiModal(scope,title){modal(`<div class="top"><h3>✨ ${title}</h3><button class="btn noprint" onclick="closeM()">إغلاق</button></div><div id="aim"><p><span class="spin"></span> جاري التحليل...</p></div>`);
+  try{const r=await api('/api/ai',{method:'POST',body:JSON.stringify({scope})});const el=$('aim');if(el)el.innerHTML=(r.summary?`<p>${esc(r.summary)}</p>`:'')+insHtml(r.insights)+(r.note?`<p class="note">${esc(r.note)}</p>`:'')}
+  catch(e){const el=$('aim');if(el)el.innerHTML=`<p class="err">${esc(e.message)}</p>`}}
+function pAI(){const qs=['إزاي أحقق هدف الشهر؟','مين أبدأ أحصّل منه؟','مين العملاء اللي ممكن أبيع لهم أكتر؟','هل هدفي السنوي واقعي؟','إيه أكبر خطر عليا الشهر ده؟'];
+  return head('المساعد الذكي',`<button class="btn ai" onclick="runInsights(this);setTimeout(render,50)">✨ تحليل شامل</button>`)+`<div class="two"><div class="card"><h3>اسأل</h3><div class="chat" id="chat">${S.chat.map(c=>`<div class="q">${esc(c.q)}</div>${c.a}`).join('')||'<p class="note">المساعد شايف مبيعاتك من دفترة، مديونيات العملاء، أهدافك، وخطة الشهر — اسأله أي حاجة.</p>'}</div>
+  <div class="row" style="margin-bottom:10px">${qs.map(q=>`<button class="chip" onclick="ask(this.textContent)">${q}</button>`).join('')}</div>
+  <div class="row"><input id="q" style="flex:1;width:auto" placeholder="اكتب سؤالك..." onkeydown="if(event.key==='Enter')ask()"><button class="btn ai" id="askb" onclick="ask()">اسأل</button></div>
+  ${D.aiConfigured?'':'<p class="note">الذكاء الاصطناعي غير مفعّل — بيشتغل بقواعد ثابتة. <a href="#" onclick="go(\'settings\');return false">أضف مفتاح Anthropic</a> للتحليل الكامل.</p>'}</div>
+  <div class="card"><h3>التحليل الشامل</h3><div id="insbox">${insBox()}</div></div></div>`}
+async function ask(q){q=q||$('q').value.trim();if(!q||S.busy)return;S.busy=true;S.chat.push({q,a:'<p><span class="spin"></span></p>'});render();
+  try{const r=await api('/api/ai',{method:'POST',body:JSON.stringify({question:q})});S.chat[S.chat.length-1].a=(r.summary?`<p>${esc(r.summary)}</p>`:'')+insHtml(r.insights)}
+  catch(e){S.chat[S.chat.length-1].a=`<p class="err">${esc(e.message)}</p>`}S.busy=false;render();const c=$('chat');if(c)c.scrollTop=c.scrollHeight}
 
-function debtRows(k,rows){return rows.map(d=>{const s=st(d),l=late(d),p=who(k,d.who);return `<tr class="s${s}"><td>${esc(p.name||d.name)}</td><td>${esc(d.inv)}</td><td>${d.due}</td><td><span class="tag ${s}">${l>0?'متأخر '+l+' يوم':l===0?'مستحق اليوم':'باقي '+(-l)+' يوم'}</span></td><td class="n"><b>${f(d.amount)}</b></td>${k==='rec'?`<td class="noprint"><button class="btn sm" onclick="remind('${esc(d.inv)}')">تذكير واتساب</button></td>`:'<td></td>'}</tr>`}).join('')}
-function pDebt(k){const isR=k==='rec',F=isR?S.recF:S.payF,tab=isR?S.recTab:S.payTab,title=isR?'العملاء':'الموردين';
-  const tabs=`<div class="row noprint" style="margin-bottom:12px"><button class="chip ${tab==='debts'?'on':''}" onclick="go('${k}',{${k}Tab:'debts'})">${isR?'تقرير المديونيات':'تقرير المستحقات'}</button><button class="chip ${tab==='list'?'on':''}" onclick="go('${k}',{${k}Tab:'list'})">قائمة ${title}</button></div>`;
-  if(tab==='list'){return head(title,`<button class="btn" onclick="doSync(this)">تحديث من دفترة</button>`)+tabs+`<div class="card tw"><table><tr><th>الاسم</th><th>الهاتف</th><th class="n">فواتير مفتوحة</th><th class="n">الرصيد</th><th>الحالة</th><th></th></tr>
-   ${people(k).map(p=>{const ds=list(k).filter(d=>String(d.who)===String(p.id)),w=ds.some(d=>st(d)==='r')?'r':ds.some(d=>st(d)==='y')?'y':'g';return `<tr class="click" onclick="statement('${k}','${esc(String(p.id))}')"><td><b>${esc(p.name)}</b></td><td dir="ltr" style="text-align:right">${esc(p.phone||'—')}</td><td class="n">${ds.length}</td><td class="n"><b>${f(bal(k,p.id))}</b></td><td>${ds.length?`<span class="tag ${w}">${STL[w]}</span>`:'<span class="note">لا رصيد</span>'}</td><td><button class="btn sm">كشف حساب</button></td></tr>`}).join('')||'<tr><td colspan="6">لا توجد بيانات. اضغط تحديث من دفترة.</td></tr>'}</table></div>`}
-  let rows=[...list(k)].sort((a,b)=>a.due<b.due?-1:1);if(F==='month')rows=rows.filter(d=>d.due.slice(0,7)<=CM);else if(F!=='all')rows=rows.filter(d=>st(d)===F);
-  const chip=(v,t)=>`<button class="chip ${F===v?'on':''}" onclick="go('${k}',{${k}F:'${v}'})">${t}</button>`;
-  return head(title,`<button class="btn ai" onclick="aiModal('${k}','${title}')">تحليل AI</button><button class="btn" onclick="doSync(this)">تحديث</button><button class="btn p" onclick="pdf('${k}')">تقرير PDF</button>`)+tabs+
-  `<div class="grid">${['r','y','g'].map(s=>`<div class="card kpi" onclick="go('${k}',{${k}F:'${s}'})"><span class="tag ${s}">${STL[s]}</span><div class="v">${m$(tot(k,s))}</div><div class="note">${list(k).filter(d=>st(d)===s).length} فاتورة</div></div>`).join('')}
-   <div class="card kpi" onclick="go('${k}',{${k}F:'all'})"><div class="l">${isR?'إجمالي المطلوب تحصيله':'إجمالي المطلوب سداده'}</div><div class="v">${m$(tot(k))}</div><div class="note">${list(k).length} فاتورة</div></div></div>
-  <div class="row noprint" style="margin-bottom:10px">${chip('all','الكل')}${chip('month','المستحق حتى نهاية الشهر')}${chip('r','أحمر')}${chip('y','أصفر')}${chip('g','أخضر')}</div>
-  <div class="card tw"><table><tr><th>${isR?'العميل':'المورد'}</th><th>الفاتورة</th><th>تاريخ الاستحقاق</th><th>الحالة</th><th class="n">المبلغ</th><th class="noprint"></th></tr>${debtRows(k,rows)||'<tr><td colspan="6">لا توجد فواتير بهذا التصنيف.</td></tr>'}
-  <tr><td colspan="4"><b>الإجمالي</b></td><td class="n"><b>${f(rows.reduce((s,d)=>s+d.amount,0))}</b></td><td></td></tr></table></div>`}
-function statement(k,id){const p=who(k,id),rows=list(k).filter(d=>String(d.who)===String(id));
-  modal(`<div class="top"><h3>كشف حساب: ${esc(p.name)}</h3><div class="row noprint"><button class="btn p" onclick="printM()">PDF</button><button class="btn" onclick="closeM()">إغلاق</button></div></div>
-  <p class="note">بتاريخ ${D.today} | الهاتف: <span dir="ltr">${esc(p.phone||'—')}</span></p>
-  ${rows.length?`<table><tr><th>${k==='rec'?'العميل':'المورد'}</th><th>الفاتورة</th><th>الاستحقاق</th><th>الحالة</th><th class="n">المبلغ</th><th></th></tr>${debtRows(k,rows)}<tr><td colspan="4"><b>الرصيد</b></td><td class="n"><b>${m$(bal(k,id))}</b></td><td></td></tr></table>`:'<p>لا يوجد رصيد مفتوح.</p>'}`)}
-function pdf(k){const isR=k==='rec',rows=[...list(k)].sort((a,b)=>a.due<b.due?-1:1);
-  modal(`<div class="top"><h3>${isR?'تقرير مديونيات العملاء':'تقرير مستحقات الموردين'}</h3><div class="row noprint"><button class="btn p" onclick="printM()">طباعة / حفظ PDF</button><button class="btn" onclick="closeM()">إغلاق</button></div></div>
-  <p class="note">Elite Skin — بتاريخ ${D.today}</p>
-  <div class="row" style="margin-bottom:10px">${['r','y','g'].map(s=>`<span class="tag ${s}">${STL[s]}: ${m$(tot(k,s))}</span>`).join('')}</div>
-  <table><tr><th>${isR?'العميل':'المورد'}</th><th>الفاتورة</th><th>الاستحقاق</th><th>الحالة</th><th class="n">المبلغ</th><th></th></tr>${debtRows(k,rows)||'<tr><td colspan=6>لا يوجد.</td></tr>'}<tr><td colspan="4"><b>الإجمالي</b></td><td class="n"><b>${m$(tot(k))}</b></td><td></td></tr></table>`)}
+/* ---------- المبيعات ---------- */
+function pSales(){const M=D.month,C=D.clients;const rows=[...D.trend].reverse();
+  const tabs=[['months','الشهور'],['top','أكبر العملاء'],['gap','ما اشتروش الشهر ده'],['dormant','عملاء نايمين']];
+  const clientRows=list=>`<div class="tw"><table><tr><th>العميل</th><th class="n">آخر 12 شهر</th><th class="n">الشهر ده</th><th class="n">متوسط الفاتورة</th><th>آخر شراء</th><th class="n">عليه</th><th></th></tr>
+    ${list.map(c=>`<tr><td><b>${esc(c.name)}</b></td><td class="n">${f(c.t12)}</td><td class="n">${c.cm?f(c.cm):'<span class="note">—</span>'}</td><td class="n">${f(c.avg)}</td><td>${c.idle==null?'—':c.idle===0?'النهارده':'من '+c.idle+' يوم'}</td><td class="n">${c.owed?`<span class="tag ${c.maxLate>30?'r':c.overdue?'y':'g'}">${f(c.owed)}</span>`:'—'}</td>
+    <td><div class="row">${contactBtns(c.id,'sell')}${planBtn('sell',c.id,c.avg,'')}</div></td></tr>`).join('')||'<tr><td colspan="7" class="note">مفيش عملاء هنا.</td></tr>'}</table></div>`;
+  let body='';
+  if(S.salesTab==='months')body=`<div class="tw"><table><tr><th>الشهر</th><th class="n">المبيعات</th><th class="n">الهدف</th><th>التحقيق</th><th class="n">نفس الشهر السنة اللي فاتت</th></tr>
+    ${rows.map(r=>{const p=r.target?r.sales/r.target:null;const ly=(D.goalsYear.months.find(x=>x.month===r.month)||{}).lastYear;return `<tr><td>${ml(r.month)}${r.month===M.month?' <span class="tag b">الحالي</span>':''}</td><td class="n"><b>${f(r.sales)}</b></td><td class="n">${r.target?f(r.target):'—'}</td><td>${p==null?'—':`<span class="tag ${pcls(p)}">${P(p)}</span>`}</td><td class="n">${ly?f(ly):'—'}</td></tr>`}).join('')}</table></div>`;
+  else body=clientRows(S.salesTab==='top'?C.top:S.salesTab==='gap'?C.notThisMonth:C.dormant);
+  return head('المبيعات',syncBtn()+`<button class="btn ai" onclick="aiModal('sales','تحليل المبيعات')">✨ تحليل</button>`)+
+  `<div class="grid"><div class="card"><div class="l note">الشهر لحد النهارده</div><div class="kpi"><div class="v">${m$(M.sales)}</div></div><div class="note">${M.invoices} فاتورة · متوسط ${m$(M.invoices?M.sales/M.invoices:0)}</div></div>
+   <div class="card"><div class="note">المتوقع لآخر الشهر</div><div class="kpi"><div class="v">${m$(M.projection)}</div></div><div class="note">${M.target?`<span class="tag ${pcls(M.projectedPct)}">${P(M.projectedPct)} من الهدف</span>`:'بدون هدف'}</div></div>
+   <div class="card"><div class="note">الشهر اللي فات</div><div class="kpi"><div class="v">${m$(M.lastMonth)}</div></div><div class="note">نفس الشهر السنة اللي فاتت: ${m$(M.lastYear)}</div></div>
+   <div class="card"><div class="note">العملاء النشطين (آخر سنة)</div><div class="kpi"><div class="v">${C.active}</div></div><div class="note">أكبر 5 = <b class="${C.top5Share>.6?'dn':''}">${P(C.top5Share)}</b> من المبيعات</div></div></div>
+  <div class="card" style="margin-bottom:14px"><h3>مسار الشهر يوم بيوم</h3>${dailyChart()}</div>
+  <div class="card"><div class="row" style="margin-bottom:10px">${tabs.map(t=>`<button class="chip ${S.salesTab===t[0]?'on':''}" onclick="S.salesTab='${t[0]}';render()">${t[1]}${t[0]==='gap'?' ('+C.notThisMonth.length+')':t[0]==='dormant'?' ('+C.dormant.length+')':''}</button>`).join('')}</div>${body}</div>`}
+
+/* ---------- المديونيات ---------- */
+function pRec(){const R=D.rec,F=S.recF;
+  const chips=[['all','الكل',R.all],['r',STL.r,R.r],['y',STL.y,R.y],['g',STL.g,R.g]];
+  const deb=D.debtors.filter(d=>F==='all'||owedBy(d.id).some(x=>st(x)===F));
+  const inv=D.receivables.filter(d=>F==='all'||st(d)===F).sort((a,b)=>days(b.due)-days(a.due));
+  return head('مديونيات العملاء',syncBtn()+`<button class="btn ai" onclick="aiModal('rec','خطة التحصيل')">✨ خطة تحصيل</button><button class="btn p" onclick="recReport()">تقرير PDF</button>`)+
+  `<div class="grid">${chips.map(c=>`<div class="card kpi" onclick="S.recF='${c[0]}';render()" style="${F===c[0]?'border-color:var(--pri);box-shadow:0 0 0 2px var(--pri2)':''}"><div class="l">${c[0]==='all'?'':`<span class="tag ${c[0]}">●</span> `}${c[1]}</div><div class="v ${c[0]==='r'?'dn':c[0]==='y'?'wn':c[0]==='g'?'up':''}">${m$(c[2])}</div><div class="d">${c[0]==='all'?(R.dso!=null?`متوسط التحصيل ${R.dso} يوم · مستحق الشهر ده ${k$(R.dueThisMonth)}`:R.count+' فاتورة'):D.receivables.filter(d=>st(d)===c[0]).length+' فاتورة'}</div></div>`).join('')}</div>
+  ${R.overdue?`<div class="banner info">تحصيل المتأخر (${m$(R.overdue)}) = ${D.month.target?P(R.overdue/D.month.target)+' من هدف مبيعات الشهر':'سيولة جاهزة'} من غير بيع جديد. ${D.debtors.filter(d=>d.overdue>0&&!inPlan('collect',d.id)).length?`<a href="#" onclick="planAllOverdue(this);return false">ضيف كل المتأخرين للخطة</a>`:''}</div>`:''}
+  <div class="card"><div class="row" style="margin-bottom:10px"><button class="chip ${S.recTab==='clients'?'on':''}" onclick="S.recTab='clients';render()">حسب العميل (${deb.length})</button><button class="chip ${S.recTab==='inv'?'on':''}" onclick="S.recTab='inv';render()">كل الفواتير (${inv.length})</button></div>
+  ${S.recTab==='clients'?`<div class="tw"><table><tr><th>العميل</th><th class="n">إجمالي عليه</th><th class="n">متأخر</th><th>أقدم تأخير</th><th class="n">فواتير</th><th></th></tr>
+   ${deb.map(d=>`<tr class="s${d.maxLate>30?'r':d.overdue?'y':'g'}"><td><a href="#" onclick="stmt('${esc(d.id)}');return false"><b>${esc(d.name)}</b></a></td><td class="n"><b>${f(d.total)}</b></td><td class="n">${d.overdue?`<span class="dn">${f(d.overdue)}</span>`:'—'}</td><td>${d.maxLate?`<span class="tag ${d.maxLate>30?'r':'y'}">${d.maxLate} يوم</span>`:'<span class="tag g">في موعده</span>'}</td><td class="n">${d.invoices}</td>
+   <td><div class="row">${contactBtns(d.id,'collect')}${planBtn('collect',d.id,d.total,d.maxLate?'متأخر '+d.maxLate+' يوم':'')}<button class="btn sm" onclick="stmt('${esc(d.id)}')">كشف حساب</button></div></td></tr>`).join('')||'<tr><td colspan="6" class="note">مفيش مديونيات هنا 👌</td></tr>'}</table></div>`
+  :`<div class="tw"><table><tr><th>العميل</th><th>الفاتورة</th><th>التاريخ</th><th>الاستحقاق</th><th>الحالة</th><th class="n">المتبقي</th></tr>
+   ${inv.map(d=>`<tr class="click" onclick="stmt('${esc(d.who)}')"><td>${esc(d.name)}</td><td>${esc(d.inv)}</td><td>${esc(d.date||'')}</td><td>${esc(d.due)}</td><td><span class="tag ${st(d)}">${days(d.due)>0?days(d.due)+' يوم تأخير':'في موعده'}</span></td><td class="n"><b>${f(d.amount)}</b></td></tr>`).join('')||'<tr><td colspan="6" class="note">مفيش فواتير هنا.</td></tr>'}</table></div>`}</div>`}
+async function planAllOverdue(a){const list=D.debtors.filter(d=>d.overdue>0&&!inPlan('collect',d.id));a.textContent='جاري الإضافة...';
+  try{for(const d of list)await api('/api/plan/items',{method:'POST',body:JSON.stringify({type:'collect',clientId:d.id,amount:d.total,why:'متأخر '+d.maxLate+' يوم'})});toast('اتضاف '+list.length+' عميل لخطة التحصيل');await refresh()}catch(e){toast(e.message)}}
+function stmt(id){const c=client(id),list=owedBy(id).sort((a,b)=>a.due<b.due?-1:1),tot=list.reduce((s,d)=>s+d.amount,0);
+  modal(`<div class="top"><h3>كشف حساب: ${esc(c.name)}</h3><div class="row noprint">${contactBtns(id,'collect')}<button class="btn p" onclick="printM()">PDF</button><button class="btn" onclick="closeM()">إغلاق</button></div></div>
+  <p class="note">Elite Skin · ${new Date(D.today).toLocaleDateString('ar-EG')}${c.phone?' · '+esc(c.phone):''}</p>
+  <div class="tw"><table><tr><th>الفاتورة</th><th>التاريخ</th><th>الاستحقاق</th><th>الحالة</th><th class="n">المتبقي</th></tr>${list.map(d=>`<tr><td>${esc(d.inv)}</td><td>${esc(d.date||'')}</td><td>${esc(d.due)}</td><td><span class="tag ${st(d)}">${STL[st(d)]}</span></td><td class="n">${f(d.amount)}</td></tr>`).join('')||'<tr><td colspan="5" class="note">لا توجد مستحقات.</td></tr>'}
+  <tr><th colspan="4">الإجمالي</th><th class="n">${m$(tot)}</th></tr></table></div>`)}
+function recReport(){const g=D.debtors;modal(`<div class="top"><h3>تقرير مديونيات العملاء</h3><div class="row noprint"><button class="btn p" onclick="printM()">PDF</button><button class="btn" onclick="closeM()">إغلاق</button></div></div>
+  <p class="note">${new Date(D.today).toLocaleDateString('ar-EG')} · إجمالي ${m$(D.rec.all)} · متأخر ${m$(D.rec.overdue)}</p><table><tr><th>العميل</th><th class="n">الإجمالي</th><th class="n">المتأخر</th><th>أقدم تأخير</th></tr>${g.map(d=>`<tr><td>${esc(d.name)}</td><td class="n">${f(d.total)}</td><td class="n">${f(d.overdue)}</td><td>${d.maxLate?d.maxLate+' يوم':'—'}</td></tr>`).join('')}</table>`)}
 function printM(){document.body.classList.add('printing');try{window.print()}catch(e){}setTimeout(()=>document.body.classList.remove('printing'),600)}
-function remind(inv){const d=list('rec').find(x=>x.inv===inv);if(!d)return;const p=who('rec',d.who),l=late(d);
-  const msg=`السلام عليكم ${p.name}،\nنذكّر حضرتك بالفاتورة رقم ${d.inv} بمبلغ ${m$(d.amount)}، ${l>0?'وكان موعد استحقاقها '+d.due:'وموعد استحقاقها '+d.due}.\nنرجو التكرم بالسداد، وشكرًا لتعاونكم.\nElite Skin`;
-  const phone=(p.phone||'').replace(/[^0-9]/g,''),wa=phone?`https://wa.me/${phone.replace(/^0/,'20')}?text=${encodeURIComponent(msg)}`:'';
-  modal(`<div class="top"><h3>رسالة تذكير</h3><button class="btn" onclick="closeM()">إغلاق</button></div><p class="note">إلى: ${esc(p.name)} <span dir="ltr">${esc(p.phone||'—')}</span></p><div class="card" style="white-space:pre-wrap" id="msg">${esc(msg)}</div><p class="row"><button class="btn p" onclick="copyMsg(this)">نسخ الرسالة</button>${wa?`<a class="btn ai" href="${wa}" target="_blank" rel="noopener">فتح واتساب</a>`:'<span class="note">رقم الهاتف غير مسجل لهذا العميل في دفترة.</span>'}</p><p class="note">تأكد من الرسالة قبل الإرسال.</p>`)}
-function copyMsg(b){try{navigator.clipboard.writeText($('msg').textContent).then(()=>b.textContent='تم النسخ',()=>b.textContent='انسخها يدويًا')}catch(e){b.textContent='انسخها يدويًا'}}
 
-function pTrade(){return head('البيع والشراء',`<button class="btn ai" onclick="aiModal('trade','البيع والشراء')">تحليل AI</button>`)+statusBanner()+
-  `<div class="card tw"><h3>شهريًا (من فواتير دفترة)</h3><table><tr><th>الشهر</th><th class="n">المبيعات</th><th class="n">المشتريات</th><th class="n">مجمل الربح</th><th class="n">نسبة المشتريات</th></tr>${MONTHS.map(m=>`<tr><td>${ml(m)}</td><td class="n">${f(sales(m))}</td><td class="n">${f(purch(m))}</td><td class="n"><b>${f(sales(m)-purch(m))}</b></td><td class="n">${sales(m)?(purch(m)/sales(m)*100).toFixed(1):'0'}%</td></tr>`).join('')}</table><p class="note">المبيعات = إجمالي فواتير البيع، المشتريات = إجمالي فواتير الشراء، لكل شهر حسب تاريخ الفاتورة.</p></div>`}
+/* ---------- الأهداف ---------- */
+let G=null;
+function pGoals(){const y=S.goalYear;if(!G||G.year!==y){api('/api/goals/'+y).then(r=>{G=r;render()});return head('الأهداف')+'<p><span class="spin"></span></p>'}
+  const tot=G.months.reduce((s,m)=>s+m.target,0),done=G.months.reduce((s,m)=>s+m.sales,0),ly=G.months.reduce((s,m)=>s+m.lastYear,0),cur=D.today.slice(0,7);
+  return head('الأهداف',`<select style="width:auto" onchange="S.goalYear=this.value;render()">${[+D.today.slice(0,4)-1,+D.today.slice(0,4),+D.today.slice(0,4)+1].map(v=>`<option ${String(v)===y?'selected':''}>${v}</option>`).join('')}</select><button class="btn ai" onclick="aiModal('goals','هل الهدف واقعي؟')">✨ راجع الهدف</button>`)+
+  `<div class="card" style="margin-bottom:14px"><h3>الهدف السنوي ${y}</h3>
+   <div class="form" style="grid-template-columns:minmax(180px,260px) auto"><div><label>الهدف السنوي (${esc(D.currency)})</label><input id="g_an" type="number" min="0" value="${G.annual||''}" placeholder="مثال: 3000000"></div><div class="row"><button class="btn p" onclick="saveAnnual(this)">حفظ ووزّع على الشهور</button></div></div>
+   ${ly?`<div class="row" style="margin-top:10px"><span class="note">اقتراح سريع بناءً على مبيعات ${+y-1} (${m$(ly)}):</span>${[10,20,30].map(p=>`<button class="chip" onclick="$('g_an').value=${Math.round(ly*(1+p/100)/1000)*1000}">+${p}% = ${k$(ly*(1+p/100))}</button>`).join('')}</div>`:''}
+   ${G.annual?`<div style="margin-top:12px"><div class="row" style="justify-content:space-between"><span>اتحقق ${m$(done)} من ${m$(G.annual)}</span><b>${P(done/G.annual)}</b></div><div class="bar grn" style="margin-top:4px"><i style="width:${Math.min(100,done/G.annual*100)}%"></i></div>
+   ${y===D.year.year?`<p class="note">المتوقع لآخر السنة: <b class="${pcls(D.year.projectedPct)==='g'?'up':'dn'}">${m$(D.year.projection)} (${P(D.year.projectedPct)})</b>${D.year.needPerMonth?` · محتاج ${m$(D.year.needPerMonth)} شهريًا في الشهور الباقية`:''}</p>`:''}</div>`:''}</div>
+  <div class="card"><div class="top" style="margin-bottom:8px"><h3 style="margin:0">أهداف الشهور</h3><div class="row"><span class="note">الفاضي = تلقائي حسب موسمية السنة اللي فاتت</span><button class="btn sm" onclick="resetMonthly(this)">رجّع الكل تلقائي</button><button class="btn sm p" onclick="saveMonthly(this)">حفظ الشهور</button></div></div>
+   <div class="mgrid">${G.months.map(m=>{const p=m.target?m.sales/m.target:null,past=m.month<cur;return `<div class="mcell ${m.month===cur?'cur':''}"><div class="row" style="justify-content:space-between"><b>${MN[+m.month.slice(5)-1]}</b>${m.manual?'<span class="tag b">يدوي</span>':'<span class="tag pu">تلقائي</span>'}</div>
+    <input data-m="${m.month}" type="number" min="0" placeholder="${f(m.target)}" value="${m.manual?m.target:''}" style="margin:6px 0">
+    <div class="note">${m.month<=cur?`اتحقق ${k$(m.sales)} ${p!=null?`<span class="tag ${pcls(p)}">${P(p)}</span>`:''}`:'—'}</div><div class="note">السنة اللي فاتت ${k$(m.lastYear)}</div>${past||m.month===cur?`<div class="bar ${p>=1?'grn':'gld'}" style="margin-top:4px"><i style="width:${Math.min(100,(p||0)*100)}%"></i></div>`:''}</div>`}).join('')}</div>
+   <p class="note">مجموع أهداف الشهور: ${m$(tot)}${G.annual&&Math.abs(tot-G.annual)>1?` <span class="dn">(مختلف عن السنوي بـ ${m$(tot-G.annual)})</span>`:''}</p></div>`}
+async function saveAnnual(btn){await busy(btn,'جاري الحفظ',async()=>{G=await api('/api/goals/'+S.goalYear,{method:'POST',body:JSON.stringify({annual:$('g_an').value||0})});await loadData();toast('الهدف اتحفظ واتوزع على الشهور');render()})}
+async function saveMonthly(btn){const monthly={};document.querySelectorAll('.mcell input[data-m]').forEach(i=>monthly[i.dataset.m]=i.value||0);
+  await busy(btn,'',async()=>{G=await api('/api/goals/'+S.goalYear,{method:'POST',body:JSON.stringify({monthly})});await loadData();toast('أهداف الشهور اتحفظت');render()})}
+async function resetMonthly(btn){if(!confirm('ترجع كل الشهور لتوزيع تلقائي من الهدف السنوي؟'))return;await busy(btn,'',async()=>{G=await api('/api/goals/'+S.goalYear,{method:'POST',body:JSON.stringify({resetMonthly:true})});await loadData();render()})}
 
-function pPL(){const row=(t,fn,b,cls)=>`<tr${cls?' class="click" onclick="catModal(\''+esc(t)+'\',\''+CM+'\')"':''}><td>${b?'<b>'+t+'</b>':t}</td>${MONTHS.map(m=>{const v=fn(m);return `<td class="n ${cls&&v<0?'dn':''}">${b?'<b>'+f(v)+'</b>':f(v)}</td>`}).join('')}</tr>`;
-  return head('الربح والخسارة',`<button class="btn ai" onclick="aiModal('pl','الربح والخسارة')">تحليل AI</button><button class="btn p" onclick="printM()">PDF</button>`)+
-  `<div class="card tw"><table><tr><th></th>${MONTHS.map(m=>`<th class="n">${ml(m)}</th>`).join('')}</tr>
-  ${row('المبيعات',sales)}${row('المشتريات',m=>-purch(m))}${row('مجمل الربح',m=>sales(m)-purch(m),1)}
-  ${D.cats.filter(c=>MONTHS.some(m=>catTotal(m,c))).map(c=>`<tr class="click" onclick="catModal('${esc(c)}','${CM}')"><td>${esc(c)}</td>${MONTHS.map(m=>{const v=catTotal(m,c),pv=catTotal(addM(m,-1),c);return `<td class="n ${m!==MONTHS[0]&&pv&&v>pv*1.15?'dn':''}">${f(v)}</td>`}).join('')}</tr>`).join('')}
-  ${row('إجمالي المصاريف',expTotal,1)}${row('صافي الربح',profit,1,1)}
-  <tr><td>هامش صافي الربح</td>${MONTHS.map(m=>`<td class="n">${sales(m)?(profit(m)/sales(m)*100).toFixed(1):'0'}%</td>`).join('')}</tr></table>
-  <p class="note">الأرقام الحمراء في البنود: زيادة أكثر من 15% عن الشهر السابق. اضغط أي بند لتفاصيله.</p></div>`}
+/* ---------- خطة الشهر ---------- */
+const TY={collect:['💰','تحصيل','r'],sell:['📈','بيع','g'],task:['📝','مهمة','b']};
+function pPlan(){const PL=D.plan,T=PL.totals,M=D.month;
+  const cover=M.target?Math.min(1,(M.sales+Math.max(0,T.sellPlanned-T.sold))/M.target):null;
+  const groups=['collect','sell','task'].map(t=>[t,PL.items.filter(i=>i.type===t)]).filter(g=>g[1].length);
+  return head(`خطة ${ml(M.month)}`,`<button class="btn ai" onclick="suggestPlan(this)">✨ ${PL.items.length?'اقترح بنود زيادة':'اعمل خطة ذكية'}</button><button class="btn" onclick="addItemModal()">+ بند</button>`)+
+  `<div class="grid">
+   <div class="card"><div class="note">البنود</div><div class="kpi"><div class="v">${T.done} / ${T.count}</div></div><div class="bar grn"><i style="width:${T.count?T.done/T.count*100:0}%"></i></div></div>
+   <div class="card"><div class="note">التحصيل (يتحدث من دفترة)</div><div class="kpi"><div class="v">${m$(T.collected)}</div></div><div class="note">من ${m$(T.collectPlanned)} مخطط</div><div class="bar"><i style="width:${T.collectPlanned?Math.min(100,T.collected/T.collectPlanned*100):0}%"></i></div></div>
+   <div class="card"><div class="note">البيع لعملاء الخطة</div><div class="kpi"><div class="v">${m$(T.sold)}</div></div><div class="note">من ${m$(T.sellPlanned)} مخطط</div><div class="bar gld"><i style="width:${T.sellPlanned?Math.min(100,T.sold/T.sellPlanned*100):0}%"></i></div></div>
+   <div class="card"><div class="note">الخطة بتغطي من الهدف</div><div class="kpi"><div class="v ${cover==null?'':cover>=1?'up':cover>=.9?'wn':'dn'}">${P(cover)}</div></div><div class="note">${M.target?(cover>=1?'لو اتنفذت الهدف هيتحقق':`ناقص ${m$(M.target-M.sales-Math.max(0,T.sellPlanned-T.sold))} — ضيف بنود بيع`):'<a href="#" onclick="go(\'goals\');return false">حدد الهدف</a>'}</div></div></div>
+  ${PL.strategy?`<div class="strategy"><b>${PL.strategySource==='ai'?'✨ استراتيجية الشهر (AI)':'🧭 استراتيجية الشهر'}</b>\n${esc(PL.strategy)}</div>`:''}
+  ${groups.length?groups.map(([t,items])=>`<div class="card" style="margin-bottom:12px"><h3>${TY[t][0]} ${TY[t][1]} (${items.filter(i=>i.complete).length}/${items.length})</h3>${items.map(planItem).join('')}</div>`).join('')
+   :`<div class="card" style="text-align:center;padding:30px"><p style="font-size:16px;margin-top:0">لسه مفيش خطة للشهر ده</p><p class="note">البرنامج يقدر يبنيلك خطة من بياناتك: يحصّل المتأخر، يرجّع العملاء النايمين، ويكبّر الكبار — لحد ما تقفل فجوة الهدف.</p><button class="btn ai" onclick="suggestPlan(this)">✨ اعمل خطة ذكية</button></div>`}`}
+function planItem(i){const pr=i.type==='collect'?(i.amount?i.achieved/i.amount:0):i.type==='sell'?(i.amount?i.achieved/i.amount:0):null;
+  return `<div class="plan-it ${i.complete?'done':''}"><button class="chk ${i.complete?'on':''}" title="${i.auto?'اتعلّم تلقائيًا من دفترة':'علّم كخلص'}" onclick="toggleItem(this,${i.id},${!i.done})" ${i.auto?'disabled':''}>${i.complete?'✓':''}</button>
+  <div style="min-width:0"><div class="tt"><b>${esc(i.text)}</b>${i.amount?` — ${m$(i.amount)}`:''} ${i.auto?'<span class="tag g">اتحقق من دفترة</span>':''}</div>
+   ${i.why?`<div class="note">${esc(i.why)}</div>`:''}${i.how?`<div class="note" style="color:var(--ai)">✨ ${esc(i.how)}</div>`:''}
+   ${pr!=null&&i.clientId!=null?`<div class="row" style="margin-top:4px"><div class="bar ${i.type==='sell'?'gld':''}" style="flex:1;min-width:100px;max-width:260px"><i style="width:${Math.min(100,pr*100)}%"></i></div><span class="note">${i.type==='collect'?'اتحصّل':'اتباع'} ${f(i.achieved)}${i.type==='collect'?' · باقي عليه '+f(i.now):''}</span></div>`:''}</div>
+  <div class="row acts">${i.clientId!=null?contactBtns(i.clientId,i.type==='collect'?'collect':'sell'):''}${i.type==='collect'&&i.clientId!=null?`<button class="btn sm" onclick="stmt('${esc(i.clientId)}')">كشف</button>`:''}<button class="btn sm ghost" title="حذف" onclick="delItem(this,${i.id})">✕</button></div></div>`}
+async function toggleItem(btn,id,done){await busy(btn,'',async()=>{await api('/api/plan/items/'+id,{method:'PATCH',body:JSON.stringify({done})});if(done)toast('عاش! 👏');await refresh()})}
+async function delItem(btn,id){if(!confirm('حذف البند؟'))return;await busy(btn,'',async()=>{await api('/api/plan/items/'+id,{method:'DELETE'});await refresh()})}
+let SUG=null;
+async function suggestPlan(btn){await busy(btn,D.aiConfigured?'الـ AI بيبني الخطة':'بيبني الخطة',async()=>{SUG=await api('/api/plan/suggest',{method:'POST',body:'{}'});
+  if(!SUG.items.length){toast('كل الفرص المقترحة موجودة في خطتك بالفعل 👌');render();return}
+  modal(`<div class="top"><h3>✨ خطة مقترحة ${SUG.source==='ai'?'(AI)':''}</h3><button class="btn" onclick="closeM()">إلغاء</button></div>
+   <div class="strategy">${esc(SUG.strategy)}</div><p class="note">اختار البنود اللي عايزها — التقدّم بيتحدث تلقائيًا من دفترة.</p>
+   ${SUG.items.map((it,k)=>`<label class="act" style="cursor:pointer;color:inherit;font-size:14px"><input type="checkbox" checked data-k="${k}" style="width:20px;height:20px" onchange="sugTotal()"><span class="ico ${TY[it.type][2]}">${TY[it.type][0]}</span><div class="t"><b>${esc(it.text)} — ${m$(it.amount)}</b><span class="note">${esc(it.why||'')}</span>${it.how?`<span class="note" style="display:block;color:var(--ai)">✨ ${esc(it.how)}</span>`:''}</div></label>`).join('')}
+   <div class="row" style="margin-top:12px;justify-content:space-between"><span id="sugt" class="note"></span><button class="btn p" id="sugb" onclick="applySug(this)">ضيف للخطة</button></div>`);sugTotal()})}
+function sugTotal(){const ch=[...document.querySelectorAll('[data-k]')].filter(x=>x.checked).map(x=>SUG.items[+x.dataset.k]);const c=ch.filter(i=>i.type==='collect').reduce((s,i)=>s+i.amount,0),s=ch.filter(i=>i.type==='sell').reduce((a,i)=>a+i.amount,0);
+  const el=$('sugt');if(el)el.innerHTML=`${ch.length} بند · تحصيل ${m$(c)} · بيع ${m$(s)}${D.month.target?` · يغطي <b>${P(Math.min(1,(D.month.sales+s)/D.month.target))}</b> من الهدف`:''}`}
+async function applySug(btn){const ch=[...document.querySelectorAll('[data-k]')].filter(x=>x.checked).map(x=>SUG.items[+x.dataset.k]);if(!ch.length){toast('اختار بند واحد على الأقل');return}
+  await busy(btn,'جاري الإضافة',async()=>{await api('/api/plan/apply',{method:'POST',body:JSON.stringify({strategy:SUG.strategy,source:SUG.source,items:ch})});closeM();toast('الخطة جاهزة — '+ch.length+' بند');S.page='plan';await refresh()})}
+function addItemModal(){modal(`<div class="top"><h3>بند جديد في الخطة</h3><button class="btn" onclick="closeM()">إغلاق</button></div>
+  <div class="form"><div><label>النوع</label><select id="ni_t" onchange="niHint()"><option value="collect">💰 تحصيل من عميل</option><option value="sell">📈 بيع لعميل</option><option value="task">📝 مهمة</option></select></div>
+  <div><label>العميل</label><input id="ni_c" list="ni_cl" placeholder="اكتب اسم العميل..." oninput="niHint()"><datalist id="ni_cl">${D.clientsList.map(c=>`<option value="${esc(c.name)}">`).join('')}</datalist></div>
+  <div><label>المبلغ</label><input id="ni_a" type="number" min="0"></div><div style="grid-column:1/-1"><label>وصف (اختياري للعميل)</label><input id="ni_x" placeholder="مثال: زيارة وعرض المنتج الجديد"></div></div>
+  <div id="ni_h" class="note" style="margin-top:6px"></div><div class="err" id="ni_e"></div><div class="row" style="margin-top:10px"><button class="btn p" onclick="saveItem(this)">إضافة</button></div>`)}
+function niC(){const v=$('ni_c').value.trim();return D.clientsList.find(c=>c.name===v)}
+function niHint(){const c=niC(),t=$('ni_t').value,h=$('ni_h');if(!c){h.textContent='';return}
+  const owed=owedBy(c.id).reduce((s,d)=>s+d.amount,0),s=[...D.clients.top,...D.clients.dormant,...D.clients.notThisMonth].find(x=>String(x.id)===String(c.id));
+  if(t==='collect'){h.innerHTML=owed?`عليه ${m$(owed)}`:'<span class="dn">العميل ده مفيش عليه مديونية.</span>';if(owed&&!$('ni_a').value)$('ni_a').value=Math.round(owed)}
+  else if(t==='sell'&&s){h.innerHTML=`متوسط فاتورته ${m$(s.avg)} · آخر شراء من ${s.idle} يوم`;if(!$('ni_a').value)$('ni_a').value=s.avg}else h.textContent=''}
+async function saveItem(btn){const t=$('ni_t').value,c=niC(),txt=$('ni_x').value.trim();if(t!=='task'&&!c){$('ni_e').textContent='اختار العميل من القائمة';return}
+  await busy(btn,'',async()=>{await api('/api/plan/items',{method:'POST',body:JSON.stringify({type:t,clientId:c?c.id:'',amount:$('ni_a').value,text:txt})});closeM();toast('البند اتضاف');await refresh()})}
 
-function pAI(){const qs=['فين المصاريف زادت؟','إزاي أزوّد الربح؟','مين العملاء المتأخرين؟','وضع الموردين إيه؟','إيه اللي يقلقني الشهر ده؟'];
-  return head('المساعد الذكي')+statusBanner()+`<div class="card"><div class="chat">${S.chat.map(c=>`<div class="q">${esc(c.q)}</div>${c.a}`).join('')||'<p class="note">اسأل عن أي حاجة في حساباتك، أو اختار سؤال جاهز. التحليل مبني على بياناتك الحقيقية من دفترة.</p>'}</div>
-  <div class="row" style="margin-bottom:10px">${qs.map(q=>`<button class="chip" onclick="ask('${q}')">${q}</button>`).join('')}</div>
-  <div class="row"><input id="q" style="flex:1;width:auto" placeholder="اكتب سؤالك..." onkeydown="if(event.key==='Enter')ask()"><button class="btn ai" onclick="ask()">اسأل</button></div>
-  ${D.aiConfigured?'':'<p class="note">ملاحظة: الذكاء الاصطناعي غير مفعّل. أضف ANTHROPIC_API_KEY في .env لتفعيل التحليل الكامل؛ حاليًا يعمل بقواعد ثابتة.</p>'}</div>`}
-
-/* الإعدادات */
+/* ---------- الإعدادات ---------- */
 let SET=null;
-async function pSettings(){
-  return head('الإعدادات')+`<div id="setwrap"><p class="note"><span class="spin"></span> تحميل...</p></div>`;
-}
+function pSettings(){setTimeout(loadSettings,0);return head('الإعدادات')+`<div id="setwrap"><p class="note"><span class="spin"></span> تحميل...</p></div>`}
 async function loadSettings(){try{SET=await api('/api/settings');renderSettings()}catch(e){const w=$('setwrap');if(w)w.innerHTML=`<p class="err">${esc(e.message)}</p>`}}
 function renderSettings(){const w=$('setwrap');if(!w)return;const s=SET;
-  w.innerHTML=`
-  <div class="card" style="max-width:620px">
-    <h3>ربط دفترة (Daftra)</h3>
-    <p class="note">المفتاح من دفترة: الإعدادات ← مفاتيح الـ API (API Keys). البرنامج يقرأ فقط ولا يعدّل في دفترة.</p>
+  w.innerHTML=`<div class="card" style="max-width:620px">
+    <h3>ربط دفترة (Daftra)</h3><p class="note">المفتاح من دفترة: الإعدادات ← مفاتيح الـ API. البرنامج يقرأ المبيعات والعملاء فقط ولا يعدّل في دفترة.</p>
     <div class="form" style="grid-template-columns:1fr">
-      <div><label>الساب دومين (اسم حسابك في دفترة)</label><input id="s_sub" value="${esc(s.daftraSubdomain)}" placeholder="مثال: eliteskin"><div class="note">لو حسابك https://eliteskin.daftara.com اكتب eliteskin فقط.</div></div>
+      <div><label>الساب دومين</label><input id="s_sub" value="${esc(s.daftraSubdomain)}" placeholder="مثال: eliteskin"><div class="note">لو حسابك https://eliteskin.daftara.com اكتب eliteskin فقط.</div></div>
       <div><label>النطاق</label><select id="s_dom"><option value="daftara.com"${s.daftraDomain==='daftara.com'?' selected':''}>daftara.com</option><option value="daftra.com"${s.daftraDomain==='daftra.com'?' selected':''}>daftra.com</option></select></div>
-      <div><label>مفتاح الـ API ${s.daftraApikeySet?'<span class="tag g">محفوظ</span>':'<span class="tag r">غير محفوظ</span>'}</label><input id="s_key" type="password" placeholder="${s.daftraApikeySet?'••••••• (اكتب مفتاحًا جديدًا للتغيير)':'الصق المفتاح هنا'}"></div>
+      <div><label>مفتاح الـ API ${s.daftraApikeySet?'<span class="tag g">محفوظ</span>':s.envDaftra?'<span class="tag b">من إعدادات السيرفر</span>':'<span class="tag r">غير محفوظ</span>'}</label><input id="s_key" type="password" placeholder="${s.daftraApikeySet?'••••••• (اكتب مفتاحًا جديدًا للتغيير)':'الصق المفتاح هنا'}"></div>
       <div><label>مزامنة تلقائية كل (دقيقة)</label><input id="s_sync" type="number" min="5" value="${s.syncEveryMinutes}"></div>
+      <div><label>العملة</label><input id="s_cur" value="${esc(s.currency)}" placeholder="ر.س"></div>
     </div>
-    <div class="row" style="margin-top:10px"><button class="btn p" id="s_save" onclick="saveSettings()">حفظ</button><button class="btn" id="s_test" onclick="testDaftra()">اختبار الاتصال</button>${s.daftraApikeySet?'<button class="btn sm" onclick="clearKey(\'daftra\')">حذف المفتاح</button>':''}</div>
-    <div id="s_msg" style="margin-top:8px"></div>
-  </div>
-  <div class="card" style="max-width:620px;margin-top:12px">
-    <h3>ربط الذكاء الاصطناعي (AI)</h3>
-    <p class="note">مفتاح Anthropic لتفعيل التحليلات والاقتراحات الذكية الكاملة. من console.anthropic.com. بدونه يعمل المساعد بقواعد ثابتة.</p>
-    <div class="form" style="grid-template-columns:1fr">
-      <div><label>مفتاح Anthropic ${s.anthropicKeySet?'<span class="tag g">محفوظ ومفعّل</span>':'<span class="tag y">غير مفعّل</span>'}</label><input id="s_ai" type="password" placeholder="${s.anthropicKeySet?'••••••• (اكتب مفتاحًا جديدًا للتغيير)':'sk-ant-...'}"></div>
-    </div>
-    <div class="row" style="margin-top:10px"><button class="btn p" id="s_aisave" onclick="saveAI()">حفظ مفتاح الـ AI</button>${s.anthropicKeySet?'<button class="btn sm" onclick="clearKey(\'ai\')">حذف المفتاح</button>':''}</div>
-    <div id="s_aimsg" style="margin-top:8px"></div>
-  </div>`;
-}
-async function saveSettings(){const btn=$('s_save');btn.disabled=true;const msg=$('s_msg');msg.innerHTML='<span class="spin"></span> جاري الحفظ والمزامنة...';
-  try{const body={daftraSubdomain:$('s_sub').value,daftraDomain:$('s_dom').value,syncEveryMinutes:$('s_sync').value};const k=$('s_key').value.trim();if(k)body.daftraApikey=k;
-    const r=await api('/api/settings',{method:'POST',body:JSON.stringify(body)});
-    await loadData();
-    if(r.sync&&!r.sync.ok)msg.innerHTML=`<span class="banner warn" style="display:inline-block">حُفظ، لكن تعذّرت المزامنة: ${esc(r.sync.error)}</span>`;
-    else if(r.sync&&r.sync.ok)msg.innerHTML=`<span class="banner ok" style="display:inline-block">تم الحفظ والمزامنة: ${r.sync.counts.clients} عميل، ${r.sync.counts.suppliers} مورد، ${r.sync.counts.invoices} فاتورة بيع.</span>`;
-    else msg.innerHTML='<span class="banner info" style="display:inline-block">تم الحفظ.</span>';
-    await loadSettings();
-  }catch(e){msg.innerHTML=`<span class="err">${esc(e.message)}</span>`;btn.disabled=false}}
-async function testDaftra(){const btn=$('s_test');btn.disabled=true;const msg=$('s_msg');msg.innerHTML='<span class="spin"></span> جاري الاختبار...';
-  // نحفظ أولًا لو فيه مفتاح جديد مكتوب
-  const k=$('s_key').value.trim();if(k||$('s_sub').value!==SET.daftraSubdomain){try{const body={daftraSubdomain:$('s_sub').value,daftraDomain:$('s_dom').value};if(k)body.daftraApikey=k;await api('/api/settings',{method:'POST',body:JSON.stringify(body)});await loadSettings()}catch(e){}}
-  try{const r=await api('/api/daftra/test',{method:'POST'});msg.innerHTML=r.ok?`<span class="banner ok" style="display:inline-block">${esc(r.message)}</span>`:`<span class="banner warn" style="display:inline-block">${esc(r.error)}</span>`}
-  catch(e){msg.innerHTML=`<span class="err">${esc(e.message)}</span>`}btn.disabled=false}
-async function saveAI(){const btn=$('s_aisave');btn.disabled=true;const msg=$('s_aimsg');const k=$('s_ai').value.trim();
-  if(!k){msg.innerHTML='<span class="err">اكتب المفتاح أولًا.</span>';btn.disabled=false;return}
-  msg.innerHTML='<span class="spin"></span> جاري الحفظ...';
-  try{await api('/api/settings',{method:'POST',body:JSON.stringify({anthropicKey:k})});await loadData();msg.innerHTML='<span class="banner ok" style="display:inline-block">تم تفعيل الذكاء الاصطناعي.</span>';await loadSettings()}
-  catch(e){msg.innerHTML=`<span class="err">${esc(e.message)}</span>`;btn.disabled=false}}
-async function clearKey(which){if(!confirm('حذف المفتاح؟'))return;const body=which==='daftra'?{clearDaftraKey:true}:{clearAnthropicKey:true};await api('/api/settings',{method:'POST',body:JSON.stringify(body)});await loadData();await loadSettings()}
+    <div class="row" style="margin-top:10px"><button class="btn p" onclick="saveSettings(this)">حفظ ومزامنة</button><button class="btn" onclick="testDaftra(this)">اختبار الاتصال</button>${s.daftraApikeySet?'<button class="btn sm" onclick="clearKey(\'daftra\')">حذف المفتاح</button>':''}</div>
+    <div id="s_msg" style="margin-top:8px"></div></div>
+  <div class="card" style="max-width:620px;margin-top:12px"><h3>الذكاء الاصطناعي</h3><p class="note">مفتاح Anthropic (من console.anthropic.com) لتفعيل التحليل والخطة الذكية الكاملة. بدونه يشتغل بقواعد ثابتة.</p>
+    <div><label>مفتاح Anthropic ${s.anthropicKeySet||s.envAnthropic?'<span class="tag g">مفعّل</span>':'<span class="tag y">غير مفعّل</span>'}</label><input id="s_ai" type="password" placeholder="${s.anthropicKeySet?'••••••• (اكتب مفتاحًا جديدًا للتغيير)':'sk-ant-...'}"></div>
+    <div class="row" style="margin-top:10px"><button class="btn p" onclick="saveAI(this)">حفظ مفتاح الـ AI</button>${s.anthropicKeySet?'<button class="btn sm" onclick="clearKey(\'ai\')">حذف المفتاح</button>':''}</div><div id="s_aimsg" style="margin-top:8px"></div></div>`}
+async function saveSettings(btn){const msg=$('s_msg');await busy(btn,'جاري الحفظ والمزامنة',async()=>{const body={daftraSubdomain:$('s_sub').value,daftraDomain:$('s_dom').value,syncEveryMinutes:$('s_sync').value,currency:$('s_cur').value};const k=$('s_key').value.trim();if(k)body.daftraApikey=k;
+  const r=await api('/api/settings',{method:'POST',body:JSON.stringify(body)});await loadData();
+  msg.innerHTML=r.sync&&!r.sync.ok?`<span class="banner warn" style="display:inline-block">حُفظ، لكن تعذّرت المزامنة: ${esc(r.sync.error)}</span>`:r.sync&&r.sync.ok?`<span class="banner ok" style="display:inline-block">تم: ${r.sync.counts.clients} عميل، ${r.sync.counts.invoices} فاتورة بيع، ${r.sync.counts.open} فاتورة مفتوحة.</span>`:'<span class="banner info" style="display:inline-block">تم الحفظ.</span>';await loadSettings()})}
+async function testDaftra(btn){const msg=$('s_msg');await busy(btn,'جاري الاختبار',async()=>{const k=$('s_key').value.trim();if(k||$('s_sub').value!==SET.daftraSubdomain){const body={daftraSubdomain:$('s_sub').value,daftraDomain:$('s_dom').value};if(k)body.daftraApikey=k;await api('/api/settings',{method:'POST',body:JSON.stringify(body)})}
+  const r=await api('/api/daftra/test',{method:'POST'});msg.innerHTML=r.ok?`<span class="banner ok" style="display:inline-block">${esc(r.message)}</span>`:`<span class="banner warn" style="display:inline-block">${esc(r.error)}</span>`})}
+async function saveAI(btn){const msg=$('s_aimsg'),k=$('s_ai').value.trim();if(!k){msg.innerHTML='<span class="err">اكتب المفتاح أولًا.</span>';return}
+  await busy(btn,'جاري الحفظ',async()=>{await api('/api/settings',{method:'POST',body:JSON.stringify({anthropicKey:k})});await loadData();msg.innerHTML='<span class="banner ok" style="display:inline-block">تم تفعيل الذكاء الاصطناعي.</span>';await loadSettings()})}
+async function clearKey(which){if(!confirm('حذف المفتاح؟'))return;await api('/api/settings',{method:'POST',body:JSON.stringify(which==='daftra'?{clearDaftraKey:true}:{clearAnthropicKey:true})});await loadData();await loadSettings()}
 
-async function doSync(btn){if(btn){btn.disabled=true;btn.textContent='جاري التحديث...'}
-  try{const r=await api('/api/sync',{method:'POST'});await loadData();render();if(!r.ok)alert('تعذّرت المزامنة: '+r.error)}
-  catch(e){alert(e.message)}}
+async function doSync(btn){await busy(btn,'جاري التحديث',async()=>{const r=await api('/api/sync',{method:'POST'});await loadData();render();toast(r.ok?'اتحدث من دفترة ✓':'تعذّرت المزامنة: '+r.error)})}
 
 function modal(h){$('modal').innerHTML=`<div class="ov" onclick="if(event.target===this)closeM()"><div class="mod">${h}</div></div>`}
 function closeM(){$('modal').innerHTML=''}
-function render(){$('root').innerHTML=`<div class="app"><aside class="side"><h1>المتابعة المالية</h1><small>Elite Skin</small><div id="nav"></div><div class="foot"><button class="nav" onclick="logout()">خروج</button></div></aside><main class="main"><div class="page" id="page"></div></main></div>`;
-  $('nav').innerHTML=PAGES.map(p=>`<button class="nav ${S.page===p[0]?'on':''}" onclick="go('${p[0]}')">${p[1]}</button>`).join('');
-  const R={dash:pDash,exp:pExp,rec:()=>pDebt('rec'),pay:()=>pDebt('pay'),trade:pTrade,pl:pPL,ai:pAI,settings:pSettings};
-  const out=R[S.page]();
-  if(out&&typeof out.then==='function'){out.then(h=>{$('page').innerHTML=h;if(S.page==='settings')loadSettings()})}
-  else $('page').innerHTML=out}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeM()});
 
+function render(){const R={dash:pDash,sales:pSales,rec:pRec,goals:pGoals,plan:pPlan,ai:pAI,settings:pSettings};
+  $('root').innerHTML=`<div class="app"><aside class="side"><h1>المتابعة المالية</h1><small>Elite Skin</small><div id="nav">${PAGES.map(p=>`<button class="nav ${S.page===p[0]?'on':''}" onclick="go('${p[0]}')"><span>${p[1]}</span>${badge(p[0])}</button>`).join('')}</div><div class="foot"><button class="nav" onclick="logout()">خروج</button></div></aside><main class="main"><div class="page" id="page">${R[S.page]()}</div></main></div>`}
 async function logout(){await api('/api/logout',{method:'POST'});location.reload()}
-
 function loginScreen(err){$('root').innerHTML=`<div class="login"><h1>المتابعة المالية</h1><p>Elite Skin — تسجيل الدخول</p>
   <label>كلمة المرور</label><input id="pw" type="password" onkeydown="if(event.key==='Enter')doLogin()">
-  <div class="err" id="le">${err||''}</div><p><button class="btn p" style="width:100%" id="lb" onclick="doLogin()">دخول</button></p></div>`;const el=$('pw');if(el)el.focus()}
+  <div class="err" id="le">${esc(err||'')}</div><p><button class="btn p" style="width:100%;justify-content:center" id="lb" onclick="doLogin()">دخول</button></p></div>`;const el=$('pw');if(el)el.focus()}
 async function doLogin(){$('lb').disabled=true;try{const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:$('pw').value})});
   if(r.ok){await boot()}else{const j=await r.json().catch(()=>({}));loginScreen(j.error||'فشل الدخول')}}catch(e){loginScreen(e.message)}}
-
 async function boot(){try{const me=await (await fetch('/api/me')).json();if(!me.authed){loginScreen();return}await loadData();render()}catch(e){loginScreen(e.message)}}
 boot();
 </script>

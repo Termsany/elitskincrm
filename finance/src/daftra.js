@@ -1,4 +1,4 @@
-// عميل دفترة — يسحب العملاء والموردين وفواتير البيع والشراء.
+// عميل دفترة — يسحب العملاء وفواتير البيع فقط (قراءة فقط).
 // مبني على Daftra API v2: https://{subdomain}.{domain}/api2
 // التوثيق: https://docs.daftara.dev
 
@@ -94,14 +94,6 @@ function normClient(c) {
     phone: pick(c, ['phone1', 'phone2', 'mobile', 'phone'], '')
   };
 }
-function normSupplier(s) {
-  return {
-    id: pick(s, ['id', 'supplier_id']),
-    name: fullName(s, 'supplier_') || ('مورد #' + pick(s, ['id'], '')),
-    phone: pick(s, ['phone1', 'phone2', 'mobile', 'phone'], '')
-  };
-}
-
 // فاتورة بيع -> رصيد مستحق على العميل
 function normInvoice(inv) {
   const total = num(pick(inv, ['summary_total', 'total', 'grand_total', 'net_total', 'amount']));
@@ -121,68 +113,59 @@ function normInvoice(inv) {
   };
 }
 
-// فاتورة شراء -> رصيد مستحق للمورد
-function normPurchase(p) {
-  const total = num(pick(p, ['summary_total', 'total', 'grand_total', 'net_total', 'amount']));
-  const paid = num(pick(p, ['summary_paid', 'paid', 'payment_total', 'total_paid']));
-  const outstandingField = pick(p, ['summary_unpaid', 'unpaid', 'remaining', 'balance', 'due_amount'], null);
-  const outstanding = outstandingField !== null ? num(outstandingField) : Math.max(0, total - paid);
-  const date = ymd(pick(p, ['date', 'created', 'received_date']));
-  const due = ymd(pick(p, ['due_date', 'payment_due_date', 'date_due'])) || date;
-  const status = String(pick(p, ['payment_status', 'status'], '') || '').toLowerCase();
-  return {
-    id: pick(p, ['id']),
-    no: pick(p, ['no', 'number'], ''),
-    supplierId: pick(p, ['supplier_id']),
-    supplierName: fullName(p, 'supplier_') || null,
-    date, due, total, paid, outstanding, status,
-    draft: !!pick(p, ['draft'], false)
-  };
-}
-
 const unpaid = r => !r.draft && r.outstanding > 0.5 &&
   !['paid', 'refunded', 'canceled', 'cancelled'].includes(r.status);
 
-// ===== السحب الكامل وبناء البيانات =====
-async function pullAll() {
-  const [clientsRaw, suppliersRaw, invoicesRaw, purchasesRaw] = await Promise.all([
-    fetchAll('/clients.json'),
-    fetchAll('/suppliers.json'),
-    fetchAll('/invoices.json'),
-    fetchAll('/purchase_invoices.json')
+// ===== السحب الكامل وبناء البيانات (المبيعات ومديونيات العملاء فقط) =====
+const pad = n => String(n).padStart(2, '0');
+const localYmd = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+
+async function pullAll(now = new Date()) {
+  const [clientsRaw, invoicesRaw] = await Promise.all([
+    fetchAll('/clients.json', {}, 200),
+    fetchAll('/invoices.json', {}, 300)
   ]);
 
   const clients = clientsRaw.map(normClient).filter(c => c.id != null);
-  const suppliers = suppliersRaw.map(normSupplier).filter(s => s.id != null);
-  const invoices = invoicesRaw.map(normInvoice).filter(i => i.id != null);
-  const purchases = purchasesRaw.map(normPurchase).filter(p => p.id != null);
-
-  const clientName = id => (clients.find(c => String(c.id) === String(id)) || {}).name;
-  const supplierName = id => (suppliers.find(s => String(s.id) === String(id)) || {}).name;
+  const invoices = invoicesRaw.map(normInvoice).filter(i => i.id != null && !i.draft);
+  const byId = new Map(clients.map(c => [String(c.id), c]));
+  const nameOf = i => i.clientName || (byId.get(String(i.clientId)) || {}).name || ('عميل #' + i.clientId);
 
   const receivables = invoices.filter(unpaid).map(i => ({
-    who: i.clientId, name: i.clientName || clientName(i.clientId) || ('عميل #' + i.clientId),
-    inv: i.no || ('#' + i.id), amount: i.outstanding, due: i.due || i.date
+    who: i.clientId, name: nameOf(i), inv: i.no || ('#' + i.id),
+    amount: i.outstanding, due: i.due || i.date, date: i.date
   })).filter(r => r.due);
 
-  const payables = purchases.filter(unpaid).map(p => ({
-    who: p.supplierId, name: p.supplierName || supplierName(p.supplierId) || ('مورد #' + p.supplierId),
-    inv: p.no || ('#' + p.id), amount: p.outstanding, due: p.due || p.date
-  })).filter(r => r.due);
+  const today = localYmd(now), curMonth = today.slice(0, 7);
+  const from12 = localYmd(new Date(now.getFullYear() - 1, now.getMonth(), now.getDate()));
+  const from70 = localYmd(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 70));
 
-  const sales = {}, purchasesByMonth = {};
-  for (const i of invoices) if (i.date && !i.draft) { const m = i.date.slice(0, 7); sales[m] = (sales[m] || 0) + i.total; }
-  for (const p of purchases) if (p.date && !p.draft) { const m = p.date.slice(0, 7); purchasesByMonth[m] = (purchasesByMonth[m] || 0) + p.total; }
+  const sales = {}, salesCount = {}, daily = {}, stats = new Map();
+  for (const i of invoices) {
+    if (!i.date) continue;
+    const m = i.date.slice(0, 7);
+    sales[m] = (sales[m] || 0) + i.total;
+    salesCount[m] = (salesCount[m] || 0) + 1;
+    if (i.date >= from70) daily[i.date] = (daily[i.date] || 0) + i.total;
+    if (i.clientId == null) continue;
+    const k = String(i.clientId);
+    let st = stats.get(k);
+    if (!st) { st = { id: i.clientId, name: nameOf(i), phone: (byId.get(k) || {}).phone || '', t12: 0, cm: 0, count: 0, last: null, all: 0 }; stats.set(k, st); }
+    st.count++; st.all += i.total;
+    if (i.date >= from12) st.t12 += i.total;
+    if (m === curMonth) st.cm += i.total;
+    if (!st.last || i.date > st.last) st.last = i.date;
+  }
+  const clientStats = [...stats.values()].map(s => ({
+    id: s.id, name: s.name, phone: s.phone, t12: Math.round(s.t12), cm: Math.round(s.cm),
+    count: s.count, last: s.last, avg: Math.round(s.all / s.count)
+  }));
 
   return {
-    clients: clients.map(c => ({ id: c.id, name: c.name, phone: c.phone })),
-    suppliers: suppliers.map(s => ({ id: s.id, name: s.name, phone: s.phone })),
-    receivables, payables,
-    sales, purchases: purchasesByMonth,
+    clients, receivables, sales, salesCount, daily, clientStats, statsMonth: curMonth,
     sampleInvoice: invoicesRaw[0] || null,
-    samplePurchase: purchasesRaw[0] || null,
-    counts: { clients: clients.length, suppliers: suppliers.length, invoices: invoices.length, purchases: purchases.length }
+    counts: { clients: clients.length, invoices: invoices.length, open: receivables.length }
   };
 }
 
-module.exports = { configured, pullAll, call, fetchAll, base, _norm: { normInvoice, normPurchase, normClient, normSupplier, unpaid } };
+module.exports = { configured, pullAll, call, fetchAll, base };
