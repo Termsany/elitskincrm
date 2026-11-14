@@ -31,7 +31,7 @@ const CHIPS: Record<Tab, string[]> = {
   goals: ["هحقق هدف الشهر والسنة بالمعدل الحالي؟ ولو لأ أعمل إيه؟", "هدف السنة واقعي على أرقامي؟", "وزّع لي المطلوب يومياً على المنتجات والعملاء"],
   team: ["مين من المناديب متأخر عن هدفه الشهر ده وليه؟ واعمل إيه مع كل واحد؟", "وزّع الفرق عن هدف الشهر على المناديب بشكل واقعي", "مين أحسن مندوب الشهر ده وإيه اللي بيعمله صح؟"],
   settings: ["أنهي أصناف في دفترة مش مربوطة بمنتج أو مندوب ومحتاجة ربط؟", "فيه عملاء في دفترة مش مربوطين بعيادة أو مندوب؟"],
-  plan: ["راجع خطة الشهر: واقعية؟ وفين الخطر؟", "أنهي أصناف في الخطة محتاجة دفعة وأبيعها لمين؟", "قارن الخطة بالمبيعات الفعلية لحد النهارده"],
+  plan: ["هيطلع صافي ربح كام لو بعت المتوقع؟ وفين الخطر؟", "أنهي أصناف لو زوّدتها تزوّد الربح أكتر؟", "الكميات المتوقعة واقعية مقارنة بمتوسط البيع؟"],
 };
 
 export default function FinanceHub({ subdomain }: { subdomain: string }) {
@@ -85,9 +85,9 @@ export default function FinanceHub({ subdomain }: { subdomain: string }) {
     { id: "goals", label: "الأهداف السنوية", icon: "trophy", value: L?.goals ? `${L.goals.month_pct ?? 0}%` : "حط أهدافك", line: L?.goals ? (L.goals.month_target ? `من هدف الشهر ${short(L.goals.month_target)} · محتاج ${short(L.goals.needed_per_day)} في اليوم` : "مفيش هدف للشهر ده") : "لسه مفيش أهداف للسنة",
       cls: tone(L?.goals?.month_pct != null ? L.goals.month_pct >= L.pace_pct : null), bar: L?.goals?.month_pct ?? null,
       q: L?.goals ? "هحقق هدف الشهر وهدف السنة بالمعدل الحالي؟ لو لأ، الفرق كام وأقفله بأنهي منتجات وأنهي عملاء؟" : "اقترح عليّ أهداف واقعية للسنة مبنية على أرقامي، وقولّي أحطها إزاي." },
-    { id: "plan", label: "خطة الشهر", icon: "plans", value: L?.plan ? `${L.plan.pct ?? 0}%` : "اعمل الخطة", line: L?.plan ? `من خطة ${short(L.plan.revenue)} · ربح مخطط ${short(L.plan.profit)}` : "لسه مفيش خطة للشهر ده",
+    { id: "plan", label: "توقع الربح", icon: "plans", value: L?.plan ? `${L.plan.pct ?? 0}%` : "اعمل التوقع", line: L?.plan ? `من ${short(L.plan.revenue)} متوقع · صافي ربح ${short(L.plan.profit)}` : "لسه مفيش توقع للشهر ده",
       cls: tone(L?.plan?.pct != null ? L.plan.pct >= L.pace_pct : null), bar: L?.plan?.pct ?? null,
-      q: L?.plan ? "راجع خطة الشهر مقابل الفعلي لحد النهارده: ماشي عليها ولا متأخر؟ وأنهي أصناف محتاجة دفعة وأبيعها لمين؟" : "ساعدني أعمل خطة الشهر: أبيع كام من كل صنف عشان أغطي مصاريفي وأحقق ربح معقول؟" },
+      q: L?.plan ? "قارن المتوقع بالفعلي لحد النهارده: هوصل لصافي الربح المتوقع؟ وأنهي أصناف محتاجة دفعة؟" : "ساعدني أتوقع مبيعات الشهر: أبيع كام من كل صنف وهيطلع صافي ربح كام بعد المصاريف؟" },
   ];
 
   return <div className="mt-5 space-y-4 pb-20">
@@ -121,7 +121,7 @@ export default function FinanceHub({ subdomain }: { subdomain: string }) {
         {tab === "sales" && <Sales d={d} pickMonth={pickMonth} x={x} subdomain={subdomain} ask={ask} go={go} />}
         {tab === "ar" && <Book d={d} subdomain={subdomain} ask={ask} />}
         {tab === "goals" && <GoalsTab ask={ask} />}
-        {tab === "plan" && <Planner />}
+        {tab === "plan" && <Planner ask={ask} />}
         {tab === "team" && <AdminSales only={["team", "targets"]} />}
         {tab === "settings" && <AdminSales only={["approvals", "items", "catalog", "close"]} />}
       </div>}

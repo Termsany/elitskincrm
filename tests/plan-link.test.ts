@@ -25,3 +25,16 @@ describe("month plan follows the fixed costs and Daftra", () => {
     expect(syncPlan(plan, [], fixed, "2026-10", "2026-11").costs).toEqual(plan.costs);
   });
 });
+
+describe("month profit forecast", () => {
+  it("expected quantities → sales − cost of goods − month costs = net profit, break-even at the same mix", async () => {
+    const { computePlan } = await import("@/lib/plan");
+    const it = (key: string, qty: number, price: number, cost: number) => ({ key, name: key, include: qty > 0, cost, price, mix: qty, qty, actual_qty: null, actual_price: null });
+    const { t } = computePlan({ target_profit: 0, variable_pct: 0, notes: "", costs: [{ id: "f1", name: "رواتب", kind: "salary", planned: 3000, actual: null }],
+      items: [it("A", 100, 50, 30), it("B", 20, 200, 100)] });
+    expect(t.plan_revenue).toBe(9000);
+    expect(t.plan_cogs).toBe(5000);
+    expect(t.plan_profit).toBe(1000);
+    expect(t.be_revenue).toBe(6750);
+  });
+});

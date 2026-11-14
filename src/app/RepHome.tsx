@@ -168,7 +168,7 @@ export default function RepHome() {
       <div className="w-full rounded-t-lg transition-all duration-700" style={{ height: `${Math.max(4, t.value / maxT * 52)}px`, background: i === d.trend.length - 1 ? "#33b3a6" : "#cfe7e4" }} />
       <span className="text-[9.5px] text-[var(--muted)]">{new Intl.DateTimeFormat(L, { month: "short", timeZone: "UTC" }).format(new Date(`${t.month}-15T12:00:00Z`))}</span></div>)}</div>
     {d.planShare && <div className="mt-4 rounded-2xl bg-[var(--bg)] p-3">
-      <div className="flex items-baseline justify-between gap-2 text-[12.5px] font-bold"><span className="text-[var(--navy)]">نصيبك من خطة الشهر</span><span><b className="text-[var(--navy)]">{k(d.planShare.actual)}</b> <span className="font-normal text-[var(--muted)]">من {k(d.planShare.target)} ر.س</span></span></div>
+      <div className="flex items-baseline justify-between gap-2 text-[12.5px] font-bold"><span className="text-[var(--navy)]">تارجتك الشهر ده</span><span><b className="text-[var(--navy)]">{k(d.planShare.actual)}</b> <span className="font-normal text-[var(--muted)]">من {k(d.planShare.target)} ر.س</span></span></div>
       <div className="mt-2 h-2 overflow-hidden rounded-full bg-white"><div className="h-full rounded-full bg-[#33b3a6]" style={{ width: `${Math.min(100, d.planShare.actual / d.planShare.target * 100)}%` }} /></div>
       <div className="mt-2 flex flex-wrap gap-1.5">{d.planShare.items.map(x => <span key={x.item} className="rounded-full bg-white px-2.5 py-1 text-[11px]" dir="auto">{x.item} <b className="text-[var(--navy)]">{Math.round(x.qty)} حبة</b></span>)}</div>
     </div>}

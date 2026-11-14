@@ -134,7 +134,7 @@ function Dash() {
       spark={<Spark data={d.daily.map(x => x.visits)} color="#2e9d8f" />} />
     {!mgr && <KpiTile href="/sales?tab=sales" color="#165f66" tint="" label="مبيعات الشهر" icon="receipt" delay={70}
       value={f?.configured ? <><Num v={Math.round(f.mtd.sales)} fmt className="text-3xl font-extrabold text-[var(--navy)]" /><span className="pb-1 text-sm text-[var(--muted)]"> ر.س</span></> : <span className="text-3xl font-extrabold text-[var(--muted)]">—</span>}
-      sub={f?.configured ? (planPct !== null ? `${planPct}% من خطة الشهر` : `${f.mtd.invoices} فاتورة · ${f.mtd.clients} عميل`) : f ? "دفترة مش مربوطة" : "بيحمّل…"}
+      sub={f?.configured ? (planPct !== null ? `${planPct}% من المتوقع` : `${f.mtd.invoices} فاتورة · ${f.mtd.clients} عميل`) : f ? "دفترة مش مربوطة" : "بيحمّل…"}
       chip={salesDelta !== null ? { text: `${salesDelta >= 0 ? "▲" : "▼"} ${Math.abs(salesDelta)}%`, tone: salesDelta >= 0 ? "green" : "red" } : undefined}
       spark={f?.configured ? <Spark data={f.series.map(x => x.sales)} color="#165f66" /> : undefined} />}
     {!mgr && <KpiTile href="/sales?tab=ar" onOpen={f?.configured ? () => setPop("ar") : undefined} color="#c25550" tint="" label="ليك عند العملاء متأخر" icon="wallet" delay={140} live={!!(f?.configured && f.ar.overdue > 0)}

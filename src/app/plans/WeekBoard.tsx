@@ -152,7 +152,7 @@ export default function WeekBoard({ repId, isAdmin = false, embedded = false, in
         <Kpi label="متوقع تخلص" value={`${k.projected}/${k.planned}`} sub={`بمعدلك ده (${k.rate}%)`} />
       </div>
       {w.month && w.month.target > 0 && <div className="rounded-[22px] border border-[var(--border)] bg-white p-3.5 shadow-sm">
-        <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs"><b className="text-[var(--navy)]">{isAdmin ? "نصيبه" : "نصيبك"} من خطة الشهر</b>
+        <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs"><b className="text-[var(--navy)]">{isAdmin ? "تارجته" : "تارجتك"} الشهر ده</b>
           <span className="font-bold"><span className={w.month.mtd >= w.month.expected ? "text-emerald-700" : "text-red-600"}>{w.month.mtd.toLocaleString("en-US")}</span> من {w.month.target.toLocaleString("en-US")} ر.س</span></div>
         <div className="relative mt-2 h-2.5 overflow-hidden rounded-full bg-[var(--bg)]"><div className={`h-full rounded-full transition-all duration-700 ${w.month.mtd >= w.month.expected ? "bg-teal-500" : "bg-amber-400"}`} style={{ width: `${Math.min(100, w.month.mtd / w.month.target * 100)}%` }} />
           <span className="absolute inset-y-0 w-0.5 bg-[var(--navy)]" style={{ right: `${Math.min(100, w.month.expected / w.month.target * 100)}%` }} title="المفروض لحد النهارده" /></div>

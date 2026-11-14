@@ -3,10 +3,10 @@ import { getCurrentUser } from "@/lib/session";
 import { query } from "@/lib/db";
 import { syncIfStale } from "@/lib/daftra";
 import { computeFinance, loadInput, riyadhToday } from "@/lib/finance";
-import { cleanPlan, computePlan, type CatalogRow, type PlanCost, type PlanData } from "@/lib/plan";
-import { forecastForPlan, goalForMonth, repShares, syncPlan } from "@/lib/plan-link";
+import { cleanPlan, type CatalogRow, type PlanCost, type PlanData } from "@/lib/plan";
+import { forecastForPlan, goalForMonth, syncPlan } from "@/lib/plan-link";
 
-/** Monthly sales planner (admin only). Plans live in the CRM only — Daftra is read, never written. */
+/** Month profit forecast (admin only): expected quantities per item → net profit after the month's costs. Plans live in the CRM only — Daftra is read, never written. */
 const MONTH = /^20\d\d-(0[1-9]|1[0-2])$/;
 const lastDay = (m: string) => { const [y, mo] = m.split("-").map(Number); return new Date(Date.UTC(y, mo, 0)).toISOString().slice(0, 10); };
 const shift = (m: string, n: number) => { const [y, mo] = m.split("-").map(Number); const d = new Date(Date.UTC(y, mo - 1 + n, 1)); return d.toISOString().slice(0, 7); };
@@ -35,8 +35,8 @@ export async function GET(req: Request) {
   const [saved, list] = await Promise.all([query("SELECT data, updated_at FROM fin_plans WHERE month=$1", [month]), query("SELECT month FROM fin_plans ORDER BY month DESC LIMIT 36")]);
   // the saved plan follows the fixed-costs list and Daftra's actual sales; the annual goal sets the month's target
   const plan = saved.rows[0] ? syncPlan(cleanPlan(saved.rows[0].data) as PlanData, catalog, fixed, month, cur) : null;
-  const [goal, reps, forecast] = await Promise.all([goalForMonth(month), plan ? repShares(month, computePlan(plan, catalog).rows).catch(() => []) : Promise.resolve([]), forecastForPlan(month, catalog)]);
-  return NextResponse.json({ month, today, plan, goal, reps, forecast, updated_at: saved.rows[0]?.updated_at ?? null, catalog, fixed, daftraCosts,
+  const [goal, forecast] = await Promise.all([goalForMonth(month), forecastForPlan(month, catalog)]);
+  return NextResponse.json({ month, today, plan, goal, forecast, updated_at: saved.rows[0]?.updated_at ?? null, catalog, fixed, daftraCosts,
     saved_months: list.rows.map(r => r.month), history: { from: baseFrom, to: baseTo }, target_net_margin: inp.settings.target_net_margin, has_daftra_month: !!M });
 }
 
