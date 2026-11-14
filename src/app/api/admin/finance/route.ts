@@ -5,6 +5,7 @@ import { syncIfStale, syncRunning } from "@/lib/daftra";
 import { computeFinance, loadInput, riyadhToday } from "@/lib/finance";
 import { cfoAdvice } from "@/lib/fin-cfo";
 import { prevKpi, prevRange } from "@/lib/fin-ai";
+import { aiStatus } from "@/lib/ai-provider";
 
 const DAY = /^20\d\d-\d\d-\d\d$/;
 
@@ -26,5 +27,5 @@ export async function GET(req: Request) {
   // same-length period right before this one, for "better or worse than last time"
   const pr = prevRange(fin.period.from, to, fin.books_start);
   const prev = pr ? prevKpi(computeFinance(inp, pr[0], pr[1]), pr[0], pr[1]) : null;
-  return NextResponse.json({ ...fin, advice, prev, ai: !!process.env.ANTHROPIC_API_KEY?.trim(), audit: cfo?.audit ?? null, sync: { ...sync.rows[0], running: syncRunning() }, today });
+  return NextResponse.json({ ...fin, advice, prev, ai: (await aiStatus()).configured, audit: cfo?.audit ?? null, sync: { ...sync.rows[0], running: syncRunning() }, today });
 }

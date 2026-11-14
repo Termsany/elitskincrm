@@ -294,7 +294,7 @@ export function Advisor({ d, go, x, reload, range }: { d: FinData; go: (t: Tab) 
   const max = Math.max(cur, target || 0, be || 0) * 1.1 || 1;
   async function saveTarget() { const r = await fetch("/api/admin/finance/settings", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ target_gross_margin: d.settings.target_gross_margin, target_net_margin: nm }) }); const j = await r.json().catch(() => null); if (r.ok) { toast("اتحفظ هدف صافي الربح", "success"); reload(); } else toast(j?.error || "تعذر الحفظ", "error"); }
   return <div className="space-y-4">
-    <AiAdvisor d={d} range={range} />
+    <AiAdvisor d={d} range={range} reload={reload} />
     <Card title="هدف المبيعات والمصاريف المسموحة" hint="الأرقام مبنية على متوسطك الشهري من بداية الحسابات (أول نوفمبر 2026). لحد ما أول شهر يقفل، المتوسط تقديري من الأيام اللي فاتت. حرّك المؤشرات وشوف النتيجة فوراً." right={<ExcelBtn href={x("advisor")} label="تقرير التخطيط Excel" />}>
       {!B ? <div className="text-sm text-[var(--muted)]">محتاج أسبوع على الأقل من بداية الحسابات عشان أحسب متوسطك الشهري.</div> : <>
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
