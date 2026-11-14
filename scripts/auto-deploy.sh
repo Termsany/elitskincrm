@@ -56,15 +56,30 @@ if ! docker compose build app; then
   fail "image build failed for $remote_head — currently running app left untouched; will retry on the next run." "بناء النسخة الجديدة فشل (${remote_head:0:7}). النسخة القديمة لسه شغالة."
 fi
 
-docker compose up -d app reminders
+# The new release failed to come up: show why (in the GitHub job log), then put the previous image back so the site stays up.
+rollback() {
+  log "app logs (last 120 lines):"
+  docker compose logs --no-color --tail 120 app 2>&1 || true
+  if docker image inspect elite-crm-app:good >/dev/null 2>&1; then
+    log "rolling back to the last good image"
+    docker image tag elite-crm-app:good elite-crm-app
+    docker compose up -d --no-build app reminders || true
+    for i in $(seq 1 60); do curl -fs -m 3 http://127.0.0.1:3100/api/health >/dev/null 2>&1 && { log "previous version is back up"; break; }; sleep 2; done
+  fi
+  fail "$remote_head did not come up healthy — rolled back to the previous version; will retry on the next push." "النسخة الجديدة (${remote_head:0:7}) ماشتغلتش، فرجعت النسخة اللي قبلها تلقائياً والبرنامج شغال."
+}
+
+# `up` waits for the app's health check (reminders depend on it); a failure here must not skip the rollback
+docker compose up -d app reminders || rollback
 
 for i in $(seq 1 30); do
   if curl -fs -m 3 http://127.0.0.1:3100/api/health >/dev/null 2>&1; then
     echo "$remote_head" > "$state_file"
+    # remember this image as the one to roll back to if a later release doesn't come up
+    docker image tag elite-crm-app elite-crm-app:good || true
     log "OK: deployed $remote_head, health check passed"
     exit 0
   fi
   sleep 2
 done
-
-fail "deployed $remote_head but health check did not pass within 60s — check manually; will redeploy on the next run." "النسخة الجديدة (${remote_head:0:7}) اتشغلت بس مش بترد صح — راجعها."
+rollback
