@@ -31,6 +31,7 @@ if ! flock -w 900 9; then
 fi
 
 state_file=.git/deployed-sha
+self_sum="$(sha1sum < "$0")"
 
 git fetch origin main --quiet
 remote_head="$(git rev-parse origin/main)"
@@ -50,7 +51,31 @@ if ! git merge --ff-only origin/main --quiet; then
   fail "local main has diverged from origin/main (not a fast-forward) — needs manual resolution." "نسخة السيرفر مختلفة عن GitHub ومحتاجة تدخل يدوي. النسخة القديمة لسه شغالة."
 fi
 
+# this script may have just been updated by the merge: run the new version (once) so fixes apply now
+if [ -z "${DEPLOY_REEXEC:-}" ] && [ "$(sha1sum < "$0")" != "$self_sum" ]; then
+  log "deploy script changed — running the new version"
+  exec 9>&-
+  DEPLOY_REEXEC=1 exec bash "$0" "$@"
+fi
+
 log "deploying $deployed -> $remote_head"
+
+# free disk space: every release leaves an old image and build cache behind (tagged images such as :good are kept)
+log "disk before cleanup: $(df -h / | awk 'NR==2{print $4" free of "$2}')"
+docker image prune -f >/dev/null 2>&1 || true
+docker builder prune -f --filter until=24h >/dev/null 2>&1 || true
+log "disk after cleanup: $(df -h / | awk 'NR==2{print $4" free of "$2}')"
+
+# the database must be healthy before the app can start (a full disk or a crash leaves it unhealthy)
+db_ok() { [ "$(docker inspect -f '{{.State.Health.Status}}' "$(docker compose ps -q db)" 2>/dev/null)" = "healthy" ]; }
+if ! db_ok; then
+  log "database is not healthy — logs:"
+  docker compose logs --no-color --tail 60 db 2>&1 || true
+  log "restarting the database"
+  docker compose up -d db || docker compose restart db || true
+  for i in $(seq 1 45); do db_ok && break; sleep 2; done
+  db_ok && log "database is healthy again" || log "database still unhealthy"
+fi
 
 if ! docker compose build app; then
   fail "image build failed for $remote_head — currently running app left untouched; will retry on the next run." "بناء النسخة الجديدة فشل (${remote_head:0:7}). النسخة القديمة لسه شغالة."
@@ -58,6 +83,10 @@ fi
 
 # The new release failed to come up: show why (in the GitHub job log), then put the previous image back so the site stays up.
 rollback() {
+  log "disk: $(df -h / | awk 'NR==2{print $4" free of "$2}')"
+  docker compose ps 2>&1 || true
+  log "db logs (last 40 lines):"
+  docker compose logs --no-color --tail 40 db 2>&1 || true
   log "app logs (last 120 lines):"
   docker compose logs --no-color --tail 120 app 2>&1 || true
   if docker image inspect elite-crm-app:good >/dev/null 2>&1; then
