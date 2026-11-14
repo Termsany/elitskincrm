@@ -4,6 +4,7 @@ import { computeFinance, loadInput, riyadhToday } from "@/lib/finance";
 import { ADVISOR_SYSTEM, advisorContext, prevKpi, prevRange } from "@/lib/fin-ai";
 import { AiError, loadAi, streamAnswer, type ChatMsg } from "@/lib/ai-provider";
 import { hitRateLimitDb } from "@/lib/rate-limit";
+import { financeLink } from "@/lib/fin-link";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,7 +31,7 @@ export async function POST(req: Request) {
   const fin = computeFinance(inp, from, to);
   const pr = prevRange(fin.period.from, to, fin.books_start);
   const prev = pr ? prevKpi(computeFinance(inp, pr[0], pr[1]), pr[0], pr[1]) : null;
-  const data = `أرقام الشركة (JSON):\n${JSON.stringify(advisorContext(fin, prev, today))}`;
+  const data = `أرقام الشركة (JSON):\n${JSON.stringify({ ...advisorContext(fin, prev, today), this_month_link: await financeLink(inp, today).catch(() => null) })}`;
 
   const enc = new TextEncoder();
   const body = new ReadableStream<Uint8Array>({

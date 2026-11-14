@@ -29,13 +29,9 @@ export async function daftraPulse() {
     series: Y.monthly.map(x => ({ m: String(x.m), sales: Number(x.sales), gross: Number(x.gross), net: Number(x.net), collected: Number(x.collected) })),
     year: { sales: Y.kpi.sales, gross: Y.kpi.gross, margin: Y.kpi.gross_margin, net: Y.kpi.net },
     ar: { total: Y.ar.total, overdue: Y.ar.overdue, old60: r2(old), top: Y.ar.parties.slice(0, 3).map(p => ({ name: p.name, unpaid: p.unpaid, days: p.oldestDue })) },
-    ap: { total: Y.ap.total, overdue: Y.ap.overdue },
     top_products: M.salesByProduct.slice(0, 5).map(p => ({ name: p.name, qty: p.qty, net: p.net, margin: p.margin })),
     top_clients: M.salesByClient.slice(0, 3).map(c => ({ name: c.name, net: c.net })),
     plan: pl && { target_revenue: pl.target_revenue, target_profit: pl.target_profit, be_revenue: pl.be_revenue },
-    alert: Y.advice.find(a => a.level === "danger") || null,
-    stock: Y.stock_alerts.slice(0, 5).map(x => ({ name: x.name, status: x.stock_status, cover: x.months_cover, reorder: x.reorder_qty })), stock_n: Y.stock_alerts.length,
-    guard: (() => { const since = shift(m, -2) + "-01"; const l = Y.price_guard.lines.filter(g => g.date >= since); return { n: l.length, below_cost: l.filter(g => g.below_cost).length, lost: r2(l.reduce((s, g) => s + g.lost, 0)) }; })(),
   };
 }
 export type DaftraPulse = Awaited<ReturnType<typeof daftraPulse>>;

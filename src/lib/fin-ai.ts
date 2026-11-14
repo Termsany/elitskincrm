@@ -20,16 +20,9 @@ export function advisorContext(fin: Fin, prev: PrevKpi, today: string) {
     kpi: fin.kpi, previous_period: prev,
     monthly: fin.monthly,
     baseline_monthly_average: fin.baseline, plan: fin.plan, targets: fin.settings, fixed_costs: fin.fixed.map(f => ({ name: f.name, category: f.category, monthly: f.monthly_amount })),
-    expenses_by_account: top(fin.expensesByAccount, 25).map(a => ({ account: a.name, amount: a.amount, treatment: a.treatment, entries: a.n })),
     sales_by_product: top(fin.salesByProduct, 25).map(p => ({ name: p.name, qty: p.qty, revenue: p.net, gross: p.gross, margin_pct: p.margin })),
     sales_by_client: top(fin.salesByClient, 20).map(c => ({ name: c.name, revenue: c.net, share_pct: c.share })),
     receivables: { total: fin.ar.total, overdue: fin.ar.overdue, buckets: fin.ar.buckets, top: top(fin.ar.parties, 15).map(p => ({ name: p.name, unpaid: p.unpaid, overdue: p.overdue, oldest_days_late: p.oldestDue })) },
-    payables: { total: fin.ap.total, overdue: fin.ap.overdue, buckets: fin.ap.buckets, top: top(fin.ap.parties, 10).map(p => ({ name: p.name, unpaid: p.unpaid, overdue: p.overdue, oldest_days_late: p.oldestDue })) },
-    pricing_problems: fin.pricing.filter(p => ["loss", "below_breakeven", "thin", "dead_stock"].includes(p.status)).slice(0, 25)
-      .map(p => ({ name: p.name, status: p.status, avg_cost: p.avg_cost, list_price: p.list_price, qty_sold: p.qty_sold, revenue: p.revenue, margin_pct: p.margin })),
-    price_guard: { below_cost: fin.price_guard.below_cost, below_breakeven: fin.price_guard.below_breakeven, lost: fin.price_guard.lost, real_loss: fin.price_guard.real_loss },
-    stock_alerts: top(fin.stock_alerts, 15).map(s => ({ name: s.name, status: s.stock_status, months_cover: s.months_cover, reorder_qty: s.reorder_qty })),
-    rule_based_advice: fin.advice.map(a => ({ level: a.level, title: a.title, text: a.text })),
   };
 }
 
@@ -45,4 +38,5 @@ export const ADVISOR_SYSTEM = `أنت المستشار المالي (CFO) لشر
 - المبالغ بالريال السعودي وقبل الضريبة، واكتبها بفواصل الآلاف.
 - لما تنصح، قول نصيحة محددة تتنفذ: مين العميل، أنهي منتج، كام ريال، قبل إمتى. رتب النصايح حسب أثرها على الربح والسيولة.
 - لو الأرقام بتقول إن فيه خسارة أو خطر على السيولة، قولها بوضوح من غير تهويل.
+- في البيانات جزء اسمه this_month_link بيربط أربع حاجات عن الشهر الحالي: المبيعات لحد النهارده وتوقع آخر الشهر (sales)، هدف الشهر من الأهداف السنوية (goals)، خطة الشهر المحفوظة (plan)، ومديونيات العملاء (ar). لما يسألك عن أي واحدة منهم، اربطها بالباقي: مثلاً الفرق عن الهدف يتقفل بأنهي عملاء أو منتجات، والتحصيل المتأخر يغطي كام من مصاريف الخطة. لو goals أو plan قيمتها null يبقى لسه ما اتعملوش، فانصحه يعملهم من تبويبهم.
 - الحسابات بدأت من تاريخ books_start، فلو الفترة قصيرة نبّه إن المتوسطات لسه تقديرية.`;

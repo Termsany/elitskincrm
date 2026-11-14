@@ -3,9 +3,9 @@ import { getCurrentUser } from "@/lib/session";
 import { query } from "@/lib/db";
 import { syncIfStale, syncRunning } from "@/lib/daftra";
 import { computeFinance, loadInput, riyadhToday } from "@/lib/finance";
-import { cfoAdvice } from "@/lib/fin-cfo";
 import { prevKpi, prevRange } from "@/lib/fin-ai";
 import { aiStatus } from "@/lib/ai-provider";
+import { financeLink } from "@/lib/fin-link";
 
 const DAY = /^20\d\d-\d\d-\d\d$/;
 
@@ -20,12 +20,9 @@ export async function GET(req: Request) {
   const today = riyadhToday();
   const [inp, sync] = await Promise.all([loadInput(today), query("SELECT started_at, finished_at, ok, message FROM daftra_sync WHERE id=1")]);
   const fin = computeFinance(inp, from, to);
-  // CFO layer: audit status + goal tracking go first in the advisor; never let it break the main page
-  const cfo = await cfoAdvice(inp, fin, from, to).catch(() => null);
-  const rank = { danger: 0, warn: 1, info: 2, good: 3 } as const;
-  const advice = cfo ? [...cfo.advice, ...fin.advice].sort((a, b) => rank[a.level] - rank[b.level]) : fin.advice;
   // same-length period right before this one, for "better or worse than last time"
   const pr = prevRange(fin.period.from, to, fin.books_start);
   const prev = pr ? prevKpi(computeFinance(inp, pr[0], pr[1]), pr[0], pr[1]) : null;
-  return NextResponse.json({ ...fin, advice, prev, ai: (await aiStatus()).configured, audit: cfo?.audit ?? null, sync: { ...sync.rows[0], running: syncRunning() }, today });
+  const link = await financeLink(inp, today).catch(e => { console.error("finance link", e); return null; });
+  return NextResponse.json({ ...fin, prev, link, ai: (await aiStatus()).configured, sync: { ...sync.rows[0], running: syncRunning() }, today });
 }
