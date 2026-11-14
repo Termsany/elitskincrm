@@ -31,6 +31,8 @@ services:
       CRON_SECRET: ${CRON_SECRET:?set CRON_SECRET}
       DAFTRA_SUBDOMAIN: ${DAFTRA_SUBDOMAIN:-}
       DAFTRA_API_KEY: ${DAFTRA_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_ADVISOR_MODEL: ${ANTHROPIC_ADVISOR_MODEL:-}
     volumes:
       - uploads:/tmp/elite-crm-uploads
     ports:

@@ -4,6 +4,7 @@ import { query } from "@/lib/db";
 import { syncIfStale, syncRunning } from "@/lib/daftra";
 import { computeFinance, loadInput, riyadhToday } from "@/lib/finance";
 import { cfoAdvice } from "@/lib/fin-cfo";
+import { prevKpi, prevRange } from "@/lib/fin-ai";
 
 const DAY = /^20\d\d-\d\d-\d\d$/;
 
@@ -22,5 +23,8 @@ export async function GET(req: Request) {
   const cfo = await cfoAdvice(inp, fin, from, to).catch(() => null);
   const rank = { danger: 0, warn: 1, info: 2, good: 3 } as const;
   const advice = cfo ? [...cfo.advice, ...fin.advice].sort((a, b) => rank[a.level] - rank[b.level]) : fin.advice;
-  return NextResponse.json({ ...fin, advice, audit: cfo?.audit ?? null, sync: { ...sync.rows[0], running: syncRunning() }, today });
+  // same-length period right before this one, for "better or worse than last time"
+  const pr = prevRange(fin.period.from, to, fin.books_start);
+  const prev = pr ? prevKpi(computeFinance(inp, pr[0], pr[1]), pr[0], pr[1]) : null;
+  return NextResponse.json({ ...fin, advice, prev, ai: !!process.env.ANTHROPIC_API_KEY?.trim(), audit: cfo?.audit ?? null, sync: { ...sync.rows[0], running: syncRunning() }, today });
 }

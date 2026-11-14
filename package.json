@@ -16,6 +16,7 @@
     "import:workbook": "tsx scripts/import-workbook.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
     "bcryptjs": "^3.0.3",
     "exceljs": "^4.4.0",
     "lucide-react": "^1.61.0",

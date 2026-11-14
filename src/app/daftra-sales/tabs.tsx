@@ -1,4 +1,5 @@
 "use client";
+import { AiAdvisor, PnlStatement } from "./ai";
 import { useMemo, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { useToast } from "@/components/Toast";
@@ -233,6 +234,7 @@ export function Pnl({ d, pickMonth, x, reload }: { d: FinData; pickMonth: (m: st
   const tot = d.monthly.reduce<Tot>((s, m) => ({ sales: s.sales + Number(m.sales), cogs: s.cogs + Number(m.cogs), gross: s.gross + Number(m.gross), opex: s.opex + Number(m.opex), other: s.other + Number(m.other), net: s.net + Number(m.net) }), { sales: 0, cogs: 0, gross: 0, opex: 0, other: 0, net: 0 });
   const avgOpex = d.baseline?.opex || 0;
   return <div className="space-y-4">
+    <PnlStatement d={d} />
     {d.kpi.marketing > 0 && <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
       <Kpi label="صافي الربح (الحقيقي)" value={sar(d.kpi.net)} sub={d.kpi.net_margin === null ? "" : `${pct(d.kpi.net_margin)} من المبيعات — بعد كل المصروفات`} icon="wallet" tone={d.kpi.net < 0 ? "bad" : "good"} hint="المبيعات − تكلفة البضاعة − كل المصروفات التشغيلية بما فيها التسويق والفعاليات." />
       <Kpi label="منها تسويق وفعاليات" value={sar(d.kpi.marketing)} sub={d.kpi.sales ? `${pct(d.kpi.marketing / d.kpi.sales * 100)} من المبيعات` : ""} icon="events" color={C.violet} hint="مصروفات حسابات التسويق والدعاية والفعاليات في دفترة. بتتحسب مصروف تشغيلي — ده المعيار المحاسبي الصحيح." />
@@ -300,15 +302,7 @@ function Fixed({ d, reload, avgOpex }: { d: FinData; reload: () => void; avgOpex
 }
 
 /* ═══════════════ المستشار المالي ═══════════════ */
-const IDEAS: Array<[string, string, string]> = [
-  ["ربط عملاء دفترة بعيادات الـ CRM", "كل فاتورة في دفترة تتنسب للمندوب صاحب العيادة → مبيعات وربحية كل مندوب فعلية، وعمولة على المحصّل مش على المبيعات.", "reps"],
-  ["أهداف المناديب من هدف الشركة", "هدف المبيعات المقترح هنا يتوزع تلقائياً على المناديب حسب حصة كل واحد — بدل ما الهدف يتحط بالتخمين.", "coverage"],
-  ["حماية سعر البيع", "لو مندوب سجّل توقع أو طلب بسعر أقل من سعر التعادل، يطلع له تنبيه ويحتاج موافقتك.", "warn"],
-  ["تنبيهات التحصيل للمناديب", "كل مندوب يشوف في صفحته فواتير عملائه المتأخرة أكتر من 60 يوم، ويسجل متابعة التحصيل في الزيارة.", "time"],
-  ["مصروفات المناديب في الربحية", "مصروفات المناديب المعتمدة في الـ CRM تتحسب على ربحية كل مندوب وعميل، من غير ما تتكرر مع دفترة.", "wallet"],
-  ["تنبيه المخزون", "منتج رصيده قرب يخلص وعليه توقعات بيع عالية من المناديب → تنبيه تطلب من المورد بدري.", "products"],
-];
-export function Advisor({ d, go, x, reload }: { d: FinData; go: (t: Tab) => void; x: X; reload: () => void }) {
+export function Advisor({ d, go, x, reload, range }: { d: FinData; go: (t: Tab) => void; x: X; reload: () => void; range: [string, string] }) {
   const toast = useToast(); const B = d.baseline;
   const [nm, setNm] = useState(d.settings.target_net_margin);
   const [fixed, setFixed] = useState(d.plan.monthly_fixed);
@@ -319,6 +313,7 @@ export function Advisor({ d, go, x, reload }: { d: FinData; go: (t: Tab) => void
   const max = Math.max(cur, target || 0, be || 0) * 1.1 || 1;
   async function saveTarget() { const r = await fetch("/api/admin/finance/settings", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ target_gross_margin: d.settings.target_gross_margin, target_net_margin: nm }) }); const j = await r.json().catch(() => null); if (r.ok) { toast("اتحفظ هدف صافي الربح", "success"); reload(); } else toast(j?.error || "تعذر الحفظ", "error"); }
   return <div className="space-y-4">
+    <AiAdvisor d={d} range={range} />
     <button type="button" onClick={() => go("plan")} className="flex w-full flex-wrap items-center gap-3 rounded-2xl bg-gradient-to-l from-[var(--navy)] to-[#1b6f75] p-4 text-right text-white shadow-lg transition hover:-translate-y-0.5">
       <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15"><Icon name="plans" size={22} /></span>
       <span className="min-w-0 flex-1"><b className="block text-[15px]">خطّط الشهر الجاي صنف بصنف</b><span className="text-xs text-white/80">اكتب الرواتب والمصاريف وسعر بيع كل صنف — وأنا أقولك تبيع كام حبة من كل صنف، وكام هتكسب، وتقارن بالفعلي.</span></span>
@@ -346,6 +341,5 @@ export function Advisor({ d, go, x, reload }: { d: FinData; go: (t: Tab) => void
       </>}
     </Card>
     <Card title={`التوصيات (${d.advice.length})`}><div className="grid grid-cols-1 gap-3 lg:grid-cols-2">{d.advice.map((a, i) => <AdviceCard key={i} a={a} go={go} />)}</div></Card>
-    <Card title="إزاي الصفحة دي تتكامل مع باقي السستم" hint="اقتراحات — اختار اللي يناسبك وأنفذه."><div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">{IDEAS.map(([t, s, i]) => <div key={t} className="rounded-2xl border border-[var(--border)] p-4"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--sky-soft)] text-[var(--navy)]"><Icon name={i} size={18} /></span><b className="mt-2 block text-sm">{t}</b><p className="mt-1 text-[12px] leading-5 text-[var(--muted)]">{s}</p></div>)}</div></Card>
   </div>;
 }

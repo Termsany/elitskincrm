@@ -10,7 +10,7 @@ import { AuditTab } from "./audit";
 import { GoalsTab } from "./goals";
 import { CashTab } from "./cash";
 
-export type FinData = ReturnType<typeof computeFinance> & { audit?: { score: number; open: number; open_high: number } | null; sync: { started_at: string | null; finished_at: string | null; ok: boolean | null; message: string; running: boolean }; today: string };
+export type FinData = ReturnType<typeof computeFinance> & { prev?: import("@/lib/fin-ai").PrevKpi; ai?: boolean; audit?: { score: number; open: number; open_high: number } | null; sync: { started_at: string | null; finished_at: string | null; ok: boolean | null; message: string; running: boolean }; today: string };
 export type Tab = "overview" | "sales" | "purchases" | "ar" | "ap" | "pricing" | "pnl" | "advisor" | "plan" | "audit" | "goals" | "cash";
 const TABS: Array<[Tab, string, string]> = [["overview", "الملخص", "dashboard"], ["sales", "المبيعات", "sales"], ["purchases", "المشتريات", "products"], ["ar", "ليا (العملاء)", "time"], ["ap", "عليا (الموردين)", "send"], ["pricing", "المنتجات والتسعير", "coverage"], ["pnl", "الأرباح والمصروفات", "reports"], ["advisor", "المستشار المالي", "sparkle"], ["audit", "مراجعة الحسابات", "check"], ["goals", "الأهداف السنوية", "trophy"], ["cash", "السيولة", "wallet"], ["plan", "خطة الشهر", "plans"]];
 const NO_RANGE: Partial<Record<Tab, string>> = { plan: "خطة شهرية صنف بصنف — مبنية على أسعار الشراء من دفترة وبيعك آخر 6 شهور", goals: "أهداف السنة ومتابعتها شهر بشهر — الفعلي من دفترة", cash: "توقع السيولة للـ 13 أسبوع الجايين — من الفواتير المفتوحة والمصاريف" };
@@ -78,7 +78,7 @@ export default function FinanceHub({ subdomain }: { subdomain: string }) {
         {tab === "ap" && <Book d={d} kind="ap" x={x} subdomain={subdomain} />}
         {tab === "pricing" && <Pricing d={d} x={x} reload={load} subdomain={subdomain} />}
         {tab === "pnl" && <Pnl d={d} pickMonth={pickMonth} x={x} reload={load} />}
-        {tab === "advisor" && <Advisor d={d} go={go} x={x} reload={load} />}
+        {tab === "advisor" && <Advisor d={d} go={go} x={x} reload={load} range={range} />}
         {tab === "plan" && <Planner />}
         {tab === "audit" && <AuditTab range={range} subdomain={subdomain} go={go} />}
         {tab === "goals" && <GoalsTab />}
