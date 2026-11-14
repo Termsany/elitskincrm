@@ -10,7 +10,7 @@ export const GROUP_LABEL: Record<string, string> = {
   plan_pending: "خطط مستنية موافقتك", expense_pending: "مصروفات مستنية اعتمادك", service_request_created: "طلبات جديدة من المناديب",
   sign_request: "طلبات توقيع", collaboration_request: "طلبات تعاون", daily_plan: "تذكيرات خطة اليوم", plan_approved: "خطط اتعتمدت",
   service_request_cancelled: "طلبات اتلغت", doctor_request_approved: "طلبات أطباء اتقبلت", visit_weekly_report: "تقارير أسبوعية",
-  service_request_updated: "تحديثات على طلباتك", reminder: "تذكيرات", assigned: "مهام جديدة", morning_summary: "ملخص الصبح", finance_brief: "ملخص المستشار المالي", smart_daily: "اقتراحات النهارده", plan_draft: "مسودات خطط",
+  service_request_updated: "تحديثات على طلباتك", reminder: "تذكيرات", assigned: "مهام جديدة", morning_summary: "ملخص الصبح", finance_brief: "ملخص المستشار المالي", plan_behind: "تنبيهات خطة الشهر", plan_review: "مراجعات الخطة", smart_daily: "اقتراحات النهارده", plan_draft: "مسودات خطط",
 };
 
 /** Notifications the reader can approve straight from the bell (admin). */

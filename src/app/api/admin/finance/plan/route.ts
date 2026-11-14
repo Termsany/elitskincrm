@@ -3,7 +3,8 @@ import { getCurrentUser } from "@/lib/session";
 import { query } from "@/lib/db";
 import { syncIfStale } from "@/lib/daftra";
 import { computeFinance, loadInput, riyadhToday } from "@/lib/finance";
-import { cleanPlan, type CatalogRow, type PlanCost } from "@/lib/plan";
+import { cleanPlan, computePlan, type CatalogRow, type PlanCost, type PlanData } from "@/lib/plan";
+import { goalForMonth, repShares, syncPlan } from "@/lib/plan-link";
 
 /** Monthly sales planner (admin only). Plans live in the CRM only — Daftra is read, never written. */
 const MONTH = /^20\d\d-(0[1-9]|1[0-2])$/;
@@ -32,7 +33,10 @@ export async function GET(req: Request) {
   const fixed: PlanCost[] = inp.fixed.filter(f => `${month}-01` >= f.start_month.slice(0, 10) && (!f.end_month || `${month}-01` <= f.end_month.slice(0, 10)))
     .map(f => ({ id: `f${f.id}`, name: f.name, kind: f.category === "salaries" ? "salary" as const : "expense" as const, planned: f.monthly_amount, actual: null }));
   const [saved, list] = await Promise.all([query("SELECT data, updated_at FROM fin_plans WHERE month=$1", [month]), query("SELECT month FROM fin_plans ORDER BY month DESC LIMIT 36")]);
-  return NextResponse.json({ month, today, plan: saved.rows[0]?.data ?? null, updated_at: saved.rows[0]?.updated_at ?? null, catalog, fixed, daftraCosts,
+  // the saved plan follows the fixed-costs list and Daftra's actual sales; the annual goal sets the month's target
+  const plan = saved.rows[0] ? syncPlan(cleanPlan(saved.rows[0].data) as PlanData, catalog, fixed, month, cur) : null;
+  const [goal, reps] = await Promise.all([goalForMonth(month), plan ? repShares(month, computePlan(plan, catalog).rows).catch(() => []) : Promise.resolve([])]);
+  return NextResponse.json({ month, today, plan, goal, reps, updated_at: saved.rows[0]?.updated_at ?? null, catalog, fixed, daftraCosts,
     saved_months: list.rows.map(r => r.month), history: { from: baseFrom, to: baseTo }, target_net_margin: inp.settings.target_net_margin, has_daftra_month: !!M });
 }
 

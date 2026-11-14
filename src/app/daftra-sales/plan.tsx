@@ -6,7 +6,7 @@ import { computePlan, draftPlan, type CatalogRow, type PlanCost, type PlanData, 
 import { C, Card, ExcelBtn, Hint, Kpi, MONTHS, Pill, num, pct, sar } from "./kit";
 import { riyadhToday } from "@/lib/fmt";
 
-type Resp = { month: string; today: string; plan: PlanData | null; updated_at: string | null; catalog: CatalogRow[]; fixed: PlanCost[]; daftraCosts: PlanCost[]; saved_months: string[]; history: { from: string; to: string }; target_net_margin: number; has_daftra_month: boolean };
+type Resp = { month: string; today: string; plan: PlanData | null; updated_at: string | null; catalog: CatalogRow[]; fixed: PlanCost[]; daftraCosts: PlanCost[]; saved_months: string[]; history: { from: string; to: string }; target_net_margin: number; has_daftra_month: boolean; goal: { sales: number; gross: number; opex: number; net: number } | null; reps: import("@/lib/plan-link").RepShare[] };
 const shift = (m: string, n: number) => { const [y, mo] = m.split("-").map(Number); return new Date(Date.UTC(y, mo - 1 + n, 1)).toISOString().slice(0, 7); };
 const mName = (m: string) => `${MONTHS[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`;
 const riyadh = () => riyadhToday();
@@ -14,6 +14,8 @@ const nowMonth = () => riyadh().slice(0, 7);
 /** After the 20th we're usually planning next month. */
 const startMonth = () => { const d = riyadh(); return Number(d.slice(8, 10)) >= 20 ? shift(d.slice(0, 7), 1) : d.slice(0, 7); };
 const uid = () => Math.random().toString(36).slice(2, 10);
+/** A new plan aims at what the annual goals expect from the month. */
+const fromGoal = (p: PlanData, goal: Resp["goal"]): PlanData => goal && goal.net > 0 ? { ...p, target_profit: Math.round(goal.net / 1000) * 1000 } : p;
 const LV: Record<string, [string, string, string]> = { danger: ["عاجل", "border-red-200 bg-red-50", "flag"], warn: ["مهم", "border-amber-200 bg-amber-50", "warn"], good: ["فرصة", "border-emerald-200 bg-emerald-50", "trophy"], info: ["للعلم", "border-sky-200 bg-sky-50", "sparkle"] };
 
 function Num({ v, set, ph, w = "w-24", nullable, dis }: { v: number | null; set: (n: number | null) => void; ph?: string; w?: string; nullable?: boolean; dis?: boolean }) {
@@ -46,7 +48,7 @@ export function Planner() {
     if (!j?.catalog) { toast("تعذر تحميل الخطة", "error"); return; }
     setR(j);
     if (j.plan) { setData(j.plan); setState("saved"); }
-    else { setData(draftPlan(j.catalog, j.fixed.length ? j.fixed : j.daftraCosts, j.target_net_margin)); setState("draft"); }
+    else { setData(fromGoal(draftPlan(j.catalog, j.fixed.length ? j.fixed : j.daftraCosts, j.target_net_margin), j.goal)); setState("draft"); }
   }, [toast]);
   useEffect(() => { void load(month); }, [month, load]);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); void save(); }, [save]);
@@ -71,14 +73,7 @@ export function Planner() {
   }
   function reset() {
     if (!r) return; if (!confirmReset) { setConfirmReset(true); setTimeout(() => setConfirmReset(false), 4000); return; }
-    setConfirmReset(false); update(() => draftPlan(r.catalog, r.fixed.length ? r.fixed : r.daftraCosts, r.target_net_margin)); toast("رجعت الخطة لمسودة من بيانات دفترة", "success");
-  }
-  function fillActual() {
-    update(d => { const have = new Set(d.items.map(i => i.key));
-      const items = d.items.map(i => { const c = cat.get(i.key); return c && (c.d_qty || i.include) ? { ...i, actual_qty: c.d_qty || 0, actual_price: c.d_price ?? null } : i; });
-      for (const c of r?.catalog || []) if (c.d_qty > 0 && !have.has(c.key)) items.push({ key: c.key, name: c.name, include: false, cost: c.avg_cost ?? c.last_cost ?? 0, price: c.d_price ?? c.price ?? 0, mix: 0, qty: null, actual_qty: c.d_qty, actual_price: c.d_price });
-      return { ...d, items }; });
-    toast("اتملت الكميات والأسعار الفعلية من فواتير دفترة للشهر ده", "success");
+    setConfirmReset(false); update(() => fromGoal(draftPlan(r.catalog, r.fixed.length ? r.fixed : r.daftraCosts, r.target_net_margin), r.goal)); toast("رجعت الخطة لمسودة من بيانات دفترة", "success");
   }
   function addItem(key: string) {
     const c = cat.get(key); if (!c || !data) return; setAdding("");
@@ -118,11 +113,18 @@ export function Planner() {
       {r.saved_months.length > 0 && <div className="flex w-full flex-wrap gap-1 text-[11px]"><span className="text-[var(--muted)]">خطط محفوظة:</span>{r.saved_months.map(m => <button key={m} type="button" onClick={() => void goMonth(m)} className={`rounded-full px-2 py-0.5 font-bold ${m === month ? "bg-[var(--navy)] text-white" : "bg-[var(--bg)] text-[var(--navy)]"}`}>{mName(m)}</button>)}</div>}
     </div>
 
+    {r.goal && <div className={`flex flex-wrap items-center gap-3 rounded-2xl p-3 text-[13px] ring-1 ${t.plan_revenue >= r.goal.sales * 0.98 ? "bg-emerald-50 ring-emerald-200" : "bg-amber-50 ring-amber-200"}`}>
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-[var(--navy)]"><Icon name="trophy" size={18} /></span>
+      <span className="min-w-0 flex-1 leading-6">هدف السنة للشهر ده: مبيعات <b>{sar(r.goal.sales)}</b> وربح <b>{sar(r.goal.net)}</b> · خطتك: مبيعات <b>{sar(t.plan_revenue)}</b> وربح <b>{sar(t.plan_profit)}</b>
+        {t.plan_revenue < r.goal.sales * 0.98 ? <b className="text-amber-800"> · ناقص {sar(r.goal.sales - t.plan_revenue)} مبيعات</b> : <b className="text-emerald-700"> · الخطة بتحقق الهدف ✓</b>}</span>
+      {r.goal.net > 0 && Math.round(r.goal.net / 1000) * 1000 !== data.target_profit && <button type="button" onClick={() => update(d => ({ ...d, target_profit: Math.round(r.goal!.net / 1000) * 1000 }))} className="shrink-0 rounded-xl bg-[var(--navy)] px-3 py-2 text-xs font-bold text-white">خلّي ربح الخطة = هدف السنة</button>}
+    </div>}
+
     {/* ① costs & target */}
     <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
       <Card className="xl:col-span-3" title="① رواتب ومصاريف الشهر" hint="كل اللي بتدفعه في الشهر سواء بعت أو ما بعتش: رواتب، إيجار، تسويق، اشتراكات… (قبل الضريبة). العمود 'الفعلي' اختياري — املاه آخر الشهر لو المصروف اختلف."
         right={<div className="flex flex-wrap gap-1.5">
-          {r.fixed.length > 0 && <button type="button" onClick={() => update(d => ({ ...d, costs: r.fixed.map(c => ({ ...c, id: uid() })) }))} className="rounded-lg bg-[var(--bg)] px-2.5 py-1.5 text-[11px] font-bold text-[var(--navy)]">من مصاريفي الثابتة</button>}
+          {r.fixed.length > 0 && <button type="button" onClick={() => update(d => ({ ...d, costs: [...r.fixed, ...d.costs.filter(c => !c.id.startsWith("f"))] }))} className="rounded-lg bg-[var(--bg)] px-2.5 py-1.5 text-[11px] font-bold text-[var(--navy)]">من مصاريفي الثابتة</button>}
           <button type="button" onClick={() => update(d => ({ ...d, costs: r.daftraCosts.map(c => ({ ...c, id: uid() })) }))} className="rounded-lg bg-[var(--bg)] px-2.5 py-1.5 text-[11px] font-bold text-[var(--navy)]">متوسط دفترة (آخر 6 شهور)</button>
         </div>}>
         <div className="-mx-4 overflow-x-auto px-4"><table className="w-full min-w-[520px] text-sm">
@@ -193,17 +195,27 @@ export function Planner() {
     </Card>}
     <Card title="رأي المستشار في الخطة"><div className="grid grid-cols-1 gap-3 lg:grid-cols-2">{res.advice.map((a, k) => { const [tag, cls, ic] = LV[a.level]; return <div key={k} className={`rounded-2xl border p-4 ${cls}`}><div className="flex items-start gap-2"><Icon name={ic} size={18} /><div className="min-w-0"><div className="text-[10.5px] font-bold opacity-70">{tag}</div><div className="font-extrabold text-[var(--navy)]">{a.title}</div><p className="mt-1 text-[12.5px] leading-6 text-slate-700">{a.text}</p></div></div></div>; })}</div></Card>
 
+    {r.reps.length > 0 && <Card title="الخطة على المناديب">
+      <div className="-mx-4 overflow-x-auto px-4"><table className="w-full min-w-[620px] text-sm">
+        <thead className="bg-[var(--bg)] text-[11px] text-[var(--muted)]"><tr><th className="p-2 text-right">المندوب</th><th className="p-2">نصيبه من الخطة</th><th className="p-2">باع فعلاً</th><th className="p-2">التحقيق</th><th className="p-2 text-right">أهم الأصناف المطلوبة</th></tr></thead>
+        <tbody className="divide-y divide-[var(--border)]">{r.reps.map(x => { const a = x.target ? x.actual / x.target * 100 : null, exp = isNow ? Number(r.today.slice(8, 10)) / new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).getUTCDate() * 100 : 100;
+          return <tr key={x.rep_id || "none"}><td className="p-2 font-bold">{x.rep_name}</td><td className="p-2 text-center">{sar(x.target)}</td><td className="p-2 text-center">{x.rep_id ? sar(x.actual) : "—"}</td>
+            <td className="p-2 text-center">{a === null || !x.rep_id || (!isNow && !isPast) ? "—" : <b className={a >= exp * 0.9 ? "text-emerald-700" : "text-red-700"}>{pct(a)}</b>}</td>
+            <td className="p-2 text-[11.5px]" dir="auto">{x.items.slice(0, 4).map(i => `${i.item} ${Math.round(i.qty)}`).join(" · ")}</td></tr>; })}</tbody>
+      </table></div>
+    </Card>}
+
     {/* ⑤ actual */}
     <Card title={`④ الفعلي — اللي اتباع فعلاً في ${mName(month)}`} hint="اكتب الكميات اللي اتباعت فعلاً وسعر البيع الفعلي (لو اختلف). أو اضغط 'املأ من دفترة' وأنا أجيبها من فواتير الشهر. لو سبت السعر فاضي هيتحسب بسعر الخطة."
-      right={r.has_daftra_month ? <button type="button" onClick={fillActual} className="flex items-center gap-1.5 rounded-xl bg-[var(--navy)] px-3 py-2 text-xs font-bold text-white"><Icon name="repeat" size={14} />املأ من دفترة</button> : <span className="text-[11px] text-[var(--muted)]">الشهر لسه ما بدأش</span>}>
-      {!isPast && !isNow && !t.has_actual ? <p className="text-sm text-[var(--muted)]">لما الشهر يبدأ تقدر تسجل البيع الفعلي هنا وتقارنه بالخطة.</p> : <>
+      right={<span className="text-[11px] font-bold text-[var(--muted)]">{r.has_daftra_month ? "من فواتير دفترة أول بأول" : "الشهر لسه ما بدأش"}</span>}>
+      {!isPast && !isNow && !t.has_actual ? null : <>
         <div className="-mx-4 overflow-x-auto px-4"><table className="w-full min-w-[820px] text-sm">
           <thead className="bg-[var(--bg)] text-[11px] text-[var(--muted)]"><tr><th className="p-2 text-right">الصنف</th><th className="p-2">المخطط</th><th className="p-2">اتباع فعلاً</th><th className="p-2">سعر البيع الفعلي</th><th className="p-2">مبيعات فعلية</th><th className="p-2">ربح فعلي</th><th className="p-2 w-40">التحقيق</th></tr></thead>
           <tbody className="divide-y divide-[var(--border)]">{data.items.filter(i => i.include || i.actual_qty !== null).map(i => { const x = rowOf.get(i.key), c = cat.get(i.key), a = x?.achieve ?? null; return <tr key={i.key}>
             <td className="max-w-[230px] p-2"><div className="truncate font-bold" dir="auto">{i.name}{!i.include && <span className="mr-1 text-[10px] font-normal text-[var(--muted)]">(برّه الخطة)</span>}</div>{c && c.d_qty > 0 && <div className="text-[10.5px] text-[var(--muted)]">في دفترة: {num(c.d_qty)} حبة × {num(c.d_price, 2)}</div>}</td>
             <td className="p-2 text-center">{num(x?.plan_qty ?? 0)}</td>
-            <td className="p-2 text-center"><Num v={i.actual_qty} set={n => setItem(i.key, { actual_qty: n })} ph="—" w="w-20" nullable /></td>
-            <td className="p-2 text-center"><Num v={i.actual_price} set={n => setItem(i.key, { actual_price: n })} ph={String(i.price)} nullable /></td>
+            <td className="p-2 text-center font-bold">{i.actual_qty === null ? "—" : num(i.actual_qty)}</td>
+            <td className="p-2 text-center">{i.actual_price === null ? "—" : sar(i.actual_price, 2)}</td>
             <td className="p-2 text-center">{sar(x?.actual_revenue ?? null)}</td>
             <td className={`p-2 text-center font-bold ${(x?.actual_profit ?? 0) < 0 ? "text-red-700" : "text-emerald-700"}`}>{sar(x?.actual_profit ?? null)}</td>
             <td className="p-2">{a === null ? <span className="text-[var(--muted)]">—</span> : <div><div className="h-2 overflow-hidden rounded-full bg-[var(--bg)]"><div className="h-full rounded-full" style={{ width: `${Math.min(100, a)}%`, background: a >= 100 ? C.green : a >= 70 ? C.amber : C.red }} /></div><div className="mt-0.5 text-center text-[11px] font-bold">{a.toFixed(0)}%</div></div>}</td>

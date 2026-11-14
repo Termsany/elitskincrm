@@ -20,7 +20,7 @@ function Slider({ label, v, set }: { label: string; v: number; set: (n: number) 
   return <label className="block"><div className="flex justify-between text-xs font-bold"><span>{label}</span><b className={v > 0 ? "text-emerald-700" : v < 0 ? "text-red-700" : "text-[var(--muted)]"}>{v > 0 ? "+" : ""}{v}%</b></div><input type="range" min={-20} max={20} value={v} onChange={e => set(Number(e.target.value))} className="mt-2 w-full accent-[var(--sky)]" /></label>;
 }
 
-export function GoalsTab() {
+export function GoalsTab({ ask }: { ask?: (q: string) => void }) {
   const toast = useToast();
   const cy = Number(riyadhToday().slice(0, 4));
   // from November on, the useful plan is next year's
@@ -122,6 +122,8 @@ export function GoalsTab() {
         <Slider label="المصاريف" v={lv.opex} set={v => setLv({ ...lv, opex: v })} />
       </div>
       <div className="mt-4 rounded-2xl bg-[var(--sky-light)] p-4 text-[13px] leading-7">صافي ربحك الشهري دلوقتي <b>{sar(B.net)}</b> ← هيبقى <b className={sim.net >= B.net ? "text-emerald-700" : "text-red-700"}>{sar(sim.net)}</b> ({sim.net >= B.net ? "+" : ""}{sar(sim.net - B.net)} في الشهر = {sar((sim.net - B.net) * 12)} في السنة).
+        {d.goals && <span className={`block font-bold ${sim.net * 12 >= plan.net ? "text-emerald-700" : "text-amber-800"}`}>{sim.net * 12 >= plan.net ? `كده تحقق هدف ربح السنة ${sar(plan.net)} ✓` : `هدف ربح السنة ${sar(plan.net)} — كده ناقصك ${sar(plan.net - sim.net * 12)} في السنة (${sar((plan.net - sim.net * 12) / 12)} في الشهر)`}</span>}
+        {ask && <button type="button" onClick={() => ask(`صافي ربحي الشهري ${Math.round(B.net)} وهدف ربح السنة ${Math.round(plan.net)}. اقترح أقرب مزيج واقعي من رفع الأسعار وزيادة الكميات وتقليل تكلفة الشراء والمصاريف يوصّلني للهدف، بالنسب، وقولّي أبدأ بأنهي منتجات وعملاء.`)} className="mt-2 inline-flex items-center gap-1 rounded-lg bg-white px-2.5 py-1.5 text-[11.5px] font-bold text-[var(--navy)] ring-1 ring-[var(--border)]">✨ إيه أقرب مزيج يوصّلني للهدف؟</button>}
         {lv.price > 0 && lv.volume >= -lv.price && <span className="block text-[12px] text-[var(--muted)]">ملاحظة: رفع السعر ممكن يقلل الكمية شوية — جرّب تنزّل الكميات بنفس النسبة وهتلاقي إنك لسه كسبان غالباً.</span>}
         {(lv.price || lv.volume || lv.cogs || lv.opex) ? <button type="button" onClick={() => setLv({ price: 0, volume: 0, cogs: 0, opex: 0 })} className="mt-1 text-xs font-bold text-[var(--navy)] hover:underline">رجّع الصفر</button> : null}</div>
     </Card>}

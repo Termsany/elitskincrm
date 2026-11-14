@@ -15,6 +15,7 @@ type Home = {
   today: string; name: string; plan: PlanItem[]; followups: number; lateA: number; lateCount: number;
   late: Array<{ id: string; name: string; clinic: string; city: string; classification: string; overdue_days: number }>;
   pace: { target: number; mtd: number; projected: number; pct: number | null; day: number; days: number } | null;
+  planShare: { target: number; actual: number; items: Array<{ item: string; qty: number; revenue: number }> } | null;
   trend: Array<{ month: string; value: number }>; byProduct: Array<{ name: string; value: number }>;
   tasks: { open: number; late: number };
   nextBrief: { doctor_id: string; days: number | null; note: string | null; why: string | null } | null; taskList: TaskRow[]; recent: RecentRow[]; office: number; nextWeek: { start: string; plan: { id: string; status: string; visits: number } | null };
@@ -166,6 +167,11 @@ export default function RepHome() {
     <div className="mt-4 flex h-16 items-end gap-1.5" aria-label="مبيعات آخر 6 شهور">{d.trend.map((t, i) => <div key={t.month} className="group flex flex-1 flex-col items-center gap-1" title={`${k(t.value)} ر.س`}>
       <div className="w-full rounded-t-lg transition-all duration-700" style={{ height: `${Math.max(4, t.value / maxT * 52)}px`, background: i === d.trend.length - 1 ? "#33b3a6" : "#cfe7e4" }} />
       <span className="text-[9.5px] text-[var(--muted)]">{new Intl.DateTimeFormat(L, { month: "short", timeZone: "UTC" }).format(new Date(`${t.month}-15T12:00:00Z`))}</span></div>)}</div>
+    {d.planShare && <div className="mt-4 rounded-2xl bg-[var(--bg)] p-3">
+      <div className="flex items-baseline justify-between gap-2 text-[12.5px] font-bold"><span className="text-[var(--navy)]">نصيبك من خطة الشهر</span><span><b className="text-[var(--navy)]">{k(d.planShare.actual)}</b> <span className="font-normal text-[var(--muted)]">من {k(d.planShare.target)} ر.س</span></span></div>
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-white"><div className="h-full rounded-full bg-[#33b3a6]" style={{ width: `${Math.min(100, d.planShare.actual / d.planShare.target * 100)}%` }} /></div>
+      <div className="mt-2 flex flex-wrap gap-1.5">{d.planShare.items.map(x => <span key={x.item} className="rounded-full bg-white px-2.5 py-1 text-[11px]" dir="auto">{x.item} <b className="text-[var(--navy)]">{Math.round(x.qty)} حبة</b></span>)}</div>
+    </div>}
     {d.byProduct.length > 0 && <div className="mt-3 flex flex-wrap gap-1.5">{d.byProduct.map(b => <span key={b.name} className="rounded-full bg-[var(--bg)] px-2.5 py-1 text-[11px]">{b.name} <b className="text-[var(--navy)]">{k(b.value)}</b></span>)}</div>}
   </section>;
 

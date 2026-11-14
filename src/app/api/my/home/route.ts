@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { repPlanShare } from "@/lib/plan-link";
 import { getCurrentUser } from "@/lib/session";
 import { query } from "@/lib/db";
 import { riyadhToday } from "@/lib/riyadh-day";
@@ -53,8 +54,9 @@ export async function GET() {
   // last 6 months, zero-filled
   const months = Array.from({ length: 6 }, (_, i) => { const d = new Date(Date.UTC(Number(today.slice(0, 4)), Number(today.slice(5, 7)) - 6 + i, 1)); return d.toISOString().slice(0, 7); });
   const tv = new Map(trend.rows.map(r => [r.month, r.v]));
+  const planShare = await repPlanShare(u.id, today.slice(0, 7)).catch(() => null);
   return NextResponse.json({
-    today, name: (u.name || "").split(" ")[0],
+    planShare, today, name: (u.name || "").split(" ")[0],
     plan: plan.rows.map(p => ({ ...p, done: !!p.done_at })),
     followups: fu.rows[0]?.n || 0,
     lateA: late.filter(l => l.classification === "A").length,
