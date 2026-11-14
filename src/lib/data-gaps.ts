@@ -32,8 +32,8 @@ export async function dataGaps(meId: string, year: number, opts: { manager?: boo
   }
   const noHire = (r: (typeof reps)[number]) => !r.hire_date;
   if (reps.some(noHire)) out.push({ key: "hire", tone: "amber", title: `${names(noHire).length} مندوب من غير تاريخ تعيين`, text: "رصيد الإجازة بيتحسب 21 يوم افتراضي لحد ما يتسجل", href: `/admin/rep/${firstId(noHire)}`, names: names(noHire) });
-  if (!opts.manager && unlinked[0]?.n) out.push({ key: "daftra", tone: "amber", title: `${unlinked[0].n} عميل في دفترة مش مربوط بعيادة`, text: "حساب العيادة وتنبيه «بتقل» مش هيشتغلوا عليه", href: "/daftra-sales?tab=ar" });
-  if (!opts.manager && noBranch[0]?.n) out.push({ key: "branches", tone: "amber", title: `${noBranch[0].n} عميل في دفترة من غير فروع فيها أطباء`, text: "اربط فروع كل عميل (زي HOSN yarmouk و HOSN Dahran) عشان حسابه يظهر عند أطباء الفروع", href: "/daftra-sales?tab=ar#branches", names: noBranch[0].names?.slice(0, 4) });
+  if (!opts.manager && unlinked[0]?.n) out.push({ key: "daftra", tone: "amber", title: `${unlinked[0].n} عميل في دفترة مش مربوط بعيادة`, text: "حساب العيادة وتنبيه «بتقل» مش هيشتغلوا عليه", href: "/sales?tab=ar" });
+  if (!opts.manager && noBranch[0]?.n) out.push({ key: "branches", tone: "amber", title: `${noBranch[0].n} عميل في دفترة من غير فروع فيها أطباء`, text: "اربط فروع كل عميل (زي HOSN yarmouk و HOSN Dahran) عشان حسابه يظهر عند أطباء الفروع", href: "/sales?tab=ar#branches", names: noBranch[0].names?.slice(0, 4) });
   if (docs[0]?.nocls) out.push({ key: "class", tone: "blue", title: `${docs[0].nocls} طبيب من غير فئة`, text: "الفئة بتحدد كل قد إيه لازم يتزار", href: "/doctors" });
   if (docs[0]?.noclinic) out.push({ key: "clinic", tone: "blue", title: `${docs[0].noclinic} طبيب مش مربوط بعيادة`, text: "ربطه بالعيادة بيظهر حسابها من دفترة في صفحته", href: "/doctors" });
   const idleReps = idle.filter(u => u.role === "sales_rep"), idleAdmins = idle.filter(u => u.role === "admin");

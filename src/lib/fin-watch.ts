@@ -55,7 +55,7 @@ export async function sendPlanWatch(today: string, force = false) {
           const reps = (await repShares(month, res.rows).catch(() => [])).filter(r => r.rep_id && r.target > 0 && r.actual < r.target * pace * 0.9);
           await notify(admins, "plan_behind", `⚠ خطة ${mName(month)}: اتباع ${k(actual)} من ${k(res.t.plan_revenue)} (${Math.round(actual / res.t.plan_revenue * 100)}%) والمفروض ${Math.round(pace * 100)}% النهارده — ناقص ${k(expected - actual)}.`
             + (short.length ? `\nأكتر أصناف متأخرة: ${short.map(s => `${s.name} (−${k(s.gap)})`).join("، ")}` : "")
-            + (reps.length ? `\nمناديب متأخرين: ${reps.map(r => `${r.rep_name} ${Math.round(r.actual / r.target * 100)}%`).join("، ")}` : ""), "/daftra-sales?tab=plan", today);
+            + (reps.length ? `\nمناديب متأخرين: ${reps.map(r => `${r.rep_name} ${Math.round(r.actual / r.target * 100)}%`).join("، ")}` : ""), "/sales?tab=plan", today);
           for (const r of reps)
             await notify([r.rep_id!], "plan_behind", `خطة ${mName(month)}: بعت ${k(r.actual)} من نصيبك ${k(r.target)} ر.س (${Math.round(r.actual / r.target * 100)}%) والمفروض ${Math.round(pace * 100)}% النهارده.\nركّز على: ${r.items.slice(0, 3).map(i => i.item).join("، ")}`, "/", today);
           out.push("behind");
@@ -83,7 +83,7 @@ export async function sendPlanWatch(today: string, force = false) {
           } catch { lessons = ""; } finally { clearTimeout(timer); }
           if (lessons.trim().length > 20) msg += `\n\nدروس للشهر الجاي:\n${lessons.trim().slice(0, 700)}`;
         }
-        await notify(admins, "plan_review", msg, "/daftra-sales?tab=plan", today);
+        await notify(admins, "plan_review", msg, "/sales?tab=plan", today);
         out.push("review");
       }
     }

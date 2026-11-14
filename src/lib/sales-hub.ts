@@ -1,4 +1,5 @@
 import { query } from "@/lib/db";
+import { planTargets } from "@/lib/plan-link";
 import { riyadhToday } from "@/lib/fmt";
 
 const SIGN = "(CASE WHEN fs.kind='return' THEN -1 ELSE fs.direction END)";
@@ -37,6 +38,8 @@ export async function salesHub(u: { id: string; role: string }, year: number, re
   const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, "0")}`);
   const target: Record<string, Record<string, number>> = {};
   for (const r of dist.rows) (target[r.rep_id] ||= {})[r.month] = Number(r.amount);
+  const pt = await planTargets(months);
+  for (const [m, shares] of pt) for (const id of ids) if (shares.has(id)) (target[id] ||= {})[m] = shares.get(id)!;
   for (const r of ovr.rows) (target[r.rep_id] ||= {})[r.month] = Number(r.amount);
   const sum = (rows: Array<{ rep_id: string; month: string; value: string; qty: string }>) => { const m: Record<string, Record<string, { value: number; qty: number }>> = {}; for (const r of rows) (m[r.rep_id] ||= {})[r.month] = { value: Number(r.value), qty: Number(r.qty) }; return m; };
   const act = sum(sales.rows), fct = sum(fc.rows);

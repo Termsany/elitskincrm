@@ -19,7 +19,7 @@ export function MorningCard({ m, mgr }: { m: Morning; mgr: boolean }) {
     ["check", "مستني قرارك", String(m.pending), m.pending ? "تحت في «محتاج قرارك»" : "مفيش ✓", "#inbox"],
     ["time", "متابعات النهارده", String(m.followupsToday), "مواعيد متابعة مع أطباء", "/visits?tab=visits"],
   ];
-  if (!mgr) tiles.splice(2, 0, ["wallet", "متأخرات التحصيل", `${k(m.overdue.amount)}`, `${m.overdue.invoices} فاتورة عدّى ميعادها`, "/daftra-sales?tab=ar"]);
+  if (!mgr) tiles.splice(2, 0, ["wallet", "متأخرات التحصيل", `${k(m.overdue.amount)}`, `${m.overdue.invoices} فاتورة عدّى ميعادها`, "/sales?tab=ar"]);
   if (!mgr && m.salesYesterday) tiles.splice(1, 0, ["sales", "مبيعات إمبارح", k(m.salesYesterday), "من فواتير دفترة", "/sales"]);
   return <section className="es-card-in overflow-hidden rounded-[28px] border border-amber-200 bg-gradient-to-l from-amber-50 via-white to-white p-4 sm:p-5" aria-labelledby="morning-h">
     <div className="mb-3 flex flex-wrap items-center gap-2"><span className="text-2xl">☀️</span><h2 id="morning-h" className="text-lg font-extrabold text-[var(--navy)]">ملخص الصبح</h2>

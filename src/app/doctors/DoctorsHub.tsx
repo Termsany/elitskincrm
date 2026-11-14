@@ -455,7 +455,7 @@ function ClinicPanel({ g, canLink, sheet, onClose, onDoctor, onFilter }: { g: Cl
 
           {!data ? <div className="space-y-2">{[0, 1, 2, 3].map(i => <div key={i} className="es-shimmer h-14 rounded-2xl" />)}</div>
             : !a ? <div className="rounded-2xl border border-dashed border-[var(--border-strong)] bg-white p-5 text-center text-sm text-[var(--muted)]">العيادة دي مش مربوطة بعميل في دفترة، فمش ظاهر مشترياتها ولا مديونيتها.
-              {canLink && <Link href="/daftra-sales?tab=ar#branches" className="mt-2 block text-xs font-bold text-[var(--sky-deep)] hover:underline">اربطها من صفحة دفترة ‹</Link>}</div>
+              {canLink && <Link href="/sales?tab=ar#branches" className="mt-2 block text-xs font-bold text-[var(--sky-deep)] hover:underline">اربطها من صفحة دفترة ‹</Link>}</div>
             : <>
               {a.branches && a.branches.length > 0 && <div className="rounded-2xl border border-teal-200 bg-teal-50 p-3 text-xs leading-6 text-teal-900">🏢 الحساب ده مشترك مع {a.branches.length} {a.branches.length === 1 ? "فرع تاني" : "فروع تانية"}: <b dir="auto">{a.branches.join("، ")}</b> — المديونية والمشتريات للشركة كلها، مش للفرع ده بس.</div>}
               {a.balance.overdue > 0 ? <div className="es-pop rounded-2xl bg-red-50 p-3.5 text-[13px] leading-6 text-red-900 ring-1 ring-red-200"><b>قبل أي طلب جديد:</b> عليها <b>{sar(a.balance.overdue)}</b> متأخرة{a.balance.oldest && a.balance.oldest > 0 ? ` من ${a.balance.oldest} يوم` : ""} (إجمالي المستحق {sar(a.balance.unpaid)}).</div>

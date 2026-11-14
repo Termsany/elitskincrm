@@ -17,7 +17,7 @@ function Stat({ label, value, sub, tone }: { label: string; value: string; sub?:
 export default function ClinicAccountCard({ clinic, account, isAdmin }: { clinic: { id: string; name: string } | null; account: (Account & { customers: string[]; branches?: string[] }) | null; isAdmin: boolean }) {
   if (!account) return isAdmin ? <section className="mx-auto mt-5 max-w-6xl rounded-2xl border border-dashed border-[var(--border-strong)] bg-white p-4 text-sm text-[var(--muted)]" dir="rtl">
     {clinic ? <>عيادة «{clinic.name}» مش مربوطة بعميل في دفترة، فمش ظاهر هنا مشترياتها ولا رصيدها. </> : <>الطبيب ده مش مربوط بعيادة. </>}
-    <Link href="/daftra-sales?tab=ar#branches" className="font-bold text-[var(--sky-deep)] hover:underline">اربطها كفرع لعميلها من صفحة دفترة ‹</Link></section> : null;
+    <Link href="/sales?tab=ar#branches" className="font-bold text-[var(--sky-deep)] hover:underline">اربطها كفرع لعميلها من صفحة دفترة ‹</Link></section> : null;
   const a = account, b = a.balance, o = a.orders, s = a.sales, [sl, sc] = STATUS[a.status];
   return <section className="mx-auto mt-5 max-w-6xl space-y-3 rounded-2xl border border-[var(--border)] bg-white p-4 sm:p-5" dir="rtl" aria-labelledby="clinic-acc">
     <div className="flex flex-wrap items-center gap-2">

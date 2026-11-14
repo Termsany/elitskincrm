@@ -9,12 +9,15 @@ import { Sales, Book } from "./tabs";
 import { Planner } from "./plan";
 import { GoalsTab } from "./goals";
 import { AiAdvisor } from "./ai";
+import AdminSales from "../sales/AdminSales";
 
 export type FinData = ReturnType<typeof computeFinance> & { prev?: import("@/lib/fin-ai").PrevKpi; ai?: boolean; link?: import("@/lib/fin-link").FinLink | null; sync: { started_at: string | null; finished_at: string | null; ok: boolean | null; message: string; running: boolean }; today: string };
-export type Tab = "sales" | "ar" | "goals" | "plan";
+export type Tab = "sales" | "team" | "goals" | "plan" | "ar" | "settings";
 export type Ask = (q: string) => void;
-const TAB_IDS: Tab[] = ["sales", "ar", "goals", "plan"];
-const NO_RANGE: Partial<Record<Tab, boolean>> = { plan: true, goals: true };
+const TAB_IDS: Tab[] = ["sales", "team", "goals", "plan", "ar", "settings"];
+/** Old links (the two pages before the merge) open the matching tab. */
+const OLD_TAB: Record<string, Tab> = { workspace: "team", targets: "team", items: "settings", catalog: "settings", approvals: "settings", close: "settings", overview: "sales" };
+const NO_RANGE: Partial<Record<Tab, boolean>> = { plan: true, goals: true, team: true, settings: true };
 const tz = "Asia/Riyadh";
 const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date());
 const back = (months: number) => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - months); return `${new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(d).slice(0, 7)}-01`; };
@@ -26,6 +29,8 @@ const CHIPS: Record<Tab, string[]> = {
   sales: ["لخّص لي وضع الشهر: المبيعات والهدف والخطة والتحصيل", "أنهي منتجات وعملاء أركّز عليهم عشان أقفل الفرق عن الهدف؟", "مبيعاتي ماشية أحسن ولا أسوأ من الفترة اللي فاتت وليه؟"],
   ar: ["رتّب لي العملاء اللي أحصّل منهم الأسبوع ده وأقول لكل واحد إيه", "لو حصّلت المتأخر، يغطي كام من مصاريف خطة الشهر؟", "مين العملاء اللي أوقف البيع الآجل ليهم؟"],
   goals: ["هحقق هدف الشهر والسنة بالمعدل الحالي؟ ولو لأ أعمل إيه؟", "هدف السنة واقعي على أرقامي؟", "وزّع لي المطلوب يومياً على المنتجات والعملاء"],
+  team: ["مين من المناديب متأخر عن هدفه الشهر ده وليه؟ واعمل إيه مع كل واحد؟", "وزّع الفرق عن هدف الشهر على المناديب بشكل واقعي", "مين أحسن مندوب الشهر ده وإيه اللي بيعمله صح؟"],
+  settings: ["أنهي أصناف في دفترة مش مربوطة بمنتج أو مندوب ومحتاجة ربط؟", "فيه عملاء في دفترة مش مربوطين بعيادة أو مندوب؟"],
   plan: ["راجع خطة الشهر: واقعية؟ وفين الخطر؟", "أنهي أصناف في الخطة محتاجة دفعة وأبيعها لمين؟", "قارن الخطة بالمبيعات الفعلية لحد النهارده"],
 };
 
@@ -52,7 +57,7 @@ export default function FinanceHub({ subdomain }: { subdomain: string }) {
     // deep links (/daftra-sales?tab=ar) win over the remembered tab; old tab names open the sales tab
     const pick = (t: string | null) => (TAB_IDS as string[]).includes(t || "") ? t as Tab : null;
     const q = new URLSearchParams(window.location.search).get("tab");
-    if (q) { setTab(pick(q) || "sales"); return; }
+    if (q) { setTab(pick(q) || OLD_TAB[q] || "sales"); return; }
     try { const t = pick(sessionStorage.getItem("fin-tab")); if (t) setTab(t); } catch { /* ignore */ }
   }, []);
   const go = (t: Tab) => { setTab(t); try { sessionStorage.setItem("fin-tab", t); } catch { /* ignore */ } };
@@ -72,6 +77,9 @@ export default function FinanceHub({ subdomain }: { subdomain: string }) {
   const cards: Array<{ id: Tab; label: string; icon: string; value: string; line: string; cls: string; bar: number | null; q: string }> = [
     { id: "sales", label: "المبيعات", icon: "sales", value: L ? sar(L.sales.mtd) : "—", line: L ? `بالمعدل ده هتقفل الشهر ${short(L.sales.projected)}` : "", cls: tone(null), bar: null,
       q: "لخّص لي وضع الشهر في 5 سطور: المبيعات لحد النهارده، هقفل على كام، بعيد قد إيه عن هدف الشهر وعن الخطة، والتحصيل المتأخر، وأهم 3 حاجات أعملها الأسبوع ده." },
+    { id: "team", label: "الفريق", icon: "reps", value: L?.team?.total ? `${L.team.on_track} من ${L.team.total}` : "حدد الأهداف", line: L?.team?.total ? (L.team.behind.length ? `متأخر: ${L.team.behind.slice(0, 2).map(b => `${b.name.split(" ")[0]} ${b.pct}%`).join("، ")}` : "كل المناديب ماشيين على هدفهم") : "لسه مفيش أهداف شهرية للمناديب",
+      cls: tone(L?.team?.total ? L.team.on_track === L.team.total : null), bar: L?.team?.total ? L.team.on_track / L.team.total * 100 : null,
+      q: "مين من المناديب متأخر عن هدفه الشهر ده (نصيبه من الخطة) وليه؟ لكل واحد: باع كام من كام، وأنهي أصناف وعملاء يركز عليهم الأسبوع ده." },
     { id: "ar", label: "مديونيات العملاء", icon: "time", value: L ? sar(L.ar.overdue) : "—", line: L ? (L.ar.overdue ? `متأخر عند ${L.ar.clients} عميل · ${short(L.ar.old60)} أقدم من 60 يوم` : "مفيش متأخرات") : "", cls: tone(L ? L.ar.overdue === 0 : null), bar: L && L.ar.total ? L.ar.overdue / L.ar.total * 100 : null,
       q: "رتّب لي أهم 5 عملاء أحصّل منهم الأسبوع ده: كل واحد عليه كام ومتأخر قد إيه وأقول له إيه. وقولّي لو حصّلتهم يغطوا كام من الفرق عن هدف الشهر ومن مصاريف الخطة." },
     { id: "goals", label: "الأهداف السنوية", icon: "trophy", value: L?.goals ? `${L.goals.month_pct ?? 0}%` : "حط أهدافك", line: L?.goals ? (L.goals.month_target ? `من هدف الشهر ${short(L.goals.month_target)} · محتاج ${short(L.goals.needed_per_day)} في اليوم` : "مفيش هدف للشهر ده") : "لسه مفيش أهداف للسنة",
@@ -83,13 +91,13 @@ export default function FinanceHub({ subdomain }: { subdomain: string }) {
   ];
 
   return <div className="mt-5 space-y-4 pb-20">
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{cards.map(c => { const on = tab === c.id; return <div key={c.id} className={`relative overflow-hidden rounded-[22px] border bg-white transition ${on ? "border-[var(--navy)] shadow-lg ring-2 ring-[var(--navy)]/10" : "border-[var(--border)] hover:border-[var(--sky-border)]"}`}>
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">{cards.map(c => { const on = tab === c.id; return <div key={c.id} className={`relative overflow-hidden rounded-[22px] border bg-white transition ${on ? "border-[var(--navy)] shadow-lg ring-2 ring-[var(--navy)]/10" : "border-[var(--border)] hover:border-[var(--sky-border)]"}`}>
       <button type="button" onClick={() => go(c.id)} aria-pressed={on} className="block w-full p-4 pb-3 text-right">
         <span className="flex items-center gap-2 text-[13px] font-extrabold text-[var(--navy)]"><span className={`flex h-8 w-8 items-center justify-center rounded-xl ${on ? "bg-[var(--navy)] text-white" : "bg-[var(--sky-light)] text-[var(--navy)]"}`}><Icon name={c.icon} size={16} /></span>{c.label}</span>
         <span className={`mt-2 block text-2xl font-extrabold tabular-nums ${c.cls === "text-[var(--muted)]" ? "text-[var(--navy)]" : c.cls}`}>{c.value}</span>
         <span className="mt-0.5 block min-h-[2.25rem] text-[11.5px] leading-[1.15rem] text-[var(--muted)]">{c.line}</span>
         {c.bar !== null && <span className="relative mt-1 block h-1.5 overflow-hidden rounded-full bg-[var(--bg)]"><span className={`block h-full rounded-full ${c.id === "ar" ? "bg-red-500" : c.cls.includes("red") ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${Math.min(100, Math.max(0, c.bar))}%` }} />
-          {c.id !== "ar" && L && <span className="absolute inset-y-0 w-0.5 bg-[var(--navy)]" style={{ right: `${L.pace_pct}%` }} title="المفروض توصل له النهارده" />}</span>}
+          {(c.id === "goals" || c.id === "plan") && L && <span className="absolute inset-y-0 w-0.5 bg-[var(--navy)]" style={{ right: `${L.pace_pct}%` }} title="المفروض توصل له النهارده" />}</span>}
       </button>
       <button type="button" onClick={() => ask(c.q)} className="flex w-full items-center justify-center gap-1.5 border-t border-[var(--border)] bg-[var(--bg)] py-2 text-[12px] font-bold text-[var(--navy)] transition hover:bg-[var(--sky-light)]"><Icon name="sparkle" size={13} />اسأل المستشار</button>
     </div>; })}</div>
@@ -100,6 +108,7 @@ export default function FinanceHub({ subdomain }: { subdomain: string }) {
         <div className="flex items-center gap-1 text-xs"><input type="date" value={range[0]} max={range[1]} onChange={e => { setPreset(-1); setRange([e.target.value, range[1]]); }} className="rounded-lg border border-[var(--border)] px-2 py-1.5" /><span className="text-[var(--muted)]">←</span><input type="date" value={range[1]} min={range[0]} onChange={e => { setPreset(-1); setRange([range[0], e.target.value]); }} className="rounded-lg border border-[var(--border)] px-2 py-1.5" /></div>
       </>}
       <div className="mr-auto flex items-center gap-2">
+        <button type="button" onClick={() => go(tab === "settings" ? "sales" : "settings")} aria-pressed={tab === "settings"} className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition ${tab === "settings" ? "bg-[var(--navy)] text-white" : "bg-[var(--bg)] text-[var(--navy)] hover:bg-[var(--sky-light)]"}`}><Icon name="pen" size={14} />الموافقات والإعدادات</button>
         <span className="hidden items-center gap-1.5 text-[11px] text-[var(--muted)] sm:flex"><span className={`h-2 w-2 rounded-full ${d?.sync?.running ? "animate-pulse bg-amber-500" : d?.sync?.ok === false ? "bg-red-500" : "bg-emerald-500"}`} />{d?.sync?.running ? "جارٍ التحديث من دفترة…" : `آخر تحديث ${lastSync}`}</span>
         <button type="button" disabled={syncing} onClick={() => void sync()} className="flex items-center gap-1.5 rounded-xl bg-[var(--navy)] px-3 py-2 text-xs font-bold text-white disabled:opacity-60"><span className={syncing ? "animate-spin" : ""}><Icon name="repeat" size={14} /></span>{syncing ? "جارٍ التحديث…" : "حدّث من دفترة"}</button>
         {!NO_RANGE[tab] && <ExcelBtn href={x(tab)} />}
@@ -113,6 +122,8 @@ export default function FinanceHub({ subdomain }: { subdomain: string }) {
         {tab === "ar" && <Book d={d} subdomain={subdomain} ask={ask} />}
         {tab === "goals" && <GoalsTab ask={ask} />}
         {tab === "plan" && <Planner />}
+        {tab === "team" && <AdminSales only={["team", "targets"]} />}
+        {tab === "settings" && <AdminSales only={["approvals", "items", "catalog", "close"]} />}
       </div>}
 
     {mounted && d && createPortal(<div dir="rtl">

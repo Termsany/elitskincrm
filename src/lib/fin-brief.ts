@@ -35,7 +35,7 @@ export async function sendFinanceBrief(today: string, force = false): Promise<{ 
     if (text.length < 20) return { sent: 0, skipped: "empty" };
     const msg = `💡 ملخص المستشار المالي:\n${text.slice(0, 1200)}`;
     for (const a of admins)
-      await query("INSERT INTO task_notifications(user_id,task_id,kind,message,action_url,notification_date) VALUES($1,NULL,'finance_brief',$2,'/daftra-sales',$3::date)", [a.id, msg, today]);
+      await query("INSERT INTO task_notifications(user_id,task_id,kind,message,action_url,notification_date) VALUES($1,NULL,'finance_brief',$2,'/sales',$3::date)", [a.id, msg, today]);
     return { sent: admins.length };
   } catch (e) { console.error("finance brief", e); return { sent: 0, skipped: "error" }; }
 }

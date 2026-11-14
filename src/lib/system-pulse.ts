@@ -1,4 +1,5 @@
 import { query } from "@/lib/db";
+import { planTargets } from "@/lib/plan-link";
 import { overdueDoctorsAll, staleDoctors, alertCount } from "@/lib/my-alerts";
 
 /** One-screen health of the whole system for a period: sales (Daftra) vs target, visits, doctor coverage,
@@ -43,8 +44,8 @@ export async function systemPulse(from: string, to: string, repId: string | null
     query<{ v: number }>("SELECT COALESCE(sum(value),0)::float8 v FROM daftra_sales_v WHERE invoice_date BETWEEN $1 AND $2 AND rep_id = ANY($3::uuid[])", [pFrom, pTo, ids]),
     repId ? Promise.resolve({ rows: [{ v: 0 }] }) : query<{ v: number }>("SELECT COALESCE(sum(value),0)::float8 v FROM daftra_sales_v WHERE invoice_date BETWEEN $1 AND $2 AND rep_id IS NULL", [from, to]),
     // monthly target per rep: month override → approved distribution → annual ÷ 12
-    query<{ rep_id: string; month: string; amount: number }>(`WITH m AS (SELECT to_char(g, 'YYYY-MM') AS ym, g::date AS d FROM generate_series(date_trunc('month', $1::date), date_trunc('month', $2::date), interval '1 month') g)
-      SELECT r.id rep_id, m.ym AS month, COALESCE(o.amount, dm.amount, y.annual_amount / 12.0, 0)::float8 amount
+    query<{ rep_id: string; month: string; amount: number; ovr: boolean }>(`WITH m AS (SELECT to_char(g, 'YYYY-MM') AS ym, g::date AS d FROM generate_series(date_trunc('month', $1::date), date_trunc('month', $2::date), interval '1 month') g)
+      SELECT r.id rep_id, m.ym AS month, COALESCE(o.amount, dm.amount, y.annual_amount / 12.0, 0)::float8 amount, (o.amount IS NOT NULL) ovr
       FROM unnest($3::uuid[]) r(id) CROSS JOIN m
       LEFT JOIN rep_target_years y ON y.rep_id=r.id AND y.year=EXTRACT(year FROM m.d)::int
       LEFT JOIN rep_target_overrides o ON o.rep_id=r.id AND o.month=m.d
@@ -66,12 +67,14 @@ export async function systemPulse(from: string, to: string, repId: string | null
       FROM daftra_invoices WHERE unpaid > 0 AND payment_status IN (0,1)`, [today]),
     query<{ n: number }>("SELECT count(*)::int n FROM doctors WHERE COALESCE(status,'active')='active'"),
   ]);
+  // the rep's part of a month plan is their month target (unless the admin set that month by hand)
+  const pt = await planTargets([...new Set(targets.rows.map(x => x.month))]);
   const od = await overdueDoctorsAll(1000);
   const repOverdue = await Promise.all(reps.map(r => staleDoctors(r.id).then(alertCount).catch(() => 0)));
   const by = <T extends { rep_id: string }>(rows: T[]) => new Map(rows.map(x => [x.rep_id, x]));
   const S = by(sales.rows), V = by(visits.rows), P = by(plan.rows), E = by(exp.rows);
   const team = reps.map((r, i) => {
-    const tgt = proratedTarget(targets.rows.filter(x => x.rep_id === r.id), from, to), act = S.get(r.id)?.v ?? 0;
+    const tgt = proratedTarget(targets.rows.filter(x => x.rep_id === r.id).map(x => { const sh = pt.get(x.month)?.get(r.id); return sh !== undefined && !x.ovr ? { ...x, amount: sh } : x; }), from, to), act = S.get(r.id)?.v ?? 0;
     const pl = P.get(r.id), v = V.get(r.id), e = E.get(r.id);
     const sp = pctOf(act, tgt), cp = pl ? pctOf(pl.done, pl.planned) : null;
     return { id: r.id, name: r.name, product: r.product, sales: r0(act), target: r0(tgt), sales_pct: sp, sales_tone: toneOf(sp, 95, 75),

@@ -1,4 +1,5 @@
 import { query } from "@/lib/db";
+import { planTargets } from "@/lib/plan-link";
 import { analyzeAccount, type AInv, type ALine } from "@/lib/clinic-account";
 import { clinicsOfClientSql } from "@/lib/clinic-groups";
 import { addDays } from "@/lib/fmt";
@@ -58,13 +59,16 @@ export type Pace = { rep_id: string; name: string; target: number; mtd: number; 
 export async function salesPace(today: string, repId?: string): Promise<Pace[]> {
   const month = today.slice(0, 7), m1 = `${month}-01`;
   const days = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).getUTCDate(), day = Number(today.slice(8, 10));
-  const rows = (await query<{ id: string; name: string; target: number; mtd: number }>(`SELECT u.id, u.name,
+  const rows = (await query<{ id: string; name: string; target: number; mtd: number; ovr: boolean }>(`SELECT u.id, u.name,
+      EXISTS (SELECT 1 FROM rep_target_overrides o WHERE o.rep_id=u.id AND o.month=$1::date) ovr,
       COALESCE((SELECT o.amount FROM rep_target_overrides o WHERE o.rep_id=u.id AND o.month=$1::date),
         (SELECT tm.amount FROM rep_target_versions v JOIN rep_target_months tm ON tm.version_id=v.id WHERE v.rep_id=u.id AND v.year=EXTRACT(year FROM $1::date)::int AND v.level='annual' AND v.status='approved' AND tm.month=$1::date ORDER BY v.version DESC LIMIT 1),
         (SELECT y.annual_amount / 12.0 FROM rep_target_years y WHERE y.rep_id=u.id AND y.year=EXTRACT(year FROM $1::date)::int), 0)::float8 target,
       COALESCE((SELECT sum(s.value) FROM daftra_sales_v s WHERE s.rep_id=u.id AND s.invoice_date >= $1::date AND s.invoice_date <= $2::date), 0)::float8 mtd
     FROM users u WHERE u.role='sales_rep' AND u.active ${repId ? "AND u.id=$3" : ""} ORDER BY u.name`, repId ? [m1, today, repId] : [m1, today])).rows;
+  const share = (await planTargets([month])).get(month);
   return rows.map(r => {
+    if (share?.has(r.id) && !r.ovr) r.target = share.get(r.id)!; // the rep's part of the month plan is their month target
     const projected = day > 0 ? r.mtd / day * days : 0, pct = r.target > 0 ? Math.round(projected / r.target * 100) : null;
     return { rep_id: r.id, name: r.name, target: r.target, mtd: r.mtd, projected: Math.round(projected), pct, behind: pct !== null && day >= 7 && pct < 85, day, days };
   });

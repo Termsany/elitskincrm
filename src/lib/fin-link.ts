@@ -3,6 +3,7 @@ import { computeFinance, type Input } from "@/lib/finance";
 import { scorecard } from "@/lib/fin-goals";
 import { loadGoals } from "@/lib/fin-cfo";
 import { cleanPlan, computePlan } from "@/lib/plan";
+import { salesPace } from "@/lib/smart";
 
 const r0 = (n: number) => Math.round(n);
 
@@ -31,12 +32,16 @@ export async function financeLink(inp: Input, today: string) {
   let plan = null as null | { revenue: number; profit: number; break_even: number | null; fixed: number; pieces: number; pct: number | null };
   if (saved) { const t = computePlan(cleanPlan(saved.data)).t; plan = { revenue: r0(t.plan_revenue), profit: r0(t.plan_profit), break_even: t.be_revenue === null ? null : r0(t.be_revenue), fixed: r0(t.fixed), pieces: r0(t.plan_pieces), pct: t.plan_revenue ? r0(sales / t.plan_revenue * 100) : null }; }
 
+  // reps against their month target (the plan share when a plan is saved), at today's pace
+  const pace = (await salesPace(today).catch(() => [])).filter(p => p.target > 0);
+  const team = { total: pace.length, on_track: pace.filter(p => (p.pct ?? 0) >= 90).length,
+    behind: pace.filter(p => (p.pct ?? 0) < 90).sort((a, b) => (a.pct ?? 0) - (b.pct ?? 0)).slice(0, 5).map(p => ({ name: p.name, pct: p.pct ?? 0, target: r0(p.target), mtd: r0(p.mtd) })) };
   const old60 = r0((yFin.ar.buckets["61-90"] || 0) + (yFin.ar.buckets["90+"] || 0));
   const month_net = r0(Number(cur?.net || 0));
   return {
     month, day, days, pace_pct: r0(day / days * 100),
     sales: { mtd: sales, projected, collected, net: month_net },
-    goals, plan,
+    goals, plan, team,
     ar: { total: r0(yFin.ar.total), overdue: r0(yFin.ar.overdue), old60, clients: yFin.ar.parties.filter(p => p.overdue > 0).length },
     // what collecting the overdue money would mean against this month's gap to target
     gap_to_target: goals && goals.month_target > sales ? goals.month_target - sales : 0,

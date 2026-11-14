@@ -17,7 +17,7 @@ type PSale = { id: string; rep_name: string; clinic_id: string; product_id: stri
 type MonthView = { pending: Pending[]; pending_sales: PSale[]; team: Array<{ rep_id: string; rep_name: string; target: number; actual: number; target_value: number; actual_value: number; pending: number }>; targets: Array<{ rep_id: string; clinic_id: string; product_id: string; quantity: number; unit_price: string }>; approved_sales: Array<{ rep_id: string; clinic_id: string; product_id: string; quantity: number; unit_price: string; kind: string; direction: number }>; approved_forecasts: Array<{ rep_id: string; clinic_id: string; product_id: string; quantity: number }>; is_closed: boolean; prices: Array<{ clinic_id: string; product_id: string; price: number }> };
 type View = { year: number; month: string; plan: { reps: PlanRep[]; pending_year_allocations: Q[]; pending_breakdowns: Q[] }; monthView: MonthView; products: Product[]; clinics: Clinic[]; targetProducts: TP[]; specialPrices: Array<{ clinic_id: string; product_id: string; price: number; month: string }> };
 type Hub = { unassigned?: number; team: Array<{ rep_id: string; rep_name: string; annual: number; ytd: number; month_target: number; month_actual: number; month_forecast: number; pending: number }> };
-type Tab = "team" | "targets" | "approvals" | "items" | "catalog" | "close";
+export type Tab = "team" | "targets" | "approvals" | "items" | "catalog" | "close";
 
 const money = (n: number) => `${Math.round(n).toLocaleString("en-US")} ر.س`;
 const short = (n: number) => Math.abs(n) >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : Math.abs(n) >= 1e3 ? `${Math.round(n / 1e3)}K` : String(Math.round(n));
@@ -28,12 +28,13 @@ const pct = (a: number, b: number) => b ? Math.round(a / b * 100) : 0;
 const btn = { ok: "bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm shadow-emerald-600/20", edit: "bg-sky-600 text-white hover:bg-sky-700 shadow-sm shadow-sky-600/20", no: "bg-white text-red-700 ring-1 ring-red-200 hover:bg-red-50", primary: "bg-[var(--navy)] text-white hover:opacity-95", ghost: "bg-white text-[var(--navy)] ring-1 ring-[var(--border)] hover:bg-[var(--sky-light)]" };
 const B = ({ k, children, ...p }: { k: keyof typeof btn } & React.ButtonHTMLAttributes<HTMLButtonElement>) => <button type="button" {...p} className={`inline-flex items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-extrabold transition disabled:opacity-40 ${btn[k]} ${p.className || ""}`}>{children}</button>;
 
-export default function AdminSales() {
+/** `only` limits the console to some of its tabs (the merged sales page shows the team part and the settings part separately). */
+export default function AdminSales({ only }: { only?: Tab[] } = {}) {
   const toast = useToast();
   const nowM = riyadhMonth(new Date());
   const [month, setMonth] = useState(nowM);
   const year = Number(month.slice(0, 4));
-  const [tab, setTab] = useState<Tab>("team");
+  const [tab, setTab] = useState<Tab>(only?.[0] || "team");
   const [v, setV] = useState<View | null>(null);
   const [hub, setHub] = useState<Hub | null>(null);
   const [busy, setBusy] = useState(false);
@@ -44,8 +45,8 @@ export default function AdminSales() {
     setHub(h);
   }, [year, month, toast]);
   useEffect(() => { void load(); }, [load]);
-  useEffect(() => { try { const t = sessionStorage.getItem("adm-sales-tab") as Tab | null; if (t) setTab(t); } catch { /* */ } }, []);
-  const go = (t: Tab) => { setTab(t); try { sessionStorage.setItem("adm-sales-tab", t); } catch { /* */ } };
+  useEffect(() => { try { const t = sessionStorage.getItem("adm-sales-tab") as Tab | null; if (t && (!only || only.includes(t))) setTab(t); } catch { /* */ } }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const go = (t: Tab) => { if (only && !only.includes(t)) return; setTab(t); try { sessionStorage.setItem("adm-sales-tab", t); } catch { /* */ } };
 
   const run = async (url: string, body: Record<string, unknown>, ok: string) => {
     setBusy(true);
@@ -63,7 +64,7 @@ export default function AdminSales() {
   const annualTotal = team.reduce((s, r) => s + r.annual, 0), ytd = team.reduce((s, r) => s + r.ytd, 0);
   const mT = team.reduce((s, r) => s + r.month_target, 0), mA = team.reduce((s, r) => s + r.month_actual, 0);
   const noPrice = v.products.filter(p => !p.unit_price).length;
-  const TABS: Array<[Tab, string, string, number, string]> = [["team", "الفريق", "reps", 0, ""], ["targets", "الأهداف", "trophy", 0, ""], ["approvals", "الموافقات", "check", approvals, "bg-amber-500"], ["items", "الأصناف والمناديب", "receipt", hub?.unassigned ? 1 : 0, "bg-amber-500"], ["catalog", "العيادات والأسعار", "products", noPrice, "bg-red-500"], ["close", "إقفال الشهر", "calendar", 0, ""]];
+  const TABS = ([["team", "الفريق", "reps", 0, ""], ["targets", "الأهداف", "trophy", 0, ""], ["approvals", "الموافقات", "check", approvals, "bg-amber-500"], ["items", "الأصناف والمناديب", "receipt", hub?.unassigned ? 1 : 0, "bg-amber-500"], ["catalog", "العيادات والأسعار", "products", noPrice, "bg-red-500"], ["close", "إقفال الشهر", "calendar", 0, ""]] as Array<[Tab, string, string, number, string]>).filter(x => !only || only.includes(x[0]));
 
   return <div className="mt-4 space-y-4 pb-24 lg:pb-6">
     <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--sky-border)] bg-[var(--sky-light)] px-4 py-3 text-[12.5px] text-[var(--navy)]"><Icon name="receipt" size={16} /><span className="min-w-0 flex-1">المحقق محسوب من <b>فواتير دفترة</b> بس (بعد المرتجعات) — أي بيعة لمنتج في أي عيادة بتتحسب <b>للمندوب المسؤول عن المنتج</b>.{hub?.unassigned ? <> فيه <b>{Math.round(hub.unassigned).toLocaleString("en-US")} ر.س</b> مبيعات السنة دي لأصناف مش مربوطة بمنتج عليه مندوب.</> : null}</span>{hub?.unassigned ? <button type="button" onClick={() => go("items")} className="rounded-xl bg-[var(--navy)] px-3 py-1.5 text-xs font-bold text-white">اربط الأصناف ‹</button> : null}<ReportLink href="/admin/reports?type=sales" label="تقرير المبيعات" /></div>
@@ -81,7 +82,7 @@ export default function AdminSales() {
     </div>
 
     <div className="tabs-bar z-20 -mx-4 bg-[var(--bg)]/90 px-4 py-1.5 backdrop-blur sm:mx-0 sm:px-0 lg:sticky lg:top-0">
-      <div className="flex gap-1 overflow-x-auto rounded-2xl border border-[var(--border)] bg-white p-1.5">{TABS.map(([k, l, i, n, nc]) => <button key={k} type="button" onClick={() => go(k)} className={`relative flex shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2 text-[13px] font-bold transition ${tab === k ? "bg-[var(--navy)] text-white shadow" : "text-[var(--muted)] hover:bg-[var(--bg)] hover:text-[var(--navy)]"}`}><Icon name={i} size={16} />{l}{n > 0 && <span className={`rounded-full px-1.5 text-[10px] font-extrabold text-white ${nc}`}>{n}</span>}</button>)}</div>
+      <div className={`${TABS.length < 2 ? "hidden" : "flex"} gap-1 overflow-x-auto rounded-2xl border border-[var(--border)] bg-white p-1.5`}>{TABS.map(([k, l, i, n, nc]) => <button key={k} type="button" onClick={() => go(k)} className={`relative flex shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2 text-[13px] font-bold transition ${tab === k ? "bg-[var(--navy)] text-white shadow" : "text-[var(--muted)] hover:bg-[var(--bg)] hover:text-[var(--navy)]"}`}><Icon name={i} size={16} />{l}{n > 0 && <span className={`rounded-full px-1.5 text-[10px] font-extrabold text-white ${nc}`}>{n}</span>}</button>)}</div>
     </div>
 
     <div key={tab} className="dz-in">
@@ -238,7 +239,7 @@ function Catalog({ v, month, busy, onPrice, onSync, onSpecial }: { v: View; mont
         {c.unpaid > 0 && <span className="text-[11px] font-bold text-amber-700">ليك {short(c.unpaid)}</span>}
         <span className={`rounded-full px-2 py-0.5 text-[10.5px] font-bold ring-1 ${c.rep_name ? "bg-[var(--sky-light)] text-[var(--navy)] ring-[var(--sky-border)]" : "bg-slate-50 text-slate-500 ring-slate-200"}`}>{c.rep_name || "مش مربوط بمندوب"}</span>
       </div>)}</div>
-      <a href="/daftra-sales?tab=ar" className="mt-2 block text-center text-[11px] font-bold text-[var(--sky-deep)] hover:underline">ربط العملاء بالمناديب من «مبيعات دفترة» ‹</a>
+      <a href="/sales?tab=ar" className="mt-2 block text-center text-[11px] font-bold text-[var(--sky-deep)] hover:underline">ربط العملاء بالمناديب من «مبيعات دفترة» ‹</a>
     </section>
   </div>;
 }

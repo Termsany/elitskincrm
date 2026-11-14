@@ -110,7 +110,7 @@ export default function PulseBoard({ from, to, repId, onOpen, onRep }: { from: s
         cta="تقرير الالتزام بالخطة" onClick={() => onOpen("compliance")} />
       <PulseCard i={4} tone={c.collections.tone} icon="wallet" title="التحصيل المتأخر" ring={c.collections.share} big={<Num v={c.collections.overdue} suffix="ر.س" />}
         sub={<>من {money(c.collections.total)} ر.س مستحقة · <b className="text-red-700">{money(c.collections.old)}</b> أقدم من 60 يوم</>}
-        cta="المديونيات في دفترة" href="/daftra-sales?tab=ar" />
+        cta="المديونيات في دفترة" href="/sales?tab=ar" />
       <PulseCard i={5} tone={c.expenses.tone} icon="fuel" title="مصروفات المناديب" big={<Num v={c.expenses.value} suffix="ر.س" />}
         sub={c.expenses.pending_n ? <><b className="text-amber-700">{c.expenses.pending_n}</b> طلب مستني اعتمادك ({money(c.expenses.pending)} ر.س)</> : "مفيش طلبات مستنية اعتماد ✓"}
         cta="المصروفات" href="/expenses" />

@@ -6,7 +6,7 @@ import { computePlan, draftPlan, type CatalogRow, type PlanCost, type PlanData, 
 import { C, Card, ExcelBtn, Hint, Kpi, MONTHS, Pill, num, pct, sar } from "./kit";
 import { riyadhToday } from "@/lib/fmt";
 
-type Resp = { month: string; today: string; plan: PlanData | null; updated_at: string | null; catalog: CatalogRow[]; fixed: PlanCost[]; daftraCosts: PlanCost[]; saved_months: string[]; history: { from: string; to: string }; target_net_margin: number; has_daftra_month: boolean; goal: { sales: number; gross: number; opex: number; net: number } | null; reps: import("@/lib/plan-link").RepShare[] };
+type Resp = { month: string; today: string; plan: PlanData | null; updated_at: string | null; catalog: CatalogRow[]; fixed: PlanCost[]; daftraCosts: PlanCost[]; saved_months: string[]; history: { from: string; to: string }; target_net_margin: number; has_daftra_month: boolean; goal: { sales: number; gross: number; opex: number; net: number } | null; reps: import("@/lib/plan-link").RepShare[]; forecast: { total: number; reps: number; byItem: Record<string, number> } };
 const shift = (m: string, n: number) => { const [y, mo] = m.split("-").map(Number); return new Date(Date.UTC(y, mo - 1 + n, 1)).toISOString().slice(0, 7); };
 const mName = (m: string) => `${MONTHS[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`;
 const riyadh = () => riyadhToday();
@@ -16,6 +16,11 @@ const startMonth = () => { const d = riyadh(); return Number(d.slice(8, 10)) >= 
 const uid = () => Math.random().toString(36).slice(2, 10);
 /** A new plan aims at what the annual goals expect from the month. */
 const fromGoal = (p: PlanData, goal: Resp["goal"]): PlanData => goal && goal.net > 0 ? { ...p, target_profit: Math.round(goal.net / 1000) * 1000 } : p;
+/** A new plan starts from the reps' approved forecasts (those quantities are fixed; the other items fill up to the target). */
+const fromForecast = (p: PlanData, fc: Resp["forecast"]): PlanData => {
+  const by = fc?.byItem || {}; if (!Object.keys(by).length) return p;
+  return { ...p, items: p.items.map(i => by[i.key] !== undefined ? { ...i, include: true, qty: by[i.key] } : i) };
+};
 const LV: Record<string, [string, string, string]> = { danger: ["عاجل", "border-red-200 bg-red-50", "flag"], warn: ["مهم", "border-amber-200 bg-amber-50", "warn"], good: ["فرصة", "border-emerald-200 bg-emerald-50", "trophy"], info: ["للعلم", "border-sky-200 bg-sky-50", "sparkle"] };
 
 function Num({ v, set, ph, w = "w-24", nullable, dis }: { v: number | null; set: (n: number | null) => void; ph?: string; w?: string; nullable?: boolean; dis?: boolean }) {
@@ -48,7 +53,7 @@ export function Planner() {
     if (!j?.catalog) { toast("تعذر تحميل الخطة", "error"); return; }
     setR(j);
     if (j.plan) { setData(j.plan); setState("saved"); }
-    else { setData(fromGoal(draftPlan(j.catalog, j.fixed.length ? j.fixed : j.daftraCosts, j.target_net_margin), j.goal)); setState("draft"); }
+    else { setData(fromForecast(fromGoal(draftPlan(j.catalog, j.fixed.length ? j.fixed : j.daftraCosts, j.target_net_margin), j.goal), j.forecast)); setState("draft"); }
   }, [toast]);
   useEffect(() => { void load(month); }, [month, load]);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); void save(); }, [save]);
@@ -73,7 +78,7 @@ export function Planner() {
   }
   function reset() {
     if (!r) return; if (!confirmReset) { setConfirmReset(true); setTimeout(() => setConfirmReset(false), 4000); return; }
-    setConfirmReset(false); update(() => fromGoal(draftPlan(r.catalog, r.fixed.length ? r.fixed : r.daftraCosts, r.target_net_margin), r.goal)); toast("رجعت الخطة لمسودة من بيانات دفترة", "success");
+    setConfirmReset(false); update(() => fromForecast(fromGoal(draftPlan(r.catalog, r.fixed.length ? r.fixed : r.daftraCosts, r.target_net_margin), r.goal), r.forecast)); toast("رجعت الخطة لمسودة من بيانات دفترة", "success");
   }
   function addItem(key: string) {
     const c = cat.get(key); if (!c || !data) return; setAdding("");
@@ -117,6 +122,8 @@ export function Planner() {
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-[var(--navy)]"><Icon name="trophy" size={18} /></span>
       <span className="min-w-0 flex-1 leading-6">هدف السنة للشهر ده: مبيعات <b>{sar(r.goal.sales)}</b> وربح <b>{sar(r.goal.net)}</b> · خطتك: مبيعات <b>{sar(t.plan_revenue)}</b> وربح <b>{sar(t.plan_profit)}</b>
         {t.plan_revenue < r.goal.sales * 0.98 ? <b className="text-amber-800"> · ناقص {sar(r.goal.sales - t.plan_revenue)} مبيعات</b> : <b className="text-emerald-700"> · الخطة بتحقق الهدف ✓</b>}</span>
+      {r.forecast.total > 0 && <span className="w-full text-[12.5px]">المناديب متوقعين <b>{sar(r.forecast.total)}</b> ({r.forecast.reps} مندوب) · الهدف <b>{sar(r.goal.sales)}</b> · {r.forecast.total >= r.goal.sales ? <b className="text-emerald-700">التوقعات بتغطي الهدف ✓</b> : <b className="text-amber-800">التوقعات أقل بـ {sar(r.goal.sales - r.forecast.total)}</b>}</span>}
+      {t.plan_revenue > 0 && t.plan_revenue < r.goal.sales * 0.98 && data.items.some(i => i.include && i.qty !== null) && <button type="button" onClick={() => { const f = r.goal!.sales / t.plan_revenue; update(d => ({ ...d, items: d.items.map(i => i.include && i.qty !== null ? { ...i, qty: Math.ceil(i.qty * f) } : i) })); }} className="shrink-0 rounded-xl border border-[var(--navy)] px-3 py-2 text-xs font-bold text-[var(--navy)]">كبّر الكميات للهدف</button>}
       {r.goal.net > 0 && Math.round(r.goal.net / 1000) * 1000 !== data.target_profit && <button type="button" onClick={() => update(d => ({ ...d, target_profit: Math.round(r.goal!.net / 1000) * 1000 }))} className="shrink-0 rounded-xl bg-[var(--navy)] px-3 py-2 text-xs font-bold text-white">خلّي ربح الخطة = هدف السنة</button>}
     </div>}
 

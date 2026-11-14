@@ -38,7 +38,7 @@ export type RepShare = { rep_id: string | null; rep_name: string; target: number
  * Splits the month plan between reps the same way Daftra sales are credited to them
  * (each item → its CRM product → the active reps carrying that product, shared equally), with each rep's actual sales this month.
  */
-export async function repShares(month: string, rows: Array<{ name: string; plan_qty: number; plan_revenue: number }>): Promise<RepShare[]> {
+export async function repShares(month: string, rows: Array<{ name: string; plan_qty: number; plan_revenue: number }>, withActual = true): Promise<RepShare[]> {
   const its = rows.filter(r => r.plan_qty > 0 && r.plan_revenue > 0);
   const [split, actual] = await Promise.all([
     its.length ? query<{ rep_id: string | null; rep_name: string | null; target: number; items: RepShare["items"] }>(String.raw`
@@ -53,7 +53,7 @@ export async function repShares(month: string, rows: Array<{ name: string; plan_
       SELECT rep_id, rep_name, sum(rev / GREATEST(n,1))::float8 target,
         json_agg(json_build_object('item', item, 'qty', round((qty / GREATEST(n,1))::numeric, 1), 'revenue', round((rev / GREATEST(n,1))::numeric)) ORDER BY rev DESC) items
       FROM rp GROUP BY rep_id, rep_name ORDER BY target DESC`, [its.map(r => r.name), its.map(r => r.plan_qty), its.map(r => r.plan_revenue)]) : Promise.resolve({ rows: [] }),
-    query<{ rep_id: string; v: number }>("SELECT rep_id, COALESCE(sum(value),0)::float8 v FROM daftra_sales_v WHERE month=$1::date AND rep_id IS NOT NULL GROUP BY rep_id", [`${month}-01`]).catch(() => ({ rows: [] as Array<{ rep_id: string; v: number }> })),
+    withActual ? query<{ rep_id: string; v: number }>("SELECT rep_id, COALESCE(sum(value),0)::float8 v FROM daftra_sales_v WHERE month=$1::date AND rep_id IS NOT NULL GROUP BY rep_id", [`${month}-01`]).catch(() => ({ rows: [] as Array<{ rep_id: string; v: number }> })) : Promise.resolve({ rows: [] as Array<{ rep_id: string; v: number }> }),
   ]);
   const act = new Map(actual.rows.map(r => [r.rep_id, r.v]));
   return split.rows.map(r => ({ rep_id: r.rep_id, rep_name: r.rep_name || "بدون مندوب", target: Math.round(r.target), actual: Math.round(r.rep_id ? act.get(r.rep_id) || 0 : 0), items: r.items }));
@@ -67,4 +67,52 @@ export async function repPlanShare(repId: string, month: string) {
   const shares = await repShares(month, computePlan(cleanPlan(saved.data)).rows).catch(() => []);
   const mine = shares.find(s => s.rep_id === repId);
   return mine && mine.target > 0 ? { target: mine.target, actual: mine.actual, items: mine.items.slice(0, 6) } : null;
+}
+
+/**
+ * Reps' monthly targets that come from the month plan: month → rep → amount, for the months that have a saved plan.
+ * THE monthly-target rule everywhere: an admin's month override → the rep's share of the month plan → the approved annual distribution → annual ÷ 12.
+ */
+export async function planTargets(months: string[]): Promise<Map<string, Map<string, number>>> {
+  const out = new Map<string, Map<string, number>>();
+  if (!months.length) return out;
+  const { cleanPlan, computePlan } = await import("@/lib/plan");
+  const saved = (await query<{ month: string; data: unknown }>("SELECT month, data FROM fin_plans WHERE month = ANY($1::text[])", [months]).catch(() => ({ rows: [] as Array<{ month: string; data: unknown }> }))).rows;
+  for (const p of saved) {
+    const shares = await repShares(p.month, computePlan(cleanPlan(p.data)).rows, false).catch(() => []);
+    out.set(p.month, new Map(shares.filter(x => x.rep_id).map(x => [x.rep_id!, x.target])));
+  }
+  return out;
+}
+
+/**
+ * The reps' approved forecasts for a month, spread over the plan's Daftra items:
+ * each forecast product's quantity goes to the items that belong to it, in proportion to what each item usually sells.
+ */
+export async function forecastForPlan(month: string, catalog: CatalogRow[]) {
+  const fc = (await query<{ product_id: string; qty: number; value: number; reps: number }>(`
+    SELECT l.product_id, sum(l.quantity)::float8 qty,
+      sum(l.quantity * COALESCE(l.unit_price, (SELECT p.price FROM forecast_prices p WHERE p.clinic_id=l.clinic_id AND p.product_id=l.product_id AND p.month<=v.month ORDER BY p.month DESC LIMIT 1), 0))::float8 value,
+      count(DISTINCT v.rep_id)::int reps
+    FROM forecast_versions v JOIN forecast_lines l ON l.version_id=v.id
+    WHERE v.status='approved' AND v.month=$1::date
+      AND v.version=(SELECT max(version) FROM forecast_versions x WHERE x.rep_id=v.rep_id AND x.month=v.month AND x.status='approved')
+    GROUP BY l.product_id`, [`${month}-01`]).catch(() => ({ rows: [] as Array<{ product_id: string; qty: number; value: number; reps: number }> }))).rows;
+  if (!fc.length || !catalog.length) return { total: fc.reduce((s, r) => s + r.value, 0), reps: Math.max(0, ...fc.map(r => r.reps)), byItem: {} as Record<string, number> };
+  const map = (await query<{ item: string; product_id: string }>(String.raw`
+    SELECT it.item, COALESCE(m.product_id, pm.product_id, (SELECT p.id FROM products p WHERE upper(p.name)='PETITRA' LIMIT 1))::text product_id
+    FROM unnest($1::text[]) AS it(item)
+    LEFT JOIN daftra_item_products m ON m.item_key = lower(btrim(it.item))
+    LEFT JOIN LATERAL (SELECT p.id product_id FROM products p
+      WHERE it.item ~* ('(^|[^[:alnum:]])' || regexp_replace(p.name, '([.^$*+?()\[\]{}|\\])', '\\\1', 'g') || '([^[:alnum:]]|$)')
+      ORDER BY length(p.name) DESC LIMIT 1) pm ON true`, [catalog.map(c => c.name)])).rows;
+  const prodOf = new Map(map.map(m => [m.item, m.product_id]));
+  const byItem: Record<string, number> = {};
+  for (const f of fc) {
+    const items = catalog.filter(c => prodOf.get(c.name) === f.product_id);
+    if (!items.length) continue;
+    const w = items.reduce((s, c) => s + Math.max(c.hist_qty, 0), 0);
+    for (const c of items) byItem[c.key] = Math.round(f.qty * (w > 0 ? Math.max(c.hist_qty, 0) / w : 1 / items.length));
+  }
+  return { total: Math.round(fc.reduce((s, r) => s + r.value, 0)), reps: Math.max(0, ...fc.map(r => r.reps)), byItem };
 }
