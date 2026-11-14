@@ -2,7 +2,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import RepVisitsModal from "../visits/RepVisitsModal";
-import PulseBoard from "./PulseBoard";
 import InsightPanels from "./InsightPanels";
 import { PURPOSE_LABELS } from "@/lib/visit-entry";
 import { riyadhToday } from "@/lib/fmt";
@@ -167,7 +166,6 @@ export default function ReportsWorkspace({ reps, products, cities }: { reps: Opt
         </div>
       </div>
 
-      <PulseBoard from={f.from} to={f.to} repId={f.repId} onOpen={t => { setType(t); setSearch(""); setTimeout(() => document.getElementById("report-table")?.scrollIntoView({ behavior: "smooth", block: "start" }), 60); }} onRep={id => set({ repId: id })} />
       <InsightPanels from={f.from} to={f.to} repId={f.repId} />
 
       {/* KPIs */}

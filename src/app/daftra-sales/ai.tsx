@@ -8,7 +8,7 @@ import { Card } from "./kit";
 type Msg = { role: "user" | "assistant"; content: string };
 
 /** Chat with the AI advisor: it reads the period's Daftra numbers on the server and answers in plain Arabic. */
-export function AiAdvisor({ d, range, reload, chips, ask, endpoint = "/api/admin/finance/ai", placeholder = "اكتب سؤالك عن الأرباح، المصاريف، التحصيل، الأسعار…", canSetup = true }: { d: Pick<FinData, "ai">; range?: [string, string]; reload: () => void; chips: string[]; ask: { q: string; n: number } | null; endpoint?: string; placeholder?: string; canSetup?: boolean }) {
+export function AiAdvisor({ d, range, reload, chips, ask, endpoint = "/api/admin/finance/ai", placeholder = "اكتب سؤالك عن الأرباح، المصاريف، التحصيل، الأسعار…", canSetup = true, extra }: { d: Pick<FinData, "ai">; range?: [string, string]; reload: () => void; chips: string[]; ask: { q: string; n: number } | null; endpoint?: string; placeholder?: string; canSetup?: boolean; extra?: Record<string, string> }) {
   const [setup, setSetup] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>([]); const [q, setQ] = useState(""); const [busy, setBusy] = useState(false);
   const ctl = useRef<AbortController | null>(null); const end = useRef<HTMLDivElement>(null);
@@ -25,7 +25,7 @@ export function AiAdvisor({ d, range, reload, chips, ask, endpoint = "/api/admin
     const put = (c: string) => setMsgs(m => [...m.slice(0, -1), { role: "assistant", content: c }]);
     ctl.current = new AbortController();
     try {
-      const r = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, signal: ctl.current.signal, body: JSON.stringify({ ...(range ? { from: range[0], to: range[1] } : {}), messages: history }) });
+      const r = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, signal: ctl.current.signal, body: JSON.stringify({ ...(range ? { from: range[0], to: range[1] } : {}), ...(extra || {}), messages: history }) });
       if (!r.ok || !r.body) { const j = await r.json().catch(() => null); put(`⚠ ${j?.error || "تعذر الوصول للمستشار"}`); return; }
       const reader = r.body.getReader(); const dec = new TextDecoder(); let acc = "";
       for (;;) { const { done, value } = await reader.read(); if (done) break; acc += dec.decode(value, { stream: true }); put(acc); }

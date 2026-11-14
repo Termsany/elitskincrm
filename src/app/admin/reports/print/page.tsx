@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/session";
 import { query } from "@/lib/db";
 import { findReport, getReportRows, parseReportFilters, type Col } from "@/lib/report-extra";
 import AutoPrint from "./AutoPrint";
+import HubPrint from "./HubPrint";
 import { PURPOSE_LABELS } from "@/lib/visit-entry";
 
 const STATUS: Record<string, string> = { completed: "مكتملة", planned: "مجدولة", cancelled: "ملغاة", follow_up: "متابعة" };
@@ -29,6 +30,7 @@ export default async function ReportPrintPage({ searchParams }: { searchParams: 
   if (!user) redirect("/login");
   if (user.role !== "admin") redirect("/");
   const sp = new URLSearchParams(await searchParams);
+  if (sp.get("view")) return <HubPrint sp={sp} manager={!!user.manager} />;
   const def = findReport(sp.get("type") || "reps");
   if (!def) redirect("/admin/reports");
   const f = parseReportFilters(sp);
@@ -40,7 +42,7 @@ export default async function ReportPrintPage({ searchParams }: { searchParams: 
   if (f.status) parts.push(STATUS[f.status] || f.status);
   return (
     <div dir="rtl" style={{ fontFamily: "var(--font-display), system-ui, sans-serif", padding: 24, color: "#16232b", background: "#fff", minHeight: "100vh" }}>
-      <style>{`@page{size:A4 landscape;margin:12mm}@media print{.no-print{display:none!important}}table{border-collapse:collapse;width:100%;font-size:11px}th{background:#10484f;color:#fff;text-align:right;padding:6px;font-weight:700}td{padding:5px 6px;border-bottom:1px solid #e3ecec;vertical-align:top}tr:nth-child(even) td{background:#f5f8f8}thead{display:table-header-group}tr{break-inside:avoid}`}</style>
+      <style>{`@page{size:A4 landscape;margin:12mm}@media print{.no-print{display:none!important}}table{border-collapse:collapse;width:100%;font-size:11px}th{background:#eef5f6;color:#10484f;border-bottom:2px solid #10484f;text-align:right;padding:6px;font-weight:700}td{padding:5px 6px;border-bottom:1px solid #e3ecec;vertical-align:top}tr:nth-child(even) td{background:#f5f8f8}thead{display:table-header-group}tr{break-inside:avoid}`}</style>
       <AutoPrint />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", borderBottom: "2px solid #10484f", paddingBottom: 8, marginBottom: 12 }}>
         <div><div style={{ fontSize: 12, color: "#5f7177" }}>Elite Skin CRM</div><div style={{ fontSize: 20, fontWeight: 800, color: "#10484f" }}>{def.label}</div></div>
