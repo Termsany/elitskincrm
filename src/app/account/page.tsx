@@ -7,7 +7,7 @@ export default async function AccountPage(){
   if (!user) redirect("/login");
   return (
     <AppShell role={user.role} email={user.email} name={user.name} jobTitle={user.job_title} productName={user.product_name} active="/account">
-      <h1 className="text-2xl font-extrabold text-[var(--navy)]">حسابي</h1>
+      <h1 className="text-2xl font-extrabold text-[var(--navy)]">الإعدادات</h1>
       <AccountClient email={user.email} />
     </AppShell>
   );

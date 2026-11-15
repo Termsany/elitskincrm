@@ -18,7 +18,7 @@ export async function GET(req: Request) {
   if (!DAY.test(from) || !DAY.test(to) || from > to) return NextResponse.json({ error: "فترة غير صحيحة" }, { status: 400 });
   await syncIfStale(60);
   const today = riyadhToday();
-  const [inp, sync] = await Promise.all([loadInput(today), query("SELECT started_at, finished_at, ok, message FROM daftra_sync WHERE id=1")]);
+  const [inp, sync] = await Promise.all([loadInput(today), query("SELECT started_at, finished_at, ok, message, invoices FROM daftra_sync WHERE id=1")]);
   const fin = computeFinance(inp, from, to);
   // same-length period right before this one, for "better or worse than last time"
   const pr = prevRange(fin.period.from, to, fin.books_start);
