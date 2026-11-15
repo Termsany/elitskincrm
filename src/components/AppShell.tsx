@@ -33,7 +33,7 @@ export async function AppShell({ role: role0, email, name, jobTitle, productName
     { href: "/admin/requests", label: "الطلبات والإجازات", icon: "requests", show: isAdmin && !manager, group: "more" },
     { href: "/admin/products", label: "المنتجات", icon: "products", show: isAdmin && !manager, group: "more" },
     { href: "/products", label: "المنتجات", icon: "products", show: manager, group: "more" },
-    { href: "/account", label: "حسابي", icon: "account", show: true, group: "more" },
+    { href: "/account", label: "الإعدادات", icon: "account", show: true, group: "primary" },
   ];
   const items = NAV.filter((n) => n.show);
   const strip = ({ href, label, icon }: NavItem) => ({ href, label, icon });
@@ -58,6 +58,7 @@ export async function AppShell({ role: role0, email, name, jobTitle, productName
           <div className="es-hide min-w-0 flex-1"><div className="truncate text-sm font-bold">{name}</div><div className="truncate text-[11px] text-[var(--sky)]">{manager?"مدير المبيعات":isAdmin?"مدير النظام":(jobTitle||"مندوب")}</div>{!isAdmin&&productName&&<div className="truncate text-[10px] text-white/55">{productName}</div>}</div>
         </div>
         <div className="es-hide mt-1 truncate px-1 text-[10px] text-white/45" dir="ltr">{email}</div>
+        <a href="/account" className="es-hide mt-2 block w-full rounded-full bg-white/10 py-2 text-center text-xs font-bold transition hover:bg-white/20">الإعدادات وتغيير الباسورد</a>
         <form action="/api/auth/logout" method="post" className="es-hide mt-2"><button formAction={async()=>{"use server";const{destroySession}=await import("@/lib/session");await destroySession();}} className="w-full rounded-full bg-white/10 py-2 text-xs font-bold transition hover:bg-white/20">تسجيل خروج</button></form>
       </div>
     </aside>

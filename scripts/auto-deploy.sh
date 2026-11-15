@@ -107,6 +107,10 @@ for i in $(seq 1 30); do
     # remember this image as the one to roll back to if a later release doesn't come up
     docker image tag elite-crm-app elite-crm-app:good || true
     log "OK: deployed $remote_head, health check passed"
+    # Daftra link status for the job log: whether the keys are set (never their values) and the last sync
+    docker compose exec -T app sh -c 'echo "daftra subdomain: $([ -n "$DAFTRA_SUBDOMAIN" ] && echo set || echo MISSING), api key: $([ -n "$DAFTRA_API_KEY" ] && echo set || echo MISSING)"' 2>/dev/null || true
+    printf '%s\n' "SELECT 'daftra sync: ok=' || coalesce(ok::text,'never') || ', finished=' || coalesce(finished_at::text,'never') || ', invoices in db=' || (SELECT count(*) FROM daftra_invoices) || ', message=' || message FROM daftra_sync WHERE id=1;" \
+      | docker compose exec -T db sh -c 'psql -qtA -U "$POSTGRES_USER" -d "$POSTGRES_DB"' 2>/dev/null || true
     exit 0
   fi
   sleep 2
