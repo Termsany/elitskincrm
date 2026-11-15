@@ -24,5 +24,8 @@ export async function GET(req: Request) {
   const pr = prevRange(fin.period.from, to, fin.books_start);
   const prev = pr ? prevKpi(computeFinance(inp, pr[0], pr[1]), pr[0], pr[1]) : null;
   const link = await financeLink(inp, today).catch(e => { console.error("finance link", e); return null; });
-  return NextResponse.json({ ...fin, prev, link, ai: (await aiStatus()).configured, sync: { ...sync.rows[0], running: syncRunning() }, today });
+  // how many sales invoices the mirror holds, how many fall before the books start (left out of P&L) and in this period
+  const bs = fin.books_start || "";
+  const docs = { total: inp.sales.length, before_start: bs ? inp.sales.filter(s => s.date < bs).length : 0, in_period: inp.sales.filter(s => s.date >= fin.period.from && s.date <= to).length };
+  return NextResponse.json({ ...fin, docs, prev, link, ai: (await aiStatus()).configured, sync: { ...sync.rows[0], running: syncRunning() }, today });
 }
