@@ -25,7 +25,7 @@ export const TILES: TileDef[] = [
   { tag: "hot", label: "مهتمين وما اشتروش", sub: "اتشرح لهم ومفيش طلب", icon: "🔥", tone: "text-teal-700", on: "bg-teal-600 text-white border-teal-600" },
   { tag: "reorder", label: "عيادات جه ميعاد طلبها", sub: "حسب عادتها في دفترة", icon: "📦", tone: "text-amber-700", on: "bg-[#c9a24a] text-white border-[#c9a24a]" },
   { tag: "never", label: "ما اتزاروش خالص", sub: "فرص جديدة", icon: "✨", tone: "text-slate-600", on: "bg-slate-700 text-white border-slate-700" },
-  { tag: "debt", label: "عليهم متأخرات", sub: "اسأل عن السداد الأول", icon: "💰", tone: "text-red-600", on: "bg-red-50 text-red-800 border-red-400 ring-2 ring-red-200" },
+  { tag: "debt", label: "عياداتهم عليها متأخرات", sub: "اسأل عن السداد الأول", icon: "💰", tone: "text-red-600", on: "bg-red-50 text-red-800 border-red-400 ring-2 ring-red-200" },
 ];
 
 export function SmartTiles({ counts, active, onPick, loading }: { counts: Record<string, number>; active: Tag | ""; onPick: (t: Tag | "") => void; loading: boolean }) {
@@ -54,7 +54,7 @@ export function SmartCard({ d, p, b, months, today, fav, toggleFav, onOpen, sele
   const seen = new Set(d.months6 || []);
   const line = !b ? null : clinicLines({ overdue: b.overdue, due: b.due, days_since: b.last_order ? Math.max(0, Math.round((Date.parse(`${today}T12:00:00Z`) - Date.parse(`${b.last_order}T12:00:00Z`)) / 864e5)) : null })[0] || null;
   // the priority line already says "reorder due" — don't say it twice
-  const money = line && !(line.text === "جه ميعاد طلبها" && p.tags.includes("reorder")) ? [LINE_TEXT[line.tone], line.text] : null;
+  const money = line && !(line.text === "العيادة جه ميعاد طلبها" && p.tags.includes("reorder")) ? [LINE_TEXT[line.tone], line.text] : null;
   return (
     <article className={`rounded-[26px] border bg-white shadow-sm transition ${selected ? "border-teal-400 ring-2 ring-teal-100" : "border-[var(--border)] hover:shadow-md"} ${d.paused ? "opacity-60" : ""}`}>
       <div className="flex items-start gap-3 p-4 pb-3">

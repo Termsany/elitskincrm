@@ -61,7 +61,7 @@ export default function AreaBoard({ repId, isAdmin = false }: { repId?: string; 
         {d.reason && <span className={`rounded-lg px-2 py-0.5 text-[11px] font-bold ${TONE[d.tone] || TONE.slate}`}>{d.icon} {d.reason}</span>}
         <span className={`rounded-lg px-2 py-0.5 text-[11px] font-bold ${d.month_visits >= d.required ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>{d.month_visits}/{d.required} زيارة الشهر ده</span>
         {d.sales > 0 && <span className="rounded-lg bg-teal-50 px-2 py-0.5 text-[11px] font-bold text-teal-800">💰 {money(d.sales)}</span>}
-        {d.overdue > 0 && <span className="rounded-lg bg-red-50 px-2 py-0.5 text-[11px] font-bold text-red-700">متأخرات {money(d.overdue)}</span>}
+        {d.overdue > 0 && <span className="rounded-lg bg-red-50 px-2 py-0.5 text-[11px] font-bold text-red-700">العيادة عليها {money(d.overdue)} متأخرة</span>}
       </div>
     </div>
     {d.in_plan ? <span className="shrink-0 rounded-xl bg-emerald-50 px-2.5 py-1.5 text-[11px] font-bold text-emerald-700">✓ في الخطة {dm(d.in_plan)}</span>
