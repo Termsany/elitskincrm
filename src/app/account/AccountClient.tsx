@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { Card, Button, Input, Label } from "@/components/ui";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 /** Settings: the signed-in user's account and password change. */
 export default function AccountClient({ email }: { email: string }) {
@@ -27,6 +28,10 @@ export default function AccountClient({ email }: { email: string }) {
       <Card className="p-5">
         <div className="text-sm font-extrabold text-[var(--navy)]">الحساب</div>
         <div className="mt-1 text-sm text-[var(--muted)]">البريد: <span dir="ltr">{email}</span></div>
+      </Card>
+      <Card className="flex items-center justify-between gap-3 p-5">
+        <div><div className="text-sm font-extrabold text-[var(--navy)]">المظهر</div><div className="mt-0.5 text-xs text-[var(--muted)]">الوضع الليلي أريح للعين بالليل. الاختيار بيتحفظ على الجهاز ده.</div></div>
+        <ThemeToggle className="flex shrink-0 items-center gap-1.5 rounded-full border border-[var(--border)] px-4 py-2 text-sm font-bold text-[var(--navy)]" />
       </Card>
       <Card className="p-5">
         <div className="mb-3 text-sm font-extrabold text-[var(--navy)]">تغيير كلمة المرور</div>

@@ -6,6 +6,7 @@ import { computeFinance, loadInput, riyadhToday } from "@/lib/finance";
 import { prevKpi, prevRange } from "@/lib/fin-ai";
 import { aiStatus } from "@/lib/ai-provider";
 import { financeLink } from "@/lib/fin-link";
+import { attention } from "@/lib/fin-books";
 
 const DAY = /^20\d\d-\d\d-\d\d$/;
 
@@ -27,5 +28,6 @@ export async function GET(req: Request) {
   // how many sales invoices the mirror holds, how many fall before the books start (left out of P&L) and in this period
   const bs = fin.books_start || "";
   const docs = { total: inp.sales.length, before_start: bs ? inp.sales.filter(s => s.date < bs).length : 0, in_period: inp.sales.filter(s => s.date >= fin.period.from && s.date <= to).length };
-  return NextResponse.json({ ...fin, docs, prev, link, ai: (await aiStatus()).configured, sync: { ...sync.rows[0], running: syncRunning() }, today });
+  const todo = attention({ ar: fin.ar, ap: fin.ap, monthly: fin.monthly as Array<{ m: string; opex: number; sales: number; cogs: number }>, price_guard: fin.price_guard, stock_alerts: fin.stock_alerts, cost_coverage: fin.kpi.cost_coverage, today });
+  return NextResponse.json({ ...fin, docs, attention: todo, prev, link, ai: (await aiStatus()).configured, sync: { ...sync.rows[0], running: syncRunning() }, today });
 }

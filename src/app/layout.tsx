@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import OfflineServiceWorker from "@/components/OfflineServiceWorker";
 import { ToastProvider } from "@/components/Toast";
 import "./globals.css";
+import { THEME_BOOT } from "@/components/ThemeToggle";
 
 export const metadata: Metadata = {
   title: "eliteSkin — منصّة إدارة المبيعات والعلاقات الطبية",
@@ -17,8 +18,9 @@ export const viewport: Viewport = { width: "device-width", initialScale: 1, view
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ar" dir="rtl">
+    <html lang="ar" dir="rtl" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         {/* eslint-disable-next-line @next/next/no-page-custom-font */}

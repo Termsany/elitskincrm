@@ -4,7 +4,7 @@
  * (and rep-style pages fall back to the manager's own records, e.g. their own expense claims).
  */
 const DENY_ALL = [
-  "/daftra-sales", "/api/admin/finance", "/api/admin/daftra", "/api/admin/dashboard/daftra", // company accounts
+  "/accounts", "/daftra-sales", "/api/admin/finance", "/api/admin/daftra", "/api/admin/dashboard/daftra", // company accounts
   "/expenses", "/api/expenses", "/api/admin/expenses",                                       // company spending
   "/admin/audit", "/api/admin/audit",                                                        // change log
   "/admin/document-signing", "/api/admin/document-assets", "/library", "/api/library", "/requests", "/api/requests", // company documents & signatures
