@@ -24,7 +24,6 @@ export async function AppShell({ role: role0, email, name, jobTitle, productName
     { href: "/visits", label: "الزيارات", icon: "visits", show: true, group: "primary" },
     { href: "/plans", label: "الخطة", icon: "calendar", show: true, group: "primary" },
     { href: "/products", label: "المنتجات", icon: "products", show: !isAdmin, group: "primary" },
-    { href: "/accounts", label: "الحسابات", icon: "wallet", show: isAdmin && !manager, group: "primary" },
     { href: "/sales", label: "المبيعات", icon: "sales", show: true, group: "primary" },
     { href: "/expenses", label: "المصروفات", icon: "wallet", show: true, group: "primary" },
     { href: "/library", label: "مكتبة المستندات", icon: "library", show: true, group: "primary" },
