@@ -11,7 +11,7 @@ import { GoalsTab } from "./goals";
 import { AiAdvisor } from "./ai";
 import AdminSales from "../sales/AdminSales";
 
-export type FinData = ReturnType<typeof computeFinance> & { prev?: import("@/lib/fin-ai").PrevKpi; ai?: boolean; link?: import("@/lib/fin-link").FinLink | null; sync: { started_at: string | null; finished_at: string | null; ok: boolean | null; message: string; invoices?: number; running: boolean }; today: string };
+export type FinData = ReturnType<typeof computeFinance> & { prev?: import("@/lib/fin-ai").PrevKpi; ai?: boolean; link?: import("@/lib/fin-link").FinLink | null; docs?: { total: number; before_start: number; in_period: number }; sync: { started_at: string | null; finished_at: string | null; ok: boolean | null; message: string; invoices?: number; running: boolean }; today: string };
 export type Tab = "sales" | "team" | "goals" | "plan" | "ar" | "settings";
 export type Ask = (q: string) => void;
 const TAB_IDS: Tab[] = ["sales", "team", "goals", "plan", "ar", "settings"];
@@ -117,6 +117,7 @@ export default function FinanceHub({ subdomain }: { subdomain: string }) {
     {d?.books_start && !NO_RANGE[tab] && tab !== "ar" && d.period.from > range[0] && <div className="rounded-xl bg-sky-50 px-3 py-2 text-[12px] font-bold text-sky-900 ring-1 ring-sky-200">الأرقام من {d.books_start} (بداية الحسابات)</div>}
     {d?.sync && !d.sync.running && !d.sync.finished_at && <div className="rounded-xl bg-amber-50 p-3 text-xs font-bold text-amber-900 ring-1 ring-amber-200">لسه ماتسحبتش أي بيانات من دفترة — اضغط «حدّث من دفترة» واستنى دقيقة.</div>}
     {d?.sync?.ok && d.sync.invoices === 0 && <div className="rounded-xl bg-amber-50 p-3 text-xs font-bold text-amber-900 ring-1 ring-amber-200">المزامنة نجحت بس دفترة رجّعت 0 فاتورة بيع — اتأكد إن مفتاح الـ API والـ subdomain بتوع نفس الحساب اللي فيه الفواتير.</div>}
+    {d?.docs && d.docs.before_start > 0 && !NO_RANGE[tab] && tab !== "ar" && <div className="rounded-xl bg-amber-50 p-3 text-xs font-bold text-amber-900 ring-1 ring-amber-200">{d.docs.before_start} من {d.docs.total} فاتورة بيع تاريخها قبل بداية الحسابات ({d.books_start}) فمش داخلة في الأرقام{d.docs.in_period === 0 ? " — ومفيش ولا فاتورة في الفترة المختارة" : ""}.</div>}
     {d?.sync?.ok === false && <div className="rounded-xl bg-red-50 p-3 text-xs text-red-800 ring-1 ring-red-200">آخر تحديث من دفترة فشل: {d.sync.message}</div>}
     {!d ? <div className="grid gap-3 sm:grid-cols-4">{[0, 1, 2, 3].map(i => <div key={i} className="h-28 animate-pulse rounded-2xl bg-white" />)}</div>
       : <div className={`transition-opacity ${loading ? "opacity-50" : ""}`}>

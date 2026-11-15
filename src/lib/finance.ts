@@ -71,7 +71,7 @@ export function computeFinance(inp: Input, from0: string, to: string) {
   const months = monthsBetween(from, to);
   const accById = new Map(inp.accounts.map(a => [a.id, a]));
   const cb = costBasis(inp.purchases, inp.products, to);
-  const M = new Map(months.map(m => [m, { m, sales: 0, cogs: 0, opex: 0, other: 0, purchases: 0, collected: 0, invoices: 0 }]));
+  const M = new Map(months.map(m => [m, { m, sales: 0, cogs: 0, opex: 0, other: 0, purchases: 0, collected: 0, invoices: 0, vat_out: 0, vat_in: 0 }]));
 
   // ── sales & COGS
   const sales = inp.sales.filter(d => inR(d.date));
@@ -82,7 +82,7 @@ export function computeFinance(inp: Input, from0: string, to: string) {
   for (const d of sales) {
     const f = keep(d), mm = M.get(month(d.date));
     salesNet += d.net * f; salesTax += d.tax * f; salesTotal += d.total; refunds += d.refund;
-    if (mm) { mm.sales += d.net * f; mm.invoices++; }
+    if (mm) { mm.sales += d.net * f; mm.invoices++; mm.vat_out += d.tax * f; }
     const c = clients.get(d.party) || { name: d.party, city: d.city, net: 0, n: 0, last: "" }; c.net += d.net * f; c.n++; if (d.date > c.last) c.last = d.date; clients.set(d.party, c);
     for (const l of d.lines) {
       const k = cb.keyOf(l), unit = cb.cost(l), q = l.quantity * f, n = l.net * f;
@@ -101,7 +101,7 @@ export function computeFinance(inp: Input, from0: string, to: string) {
   let purNet = 0, purTax = 0, purTotal = 0;
   for (const d of purchases) {
     const f = keep(d); purNet += d.net * f; purTax += d.tax * f; purTotal += d.total * f;
-    const mm = M.get(month(d.date)); if (mm) mm.purchases += d.net * f;
+    const mm = M.get(month(d.date)); if (mm) { mm.purchases += d.net * f; mm.vat_in += d.tax * f; }
     const s = suppliers.get(d.party) || { name: d.party, net: 0, total: 0, n: 0 }; s.net += d.net * f; s.total += d.total * f; s.n++; suppliers.set(d.party, s);
     for (const l of d.lines) { const k = cb.keyOf(l); const p = pprod.get(k) || { key: k, name: l.item, qty: 0, net: 0 }; p.qty += l.quantity * f; p.net += l.net * f; pprod.set(k, p); }
   }
@@ -121,8 +121,8 @@ export function computeFinance(inp: Input, from0: string, to: string) {
     const a = accAgg.get(key) || { account_id: e.account_id, code: acc?.code || "", name: acc?.name || "بدون حساب", treatment: t, amount: 0, n: 0 };
     a.amount += e.amount; a.n++; accAgg.set(key, a);
     const mm = M.get(month(e.date));
-    if (t === "opex") { opex += e.amount; expTax += e.tax; if (mm) mm.opex += e.amount; }
-    if (t === "cogs") { cogsExtra += e.amount; expTax += e.tax; if (mm) mm.cogs += e.amount; }
+    if (t === "opex") { opex += e.amount; expTax += e.tax; if (mm) { mm.opex += e.amount; mm.vat_in += e.tax; } }
+    if (t === "cogs") { cogsExtra += e.amount; expTax += e.tax; if (mm) { mm.cogs += e.amount; mm.vat_in += e.tax; } }
     return { ...e, account: acc?.name || "بدون حساب", code: acc?.code || "", treatment: t as string };
   });
   cogs += cogsExtra;

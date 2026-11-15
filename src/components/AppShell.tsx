@@ -5,6 +5,7 @@ import { Logo } from "@/components/Logo";
 import CommandPalette, { PaletteButton } from "@/components/CommandPalette";
 import GlobalFx from "@/components/GlobalFx";
 import { getCurrentUser } from "@/lib/session";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 type NavItem = { href: string; label: string; icon: string; show: boolean; group: "primary" | "more" };
 
@@ -23,6 +24,7 @@ export async function AppShell({ role: role0, email, name, jobTitle, productName
     { href: "/visits", label: "الزيارات", icon: "visits", show: true, group: "primary" },
     { href: "/plans", label: "الخطة", icon: "calendar", show: true, group: "primary" },
     { href: "/products", label: "المنتجات", icon: "products", show: !isAdmin, group: "primary" },
+    { href: "/accounts", label: "الحسابات", icon: "wallet", show: isAdmin && !manager, group: "primary" },
     { href: "/sales", label: "المبيعات", icon: "sales", show: true, group: "primary" },
     { href: "/expenses", label: "المصروفات", icon: "wallet", show: true, group: "primary" },
     { href: "/library", label: "مكتبة المستندات", icon: "library", show: true, group: "primary" },
@@ -58,7 +60,7 @@ export async function AppShell({ role: role0, email, name, jobTitle, productName
           <div className="es-hide min-w-0 flex-1"><div className="truncate text-sm font-bold">{name}</div><div className="truncate text-[11px] text-[var(--sky)]">{manager?"مدير المبيعات":isAdmin?"مدير النظام":(jobTitle||"مندوب")}</div>{!isAdmin&&productName&&<div className="truncate text-[10px] text-white/55">{productName}</div>}</div>
         </div>
         <div className="es-hide mt-1 truncate px-1 text-[10px] text-white/45" dir="ltr">{email}</div>
-        <a href="/account" className="es-hide mt-2 block w-full rounded-full bg-white/10 py-2 text-center text-xs font-bold transition hover:bg-white/20">الإعدادات وتغيير الباسورد</a>
+        <div className="es-hide mt-2 flex gap-1.5"><a href="/account" className="block flex-1 rounded-full bg-white/10 py-2 text-center text-xs font-bold transition hover:bg-white/20">الإعدادات والباسورد</a><ThemeToggle className="flex items-center gap-1 rounded-full bg-white/10 px-3 py-2 text-xs font-bold transition hover:bg-white/20" /></div>
         <form action="/api/auth/logout" method="post" className="es-hide mt-2"><button formAction={async()=>{"use server";const{destroySession}=await import("@/lib/session");await destroySession();}} className="w-full rounded-full bg-white/10 py-2 text-xs font-bold transition hover:bg-white/20">تسجيل خروج</button></form>
       </div>
     </aside>

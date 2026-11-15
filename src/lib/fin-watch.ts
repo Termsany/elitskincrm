@@ -90,3 +90,25 @@ export async function sendPlanWatch(today: string, force = false) {
   } catch (e) { console.error("plan watch", e); out.push("error"); }
   return out;
 }
+
+/**
+ * Daily accounts alerts in the admins' bell (owners only, not the sales manager): money due to suppliers this week,
+ * customers more than 60 days late, sales below cost, an expense month far above average. Once a day. Never throws.
+ */
+export async function sendAccountsWatch(today: string) {
+  try {
+    if (!daftraConfigured()) return ["daftra"];
+    // the sales manager has its own role, so 'admin' is the owners only
+    const admins = (await query<{ id: string }>("SELECT id FROM users WHERE role='admin' AND active")).rows.map(r => r.id);
+    if (!admins.length) return ["no admins"];
+    const inp = await loadInput(today);
+    const fin = computeFinance(inp, `${today.slice(0, 7)}-01`, today);
+    const { attention } = await import("@/lib/fin-books");
+    const list = attention({ ar: fin.ar, ap: fin.ap, monthly: fin.monthly as Array<{ m: string; opex: number; sales: number; cogs: number }>, price_guard: fin.price_guard, stock_alerts: fin.stock_alerts, cost_coverage: fin.kpi.cost_coverage, today }, 5)
+      .filter(a => a.level !== "info");
+    if (!list.length) return ["nothing"];
+    const msg = `💼 الحسابات النهارده:\n${list.map(a => `${a.level === "danger" ? "🔴" : "🟠"} ${a.title}${a.text ? ` — ${a.text}` : ""}`).join("\n")}`;
+    await notify(admins, "accounts_watch", msg, "/accounts", today);
+    return ["sent"];
+  } catch (e) { console.error("accounts watch", e); return ["error"]; }
+}
