@@ -130,7 +130,6 @@ async function doSync(): Promise<SyncResult> {
   await query("UPDATE daftra_sync SET started_at=now(), message='جارٍ المزامنة…' WHERE id=1");
   try {
     const sales = await syncDocs("sale");
-    const purchases = await syncDocs("purchase");
     const products = await listAll("products", "Product");
     await replaceAll("daftra_products", ["id", "name", "code", "list_price", "buy_price", "average_cost", "min_price", "stock", "track_stock", "active"],
       products.map(p => [num(p.id), String(p.name || "").trim(), String(p.product_code || ""), num(p.unit_price), num(p.buy_price), num(p.average_price), p.minimum_price ? num(p.minimum_price) : null, num(p.stock_balance), String(p.track_stock) === "1", String(p.deactivate) !== "1"]));
@@ -143,11 +142,11 @@ async function doSync(): Promise<SyncResult> {
     const entries = [...exp, ...inc].filter(e => e.entry_date);
     await replaceAll("daftra_cash_entries", ["id", "kind", "entry_date", "amount", "tax", "account_id", "vendor", "note", "modified"],
       entries.map(e => [e.id, e.kind, e.entry_date, e.amount, e.tax, e.account_id, e.vendor, e.note, e.modified]));
-    const result = { invoices: sales.count, updated: sales.updated + purchases.updated, purchases: purchases.count, products: products.length, payments: payments.length, entries: entries.length };
+    const result = { invoices: sales.count, updated: sales.updated, purchases: 0, products: products.length, payments: payments.length, entries: entries.length };
     // new Daftra customers become sales clinics (CRM only)
     await import("@/lib/sales-admin").then(m => m.syncDaftraClinics()).catch(e => console.error("clinic sync", e));
     await query("UPDATE daftra_sync SET finished_at=now(), ok=true, message=$1, invoices=$2 WHERE id=1",
-      [`تمت المزامنة — ${sales.count} فاتورة بيع، ${purchases.count} فاتورة شراء، ${entries.length} مصروف/إيراد`, sales.count]);
+      [`تمت المزامنة — ${sales.count} فاتورة بيع، ${entries.length} مصروف/إيراد`, sales.count]);
     return result;
   } catch (e) {
     await query("UPDATE daftra_sync SET finished_at=now(), ok=false, message=$1 WHERE id=1", [String((e as Error).message).slice(0, 300)]).catch(() => {});

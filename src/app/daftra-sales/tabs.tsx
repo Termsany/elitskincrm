@@ -19,12 +19,9 @@ export function Sales({ d, pickMonth, x, subdomain, ask, go }: { d: FinData; pic
   const [prodSort, setProdSort] = useState<"net" | "gross">("net");
   const products = [...d.salesByProduct].sort((a, b) => b[prodSort] - a[prodSort]).slice(0, 12);
   const L = d.link || null;
-  const gap = L?.goals && L.goals.month_target > L.sales.mtd ? L.goals.month_target - L.sales.mtd : 0;
   return <div className="space-y-4">
-    {L && (gap > 0 || L.ar.overdue > 0) && <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--border)] bg-white p-3 text-[13px] font-bold">
-      {gap > 0 && <button type="button" onClick={() => go("goals")} className="rounded-xl bg-amber-50 px-3 py-2 text-amber-900 ring-1 ring-amber-200 transition hover:bg-amber-100">باقي {sar(gap)} على هدف الشهر ‹</button>}
-      {L.ar.overdue > 0 && <button type="button" onClick={() => go("ar")} className="rounded-xl bg-red-50 px-3 py-2 text-red-800 ring-1 ring-red-200 transition hover:bg-red-100">{sar(L.ar.overdue)} متأخر عند العملاء ‹</button>}
-      {gap > 0 && <span className="mr-auto"><AskBtn label="إزاي أقفل الفرق؟" onClick={() => ask(`باقي ${Math.round(gap).toLocaleString("en-US")} ريال على هدف الشهر. قولّي أقفلهم إزاي: أنهي عملاء أزورهم أو أكلمهم، وأنهي منتجات أدفعها، وكام من المتأخر عند العملاء أقدر أحصّله.`)} /></span>}
+    {L && L.ar.overdue > 0 && <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--border)] bg-white p-3 text-[13px] font-bold">
+      <button type="button" onClick={() => go("ar")} className="rounded-xl bg-red-50 px-3 py-2 text-red-800 ring-1 ring-red-200 transition hover:bg-red-100">{sar(L.ar.overdue)} متأخر عند العملاء ‹</button>
     </div>}
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <Kpi label="صافي المبيعات" value={sar(k.sales)} sub={`شامل الضريبة ${sar(k.sales_total)}`} icon="sales" color={C.green} />
