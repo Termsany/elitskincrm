@@ -1,18 +1,21 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState, type ComponentProps } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/Icon";
 import { useToast } from "@/components/Toast";
-import { actionRequest, fetchForecast, fetchPreviousMonthLines, fetchSourceSales, postForecastAction, riyadhMonth, type ForecastData } from "../forecast/ForecastClient";
-import { fetchTargetPlan, targetRequest, type TargetPlanningClient } from "../forecast/TargetPlanningClient";
+import { fetchForecast, postForecastAction, riyadhMonth, type ForecastData } from "../forecast/ForecastClient";
+import { fetchTargetPlan, targetRequest } from "../forecast/TargetPlanningClient";
 import { riyadhToday } from "@/lib/fmt";
 
-type Line = { clinic_id: string; product_id: string; qty: number; unit_price?: string };
 type Sale = ForecastData["sales"][number];
 type HubMonth = { month: string; target: number; actual: number; actual_qty: number; forecast: number; allocated: boolean };
 type Hub = { year: number; nowMonth: string; annual: number; monthly: HubMonth[]; pending: { forecasts: number; sales: number; targets: number }; byProduct: Array<{ name: string; value: number; qty: number }>; byClinic: Array<{ name: string; city: string | null; value: number; qty: number }> };
-type Plan = ComponentProps<typeof TargetPlanningClient>["data"];
-type Tab = "month" | "forecast" | "targets" | "year";
+type Plan = { year: number; annual_target: number | string | null; months: Array<{ month: string; amount: number | string; source?: string | null; status?: string }>;
+  year_plan?: { status: string; reason?: string | null; request_reason?: string | null } | null; approved_year_plan?: { status: string } | null;
+  breakdowns: Array<{ month: string; status: string; lines: TL[]; approved_lines?: TL[]; reason?: string | null; request_reason?: string | null }>; prices?: Array<{ clinic_id: string; product_id: string; price: number | string }> };
+type Tab = "month" | "debt" | "samples" | "targets" | "year";
+type DebtData = { customers: Array<{ client_id: number; name: string; clinic_id: string | null; clinic_name: string | null; unpaid: number; overdue: number; invoices: Array<{ id: number; no: string; date: string; due: string; unpaid: number; overdue_days: number }> }>; total: number; totalOverdue: number };
+type SamplesData = { month: string; found: boolean; rep: { rep_name: string; product_name: string | null; sample_pct: number; promo_pct: number; samples: { budget_units: number; used_units: number; used_cost: number; remaining_units: number }; promo: { budget_amount: number; used_amount: number; remaining_amount: number; by_type: Record<string, number> }; prev_month: { units: number; sales: number; unit_cost: number } } | null };
 
 const L = "ar-EG-u-nu-latn";
 const money = (n: number) => `${Math.round(n).toLocaleString("en-US")} ر.س`;
@@ -49,9 +52,10 @@ export default function RepSales() {
   const [tab, setTab] = useState<Tab>("month");
   const [hub, setHub] = useState<Hub | null>(null);
   const [fd, setFd] = useState<ForecastData | null>(null);
-  const [plan, setPlan] = useState<Plan>(null);
-  const [lines, setLines] = useState<Line[]>([]);
+  const [plan, setPlan] = useState<Plan | null>(null);
   const [tp, setTp] = useState<Array<{ period: string; product: string; quantity: number; amount: number }>>([]);
+  const [debt, setDebt] = useState<DebtData | null>(null);
+  const [samples, setSamples] = useState<SamplesData | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const year = Number(month.slice(0, 4));
@@ -63,23 +67,16 @@ export default function RepSales() {
         fetch(`/api/sales/hub?year=${year}`, { cache: "no-store" }).then(r => r.ok ? r.json() : Promise.reject(new Error("تعذر تحميل المبيعات"))),
         fetchForecast(month, "sales_rep") as Promise<ForecastData>, fetchTargetPlan(month, "sales_rep"),
       ]);
-      setHub(h); setFd(f); setPlan(p as Plan); setLines((f.forecast?.lines ?? []).map(x => ({ ...x })));
+      setHub(h); setFd(f); setPlan(p as Plan);
       fetch(`/api/sales/target-products?year=${year}`, { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(j => j && setTp(j.lines || [])).catch(() => {});
+      fetch("/api/sales/debts", { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(j => j && setDebt(j)).catch(() => {});
+      fetch(`/api/sales/samples-promo?month=${month}`, { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(j => j && setSamples(j)).catch(() => {});
     } catch (e) { setErr(e instanceof Error ? e.message : "تعذر التحميل"); }
   }, [month, year]);
   useEffect(() => { void load(); }, [load]);
-  useEffect(() => { try { const t = sessionStorage.getItem("rep-sales-tab") as Tab | null; if (t && ["month", "forecast", "targets", "year"].includes(t)) setTab(t); } catch { /* */ } }, []);
+  useEffect(() => { try { const t = sessionStorage.getItem("rep-sales-tab") as Tab | null; if (t && ["month", "debt", "samples", "targets", "year"].includes(t)) setTab(t); } catch { /* */ } }, []);
   const go = (t: Tab) => { setTab(t); try { sessionStorage.setItem("rep-sales-tab", t); } catch { /* */ } };
 
-  async function act(name: string, extra: Record<string, unknown> = {}, ok = "اتحفظ ✓") {
-    setBusy(true);
-    try {
-      const payload = name === "request_change" ? { ...extra, lines } : extra;
-      if (Array.isArray(payload.lines)) payload.lines = (payload.lines as Line[]).filter(x => x.qty > 0);
-      const rq = actionRequest("sales_rep", name, payload, month); await postForecastAction(rq.url, rq.body);
-      toast(ok, "success"); await load(); return true;
-    } catch (e) { toast(e instanceof Error ? e.message : "تعذر الحفظ", "error"); return false; } finally { setBusy(false); }
-  }
   async function targetAct(name: string, extra: Record<string, unknown>) {
     setBusy(true);
     try { const rq = targetRequest("sales_rep", name, extra, month); await postForecastAction(rq.url, rq.body); toast("اتبعت للمراجعة ✓", "success"); await load(); }
@@ -102,28 +99,22 @@ export default function RepSales() {
   const days = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).getUTCDate();
   const monthPace = month < nowM ? 100 : month > nowM ? 0 : Math.round((days - Number(s.days_remaining || 0)) / days * 100);
   const mp = tv ? pct(av, tv) : pct(sq, tq), mT = tone(mp, monthPace);
-  const status = fd.forecast?.status ?? "draft";
   const isNow = month === nowM;
-  const editable = isNow && !fd.is_closed && (status === "draft" || (status === "rejected" && !fd.approved_baseline) || !fd.forecast);
-  const canChange = isNow && !fd.is_closed && (status === "approved" || (status === "rejected" && !!fd.approved_baseline));
-  const pendingSales = fd.sales.filter(x => x.status === "pending").length, rejectedSales = fd.sales.filter(x => x.status === "rejected").length;
-  const rp = plan as unknown as { annual_target?: number | string | null; year_plan?: { status: string } | null; approved_year_plan?: { status: string } | null; months?: Array<{ month: string; amount: number | string }>; breakdowns?: Array<{ month: string; status: string }> } | null;
+  const rp = plan;
   const monthTarget = Number(rp?.months?.find(m => m.month === month)?.amount ?? 0);
   const bd = rp?.breakdowns?.find(b => b.month === month);
 
-  // ── next steps (removes the guesswork) ──
+  // ── next steps (target-related only) ──
   const steps: Array<{ icon: string; color: string; title: string; text: string; tab?: Tab; level: "do" | "wait" | "bad" | "ok" }> = [];
   if (rp && Number(rp.annual_target || 0) > 0 && !rp.approved_year_plan && rp.year_plan?.status !== "pending") steps.push({ icon: "calendar", color: "#e99608", title: "وزّع هدفك السنوي على الشهور", text: `هدفك السنة دي ${money(Number(rp.annual_target))} — قسّمه على الشهور وابعته للمدير`, tab: "targets", level: "do" });
   if (rp?.year_plan?.status === "pending") steps.push({ icon: "time", color: "#3b90e8", title: "توزيعك السنوي مستني موافقة المدير", text: "هيتعتمد أو يرجعلك بملاحظة", tab: "targets", level: "wait" });
   if (monthTarget > 0 && (!bd || bd.status === "rejected" || bd.status === "draft")) steps.push({ icon: "plans", color: "#e99608", title: `فصّل هدف ${mName(month, false)} على العيادات والمنتجات`, text: `هدف الشهر ${money(monthTarget)}${bd?.status === "rejected" ? " — التفصيل اترفض، عدّله" : ""}`, tab: "targets", level: bd?.status === "rejected" ? "bad" : "do" });
-  if (isNow && fd.is_late && (!fd.forecast || status === "draft")) steps.push({ icon: "flag", color: "#c92f36", title: "فات ميعاد إرسال التوقع (يوم 3)", text: "اطلب استثناء من المدير عشان تقدر تبعته", tab: "forecast", level: "bad" });
-  else if (editable) steps.push({ icon: "send", color: "#10484f", title: status === "rejected" ? "توقعك اترفض — عدّله وابعته تاني" : "ابعت توقعك للشهر", text: fd.forecast?.rejection_reason ? `السبب: ${fd.forecast.rejection_reason}` : "قبل يوم 3 من الشهر — كام وحدة متوقع تبيع في كل عيادة", tab: "forecast", level: status === "rejected" ? "bad" : "do" });
-  if (status === "pending" || status === "submitted") steps.push({ icon: "time", color: "#3b90e8", title: "توقعك مستني موافقة المدير", text: fd.forecast?.review_due_at ? `المراجعة قبل ${fd.forecast.review_due_at}` : "", tab: "forecast", level: "wait" });
-  if (rejectedSales) steps.push({ icon: "flag", color: "#c92f36", title: `${rejectedSales} بيع اترفض`, text: "افتح مبيعاتك وشوف السبب", tab: "month", level: "bad" });
-  if (pendingSales) steps.push({ icon: "time", color: "#3b90e8", title: `${pendingSales} بيع مستني موافقة`, text: "مش هيدخل في المحقق غير بعد الاعتماد", tab: "month", level: "wait" });
   if ((s.late_clinics?.length ?? 0) > 0) steps.push({ icon: "doctors", color: "#e16201", title: `${s.late_clinics!.length} عيادة متأخرة عن هدفها`, text: s.late_clinics!.slice(0, 3).map(c => c.name).join("، "), tab: "month", level: "bad" });
+  if (debt && debt.totalOverdue > 0) steps.push({ icon: "receipt", color: "#c92f36", title: `مديونية متأخرة ${money(debt.totalOverdue)}`, text: `${debt.customers.filter(c => c.overdue > 0).length} عميل عليه فلوس متأخرة`, tab: "debt", level: "bad" });
+  if (samples?.rep && samples.rep.samples.remaining_units < 0) steps.push({ icon: "sparkle", color: "#c92f36", title: "تجاوزت ميزانية العينات", text: `استخدمت ${Math.round(samples.rep.samples.used_units)} من ${Math.round(samples.rep.samples.budget_units)} وحدة`, tab: "samples", level: "bad" });
+  if (samples?.rep && samples.rep.promo.remaining_amount < 0) steps.push({ icon: "sparkle", color: "#c92f36", title: "تجاوزت ميزانية الدعاية", text: `صرفت ${money(samples.rep.promo.used_amount)} من ${money(samples.rep.promo.budget_amount)}`, tab: "samples", level: "bad" });
 
-  const TABS: Array<[Tab, string, string, number]> = [["month", "الشهر ده", "sales", pendingSales + rejectedSales], ["forecast", "توقعي", "send", editable || status === "rejected" ? 1 : 0], ["targets", "أهدافي", "trophy", steps.filter(x => x.tab === "targets" && x.level !== "wait").length], ["year", "السنة كلها", "reports", 0]];
+  const TABS: Array<[Tab, string, string, number]> = [["month", "الشهر ده", "sales", 0], ["debt", "المديونية", "receipt", debt?.customers.filter(c => c.overdue > 0).length || 0], ["samples", "العينات والدعاية", "sparkle", 0], ["targets", "أهدافي", "trophy", steps.filter(x => x.tab === "targets" && x.level !== "wait").length], ["year", "السنة كلها", "reports", 0]];
 
   return <div className="mt-4 space-y-4 pb-24 lg:pb-6">
     {/* ── hero: year + month ── */}
@@ -143,13 +134,13 @@ export default function RepSales() {
       <div className="dz-card dz-in relative overflow-hidden rounded-[28px] border border-[var(--border)] bg-white p-5" style={{ "--d": "80ms" } as React.CSSProperties}>
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1 rounded-xl bg-[var(--bg)] p-1"><button type="button" aria-label="الشهر السابق" onClick={() => setMonth(m => shiftM(m, -1))} className="h-8 w-8 rounded-lg text-sm font-bold hover:bg-white">›</button><span className="px-2 text-sm font-extrabold text-[var(--navy)]">{mName(month)}</span><button type="button" aria-label="الشهر التالي" disabled={month >= nowM} onClick={() => setMonth(m => shiftM(m, 1))} className="h-8 w-8 rounded-lg text-sm font-bold hover:bg-white disabled:opacity-30">‹</button></div>
-          <div className="flex items-center gap-2">{isNow && <span className="text-[11px] text-[var(--muted)]">باقي {s.days_remaining ?? 0} يوم</span>}<Pill s={fd.is_closed ? "closed" : status} t={fd.is_closed ? "الشهر مقفول" : `التوقع: ${(ST[status] || [status])[0]}`} /></div>
+          <div className="flex items-center gap-2">{isNow && <span className="text-[11px] text-[var(--muted)]">باقي {s.days_remaining ?? 0} يوم</span>}</div>
         </div>
         <div className="mt-3 flex items-center gap-5">
           <Ring value={mp} marker={isNow ? monthPace : undefined} color={mT.ring}><span className="text-3xl font-extrabold text-[var(--navy)]">{mp}%</span><span className="mt-1 text-[10px] text-[var(--muted)]">{tv ? "من هدف الشهر" : "من الوحدات"}</span></Ring>
           <div className="min-w-0 flex-1 space-y-2">
             <span className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-extrabold ring-1 ${mT.c}`}>{mT.l}</span>
-            <Row l="بعت (معتمد)" v={money(av)} c="text-emerald-700 text-lg" /><Row l="هدف الشهر" v={tv ? money(tv) : monthTarget ? money(monthTarget) : "—"} />
+            <Row l="بعت" v={money(av)} c="text-emerald-700 text-lg" /><Row l="هدف الشهر" v={tv ? money(tv) : monthTarget ? money(monthTarget) : "—"} />
             <div className="text-[11.5px] text-[var(--muted)]">{sq.toLocaleString("en-US")} من {tq.toLocaleString("en-US")} وحدة{isNow && s.pacing_qty ? ` · المفروض لحد النهارده ${s.pacing_qty}` : ""}</div>
             <Units rows={tp.filter(t => t.period === month)} />
           </div>
@@ -161,7 +152,7 @@ export default function RepSales() {
     {/* ── what to do next ── */}
     <section className="dz-in rounded-[28px] border border-[var(--border)] bg-white p-4" style={{ "--d": "140ms" } as React.CSSProperties}>
       <div className="mb-2 flex items-center gap-2 font-extrabold text-[var(--navy)]"><Icon name="sparkle" size={18} />خطوتك الجاية</div>
-      {!steps.length ? <div className="rounded-2xl bg-emerald-50 p-3 text-sm font-bold text-emerald-800">✓ كله تمام — سجّل مبيعاتك أول بأول من «الشهر ده»</div>
+      {!steps.length ? <div className="rounded-2xl bg-emerald-50 p-3 text-sm font-bold text-emerald-800">✓ كله تمام — تابع مبيعاتك من «الشهر ده»</div>
         : <div className="grid gap-2 sm:grid-cols-2">{steps.slice(0, 6).map((x, k) => <button key={k} type="button" onClick={() => x.tab && go(x.tab)} className={`group flex items-center gap-3 rounded-2xl border p-3 text-right transition hover:-translate-y-0.5 hover:shadow-md ${x.level === "bad" ? "border-red-200 bg-red-50/60" : x.level === "do" ? "border-amber-200 bg-amber-50/60" : "border-sky-200 bg-sky-50/50"}`}>
           <span className="dz-ico dz-bob !h-10 !w-10 !rounded-xl" style={{ color: x.color, background: `${x.color}1f` }}><Icon name={x.icon} size={18} /></span>
           <span className="min-w-0 flex-1"><span className="block text-sm font-extrabold text-[var(--ink)]">{x.title}</span>{x.text && <span className="block truncate text-[11px] text-[var(--muted)]">{x.text}</span>}</span>
@@ -176,10 +167,9 @@ export default function RepSales() {
 
     <div key={tab} className="dz-in">
       {tab === "month" && <MonthTab fd={fd} />}
-      {tab === "forecast" && <ForecastTab fd={fd} lines={lines} setLines={setLines} editable={editable} canChange={canChange} busy={busy} month={month}
-        onSave={() => act("save", { lines }, "اتحفظت المسودة ✓")} onSubmit={() => act("submit", { lines }, "اتبعت التوقع للمدير ✓")} onChange={(reason) => act("request_change", { reason }, "اتبعت طلب التعديل ✓")}
-        onCopy={async () => { setBusy(true); try { setLines(await fetchPreviousMonthLines(month)); toast("اتنسخ توقع الشهر اللي فات — راجعه واحفظ", "success"); } catch (e) { toast(e instanceof Error ? e.message : "تعذر النسخ", "error"); } finally { setBusy(false); } }} />}
-      {tab === "targets" && (plan ? <TargetsTab plan={plan as unknown as RepPlanT} fd={fd} month={month} busy={busy} onAction={(n, b) => void targetAct(n, b)} /> : <div className={`${card} text-center text-sm text-[var(--muted)]`}>مفيش بيانات أهداف</div>)}
+      {tab === "debt" && <DebtTab debt={debt} />}
+      {tab === "samples" && <SamplesTab data={samples} month={month} />}
+      {tab === "targets" && (plan ? <TargetsTab plan={plan} fd={fd} month={month} busy={busy} onAction={(n, b) => void targetAct(n, b)} /> : <div className={`${card} text-center text-sm text-[var(--muted)]`}>مفيش بيانات أهداف</div>)}
       {tab === "year" && <YearTab hub={hub} onMonth={(m) => { setMonth(m); go("month"); }} />}
     </div>
   </div>;
@@ -188,84 +178,145 @@ export default function RepSales() {
 const Units = ({ rows }: { rows: Array<{ product: string; quantity: number }> }) => rows.length ? <div className="flex flex-wrap gap-1">{rows.map(r => <span key={r.product} className="rounded-full bg-[var(--sky-light)] px-2 py-0.5 text-[10.5px] font-bold text-[var(--navy)] ring-1 ring-[var(--sky-border)]" title="هدف حدده المدير">🎯 {r.product} · {r.quantity.toLocaleString("en-US")} وحدة</span>)}</div> : null;
 const Row = ({ l, v, c = "" }: { l: string; v: string; c?: string }) => <div className="flex items-baseline justify-between gap-2"><span className="text-[11px] font-bold text-[var(--muted)]">{l}</span><b className={`text-sm font-extrabold text-[var(--navy)] ${c}`}>{v}</b></div>;
 const card = "rounded-[28px] border border-[var(--border)] bg-white p-4 sm:p-5";
-const clinicName = (fd: ForecastData, id: string) => { const c = fd.clinics.find(x => x.id === id); return c ? `${c.name}${c.city ? ` — ${c.city}` : ""}` : "—"; };
-// clinic special price first, then the product list price set by the admin
 const priceOf = (fd: ForecastData, c: string, p: string) => Number(fd.prices.find(x => x.clinic_id === c && x.product_id === p)?.price ?? (fd.products.find(x => x.id === p) as { unit_price?: number | string | null } | undefined)?.unit_price ?? 0);
 
-/* ═════ الشهر ده: سجّل بيع + مبيعاتي ═════ */
+/* ═════ الشهر ده: فواتير دفترة فقط ═════ */
 function MonthTab({ fd }: { fd: ForecastData }) {
-  const sales = [...fd.sales].sort((a, b) => (a.status === "rejected" ? -1 : 0) - (b.status === "rejected" ? -1 : 0));
+  const sales = [...fd.sales].sort((a, b) => new Date(b.id).getTime() - new Date(a.id).getTime());
   return <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_1fr]">
     <section className={card}>
       <h3 className="mb-3 flex items-center gap-2 font-extrabold text-[var(--navy)]"><Icon name="receipt" size={18} />مبيعاتك من دفترة</h3>
       <div className="space-y-2 text-[13px] leading-6 text-[var(--ink-soft)]">
-        <p>المحقق بيتحسب تلقائياً من <b>فواتير دفترة</b>: أي بيعة لمنتجك في أي عيادة بتتحسب لك — مفيش تسجيل يدوي ولا انتظار اعتماد.</p>
+        <p>المحقق بيتحسب تلقائياً من <b>فواتير دفترة</b>: أي بيعة لمنتجك في أي عيادة بتتحسب لك — مفيش تسجيل يدوي.</p>
         <p className="rounded-2xl bg-[var(--sky-light)] p-3 text-xs">لو منتج عليه أكتر من مندوب، البيعة بتتقسم بالتساوي. لو فاتورة مش ظاهرة، يبقى الصنف في دفترة لسه مش مربوط بمنتجك — كلّم المدير.</p>
       </div>
     </section>
     <section className={card}>
       <h3 className="mb-3 flex items-center justify-between gap-2 font-extrabold text-[var(--navy)]"><span className="flex items-center gap-2"><Icon name="receipt" size={18} />فواتير الشهر</span><span className="text-xs font-bold text-[var(--muted)]">{fd.sales.length} عملية</span></h3>
       {!sales.length ? <div className="rounded-2xl border border-dashed border-[var(--border-strong)] p-8 text-center text-sm text-[var(--muted)]">لسه مفيش فواتير لمنتجك الشهر ده في دفترة</div>
-        : <div className="max-h-[420px] space-y-1.5 overflow-y-auto">{sales.map(x => { const sx = x as Sale & { review_note?: string; quantity?: number }; const neg = x.kind === "return" || x.direction === -1; const val = x.qty * Number(x.unit_price ?? priceOf(fd, x.clinic_id, x.product_id)); return <div key={x.id} className={`rounded-xl border px-3 py-2 ${x.status === "rejected" ? "border-red-200 bg-red-50/50" : "border-[var(--border)]"}`}>
-          <div className="flex items-center justify-between gap-2"><span className="min-w-0 truncate text-sm font-bold" dir="auto">{(x as { client_name?: string }).client_name || clinicName(fd, x.clinic_id)}</span>{(x as { invoice_no?: string }).invoice_no ? <span className="shrink-0 text-[11px] text-[var(--muted)]">فاتورة {(x as { invoice_no?: string }).invoice_no}</span> : <Pill s={x.status} />}</div>
+        : <div className="max-h-[420px] space-y-1.5 overflow-y-auto">{sales.map(x => { const sx = x as Sale & { review_note?: string; quantity?: number }; const neg = x.kind === "return" || x.direction === -1; const val = x.qty * Number(x.unit_price ?? priceOf(fd, x.clinic_id, x.product_id)); return <div key={x.id} className="rounded-xl border border-[var(--border)] px-3 py-2">
+          <div className="flex items-center justify-between gap-2"><span className="min-w-0 truncate text-sm font-bold" dir="auto">{(x as { client_name?: string }).client_name || fd.clinics.find(c => c.id === x.clinic_id)?.name || "—"}</span>{(x as { invoice_no?: string }).invoice_no && <span className="shrink-0 text-[11px] text-[var(--muted)]">فاتورة {(x as { invoice_no?: string }).invoice_no}</span>}</div>
           <div className="mt-0.5 flex flex-wrap justify-between gap-2 text-[11px] text-[var(--muted)]"><span dir="auto">{fd.products.find(p => p.id === x.product_id)?.name || (x as { item?: string }).item} · {neg ? "−" : ""}{x.qty} وحدة{x.kind === "return" ? " · مرتجع" : x.kind === "adjustment" ? " · تصحيح" : ""}</span><b className={neg ? "text-red-700" : "text-[var(--navy)]"}>{neg ? "−" : ""}{money(val)}</b></div>
-          {x.status === "rejected" && sx.review_note && <div className="mt-1 text-[11px] font-bold text-red-700">السبب: {sx.review_note}</div>}
         </div>; })}</div>}
     </section>
   </div>;
 }
 
-function Stepper({ v, set, min = 0 }: { v: number; set: (n: number) => void; min?: number }) {
-  return <div className="flex items-center overflow-hidden rounded-xl ring-1 ring-[var(--border)]"><button type="button" onClick={() => set(Math.max(min, v - 1))} className="h-10 w-10 text-lg font-bold text-[var(--navy)] hover:bg-[var(--bg)]">−</button><input type="number" inputMode="numeric" min={min} value={v} onChange={e => { const n = Math.floor(Number(e.target.value)); if (Number.isFinite(n) && n >= min) set(n); }} className="h-10 w-16 border-x border-[var(--border)] text-center text-sm font-extrabold" /><button type="button" onClick={() => set(v + 1)} className="h-10 w-10 text-lg font-bold text-[var(--navy)] hover:bg-[var(--bg)]">+</button></div>;
+/* ═════ المديونية ═════ */
+function DebtTab({ debt }: { debt: DebtData | null }) {
+  const [open, setOpen] = useState<number | null>(null);
+  if (!debt) return <div className={`${card} text-center text-sm text-[var(--muted)]`}>جاري تحميل المديونية…</div>;
+  if (!debt.customers.length) return <div className={`${card} text-center`}><div className="py-8"><div className="text-4xl">✓</div><div className="mt-2 text-sm font-bold text-emerald-700">مفيش مديونية على عملائك — ممتاز!</div></div></div>;
+  const fDate = (d: string) => d ? new Intl.DateTimeFormat("ar-EG-u-nu-latn", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${d}T12:00:00Z`)) : "—";
+  return <div className="space-y-4">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div className={`${card} text-center`}><div className="text-[11px] font-bold text-[var(--muted)]">إجمالي المديونية</div><div className="mt-1 text-xl font-extrabold text-[var(--navy)]">{money(debt.total)}</div></div>
+      <div className={`${card} text-center`}><div className="text-[11px] font-bold text-[var(--muted)]">المتأخر</div><div className="mt-1 text-xl font-extrabold text-red-700">{money(debt.totalOverdue)}</div></div>
+      <div className={`${card} text-center col-span-2 sm:col-span-1`}><div className="text-[11px] font-bold text-[var(--muted)]">عدد العملاء</div><div className="mt-1 text-xl font-extrabold text-[var(--navy)]">{debt.customers.length}</div></div>
+    </div>
+    <section className={card}>
+      <h3 className="mb-3 flex items-center gap-2 font-extrabold text-[var(--navy)]"><Icon name="receipt" size={18} />مديونية العملاء</h3>
+      <div className="space-y-2">{debt.customers.map(c => {
+        const isOpen = open === c.client_id;
+        return <div key={c.client_id} className="rounded-2xl border border-[var(--border)] transition hover:shadow-sm">
+          <button type="button" onClick={() => setOpen(isOpen ? null : c.client_id)} className="flex w-full items-center gap-3 p-3 text-right">
+            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-extrabold text-white ${c.overdue > 0 ? "bg-red-500" : "bg-[var(--navy)]"}`}>{c.name.charAt(0)}</span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center justify-between gap-2"><span className="truncate text-sm font-bold">{c.clinic_name || c.name}</span><b className="shrink-0 text-sm font-extrabold text-[var(--navy)]">{money(c.unpaid)}</b></span>
+              <span className="flex items-center justify-between gap-2 text-[11px] text-[var(--muted)]"><span>{c.clinic_name ? c.name : ""}{c.invoices.length > 0 ? ` · ${c.invoices.length} فاتورة مفتوحة` : ""}</span>{c.overdue > 0 && <span className="font-bold text-red-600">متأخر {money(c.overdue)}</span>}</span>
+            </span>
+            <span className={`text-[var(--muted)] transition ${isOpen ? "rotate-90" : ""}`}>‹</span>
+          </button>
+          {isOpen && c.invoices.length > 0 && <div className="border-t border-[var(--border)] px-3 pb-3 pt-2">
+            <div className="space-y-1.5">{c.invoices.sort((a, b) => b.overdue_days - a.overdue_days).map(inv => <div key={inv.id} className="flex items-center justify-between gap-2 rounded-xl bg-[var(--bg)] px-3 py-2 text-[12px]">
+              <span className="flex items-center gap-2"><span className="font-bold text-[var(--navy)]">فاتورة {inv.no}</span><span className="text-[var(--muted)]">{fDate(inv.date)}</span></span>
+              <span className="flex items-center gap-2"><b className="text-[var(--navy)]">{money(inv.unpaid)}</b>{inv.overdue_days > 0 && <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700">متأخر {inv.overdue_days} يوم</span>}</span>
+            </div>)}</div>
+          </div>}
+        </div>;
+      })}</div>
+    </section>
+  </div>;
 }
 
-/* ═════ توقعي: بس العيادات اللي ليها توقع أو هدف + إضافة عيادة ═════ */
-function ForecastTab({ fd, lines, setLines, editable, canChange, busy, month, onSave, onSubmit, onChange, onCopy }: { fd: ForecastData; lines: Line[]; setLines: (f: (l: Line[]) => Line[]) => void; editable: boolean; canChange: boolean; busy: boolean; month: string; onSave: () => void; onSubmit: () => void; onChange: (reason: string) => void; onCopy: () => void }) {
-  const [extra, setExtra] = useState<string[]>([]); const [reason, setReason] = useState(""); const [add, setAdd] = useState("");
-  const status = fd.forecast?.status ?? "draft"; const open = editable || canChange;
-  const rows = useMemo(() => { const ids = new Set<string>([...lines.filter(l => l.qty > 0).map(l => l.clinic_id), ...fd.targets.map(t => t.clinic_id), ...extra]); return fd.clinics.filter(c => ids.has(c.id)); }, [lines, fd.targets, fd.clinics, extra]);
-  const get = (c: string, p: string) => lines.find(l => l.clinic_id === c && l.product_id === p)?.qty ?? 0;
-  const set = (c: string, p: string, v: number) => setLines(old => [...old.filter(l => l.clinic_id !== c || l.product_id !== p), { clinic_id: c, product_id: p, qty: v }]);
-  const totQ = lines.reduce((n, l) => n + l.qty, 0), totV = lines.reduce((n, l) => n + l.qty * priceOf(fd, l.clinic_id, l.product_id), 0);
-  return <section className={card}>
-    <div className="flex flex-wrap items-start justify-between gap-2">
-      <div><h3 className="flex items-center gap-2 font-extrabold text-[var(--navy)]"><Icon name="send" size={18} />توقعي لشهر {mName(month)}</h3><p className="mt-0.5 text-[11.5px] text-[var(--muted)]">كام وحدة متوقع تبيع في كل عيادة — تقديرك إنت، والهدف الرسمي بيحدده المدير.</p></div>
-      <div className="flex items-center gap-2"><Pill s={status} />{editable && <button type="button" disabled={busy} onClick={onCopy} className="rounded-xl bg-[var(--bg)] px-3 py-1.5 text-xs font-bold text-[var(--navy)] hover:bg-[var(--sky-light)]">انسخ الشهر اللي فات</button>}</div>
+/* ═════ العينات والدعاية ═════ */
+const PROMO_LABELS: Record<string, string> = { pms: "PMS", lunch: "دعوة غداء", rtd: "RTD", other: "أخرى" };
+
+function SamplesTab({ data, month }: { data: SamplesData | null; month: string }) {
+  if (!data) return <div className={`${card} text-center text-sm text-[var(--muted)]`}>جاري تحميل بيانات العينات…</div>;
+  if (!data.found || !data.rep) return <div className={`${card} text-center`}><div className="py-8 space-y-2"><div className="text-4xl">📦</div><div className="text-sm font-bold text-[var(--muted)]">مفيش بيانات عينات ودعاية مسجلة لك في المالية</div><div className="text-xs text-[var(--muted)]">كلّم المدير عشان يربط اسمك في نظام المالية</div></div></div>;
+
+  const r = data.rep;
+  const sPct = r.samples.budget_units > 0 ? Math.round(r.samples.used_units / r.samples.budget_units * 100) : 0;
+  const pPct = r.promo.budget_amount > 0 ? Math.round(r.promo.used_amount / r.promo.budget_amount * 100) : 0;
+  const sOver = r.samples.remaining_units < 0, pOver = r.promo.remaining_amount < 0;
+
+  return <div className="space-y-4">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      {/* samples card */}
+      <section className={card}>
+        <div className="flex items-center justify-between gap-2"><h3 className="flex items-center gap-2 font-extrabold text-[var(--navy)]"><Icon name="sparkle" size={18} />العينات</h3><span className="text-xs font-bold text-[var(--muted)]">{mName(month)}</span></div>
+        <p className="mt-1 text-[11.5px] text-[var(--muted)]">ميزانيتك {r.sample_pct}% من مبيعات الشهر اللي فات ({Math.round(r.prev_month.units)} وحدة) = <b className="text-[var(--navy)]">{Math.round(r.samples.budget_units)} وحدة</b></p>
+        <div className="mt-3 flex items-center gap-4">
+          <Ring value={Math.min(100, sPct)} size={100} color={sOver ? ["#e1483e", "#c92f36"] : sPct > 80 ? ["#f2b544", "#e99608"] : ["#33b3a6", "#1aa865"]}>
+            <span className="text-2xl font-extrabold text-[var(--navy)]">{sPct}%</span>
+          </Ring>
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <Row l="الميزانية" v={`${Math.round(r.samples.budget_units)} وحدة`} />
+            <Row l="المستخدم" v={`${Math.round(r.samples.used_units)} وحدة`} c="text-emerald-700" />
+            <Row l="الباقي" v={`${Math.round(Math.abs(r.samples.remaining_units))} وحدة${sOver ? " (تجاوز!)" : ""}`} c={sOver ? "text-red-700" : ""} />
+            {r.samples.used_cost > 0 && <Row l="تكلفة العينات" v={money(r.samples.used_cost)} />}
+          </div>
+        </div>
+        <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-[var(--bg)]"><div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, sPct)}%`, background: sOver ? "#c92f36" : sPct > 80 ? "#e99608" : "#1aa865" }} /></div>
+      </section>
+
+      {/* promo card */}
+      <section className={card}>
+        <div className="flex items-center justify-between gap-2"><h3 className="flex items-center gap-2 font-extrabold text-[var(--navy)]"><Icon name="plans" size={18} />الدعاية</h3><span className="text-xs font-bold text-[var(--muted)]">{mName(month)}</span></div>
+        <p className="mt-1 text-[11.5px] text-[var(--muted)]">ميزانيتك {r.promo_pct}% من مبيعات الشهر اللي فات ({money(r.prev_month.sales)}) = <b className="text-[var(--navy)]">{money(r.promo.budget_amount)}</b></p>
+        <div className="mt-3 flex items-center gap-4">
+          <Ring value={Math.min(100, pPct)} size={100} color={pOver ? ["#e1483e", "#c92f36"] : pPct > 80 ? ["#f2b544", "#e99608"] : ["#33b3a6", "#1aa865"]}>
+            <span className="text-2xl font-extrabold text-[var(--navy)]">{pPct}%</span>
+          </Ring>
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <Row l="الميزانية" v={money(r.promo.budget_amount)} />
+            <Row l="المصروف" v={money(r.promo.used_amount)} c="text-emerald-700" />
+            <Row l="الباقي" v={`${money(Math.abs(r.promo.remaining_amount))}${pOver ? " (تجاوز!)" : ""}`} c={pOver ? "text-red-700" : ""} />
+          </div>
+        </div>
+        <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-[var(--bg)]"><div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, pPct)}%`, background: pOver ? "#c92f36" : pPct > 80 ? "#e99608" : "#1aa865" }} /></div>
+        {Object.keys(r.promo.by_type).length > 0 && <div className="mt-3 flex flex-wrap gap-2">{Object.entries(r.promo.by_type).map(([t, v]) => <span key={t} className="rounded-full bg-[var(--bg)] px-2.5 py-1 text-[11px] font-bold text-[var(--navy)]">{PROMO_LABELS[t] || t}: {money(v)}</span>)}</div>}
+      </section>
     </div>
-    {fd.forecast?.rejection_reason && <div className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-800 ring-1 ring-red-200">اترفض: {fd.forecast.rejection_reason}</div>}
-    {fd.is_late && editable && <div className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs font-bold text-red-800 ring-1 ring-red-200">فات ميعاد الإرسال (يوم 3) — اطلب استثناء من المدير</div>}
-    {fd.approved_baseline && <div className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-xs text-emerald-900 ring-1 ring-emerald-200">التوقع المعتمد الساري: <b>{fd.approved_baseline.lines.reduce((n, l) => n + l.qty, 0)} وحدة</b> — أي تعديل بيتبعت كطلب ومش بيغيّر المعتمد غير بعد الموافقة.</div>}
-    {!rows.length ? <div className="mt-4 rounded-2xl border border-dashed border-[var(--border-strong)] p-6 text-center text-sm text-[var(--muted)]">ضيف العيادات اللي متوقع تبيع فيها الشهر ده</div>
-      : <div className="-mx-4 mt-4 overflow-x-auto px-4 sm:mx-0 sm:px-0"><table className="w-full min-w-[520px] text-sm">
-        <thead className="text-[11px] text-[var(--muted)]"><tr><th className="p-2 text-right">العيادة</th>{fd.products.map(p => <th key={p.id} className="p-2">{p.name}</th>)}<th className="p-2">القيمة</th></tr></thead>
-        <tbody className="divide-y divide-[var(--border)]">{rows.map(c => { const v = fd.products.reduce((n, p) => n + get(c.id, p.id) * priceOf(fd, c.id, p.id), 0); return <tr key={c.id} className="transition-colors hover:bg-[var(--sky-light)]/40">
-          <td className="max-w-[200px] p-2"><div className="truncate font-bold">{c.name}</div>{c.city && <div className="text-[10.5px] text-[var(--muted)]">{c.city}</div>}</td>
-          {fd.products.map(p => { const t = fd.targets.find(x => x.clinic_id === c.id && x.product_id === p.id)?.qty; return <td key={p.id} className="p-2 text-center">{open ? <div className="inline-flex flex-col items-center gap-0.5"><Stepper v={get(c.id, p.id)} set={n => set(c.id, p.id, n)} />{t ? <span className="text-[10px] text-[var(--muted)]">الهدف {t}</span> : null}</div> : <b>{get(c.id, p.id) || "—"}</b>}</td>; })}
-          <td className="p-2 text-center text-xs font-bold text-[var(--navy)]">{v ? money(v) : "—"}</td></tr>; })}</tbody></table></div>}
-    {open && <div className="mt-3 flex flex-wrap items-center gap-2"><select value={add} onChange={e => { const id = e.target.value; if (id) { setExtra(x => [...x, id]); setAdd(""); } }} className="h-10 max-w-full rounded-xl border border-[var(--border)] bg-white px-3 text-sm"><option value="">+ ضيف عيادة للتوقع…</option>{fd.clinics.filter(c => !rows.some(r => r.id === c.id)).map(c => <option key={c.id} value={c.id}>{c.name}{c.city ? ` — ${c.city}` : ""}</option>)}</select></div>}
-    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-[var(--sky-light)] p-3">
-      <div className="text-sm">الإجمالي <b className="text-[var(--navy)]">{totQ} وحدة</b> · <b className="text-[var(--navy)]">{money(totV)}</b></div>
-      {editable ? <div className="flex gap-2"><button type="button" disabled={busy} onClick={onSave} className="rounded-xl bg-white px-4 py-2 text-sm font-bold text-[var(--navy)] ring-1 ring-[var(--border)]">حفظ مسودة</button><button type="button" disabled={busy || !!fd.is_late || !totQ} onClick={onSubmit} className="rounded-xl bg-[var(--navy)] px-4 py-2 text-sm font-bold text-white disabled:opacity-40">ابعت للمدير</button></div>
-        : canChange ? <div className="flex flex-wrap gap-2"><input value={reason} onChange={e => setReason(e.target.value)} placeholder="سبب التعديل…" className="h-10 rounded-xl border border-[var(--border)] px-3 text-sm" /><button type="button" disabled={busy || !reason.trim()} onClick={() => onChange(reason.trim())} className="rounded-xl bg-[var(--navy)] px-4 py-2 text-sm font-bold text-white disabled:opacity-40">اطلب تعديل</button></div>
-          : <span className="text-xs text-[var(--muted)]">{status === "pending" || status === "submitted" ? "مستني قرار المدير" : "مفيش تعديل متاح للشهر ده"}</span>}
-    </div>
-  </section>;
+
+    <section className={card}>
+      <h3 className="mb-2 font-extrabold text-[var(--navy)]">ملخص</h3>
+      <div className="space-y-2 text-[13px] leading-6 text-[var(--ink-soft)]">
+        <p>النسب والميزانيات بتتحسب تلقائياً من <b>المالية</b> بناءً على مبيعات الشهر اللي فات.</p>
+        <p className="rounded-2xl bg-[var(--sky-light)] p-3 text-xs">
+          <b>العينات</b> بالوحدات — كل ما توزع عينات على أطباء في الزيارات، الوحدات بتتحسب من رصيدك.
+          <br /><b>الدعاية</b> بالمبلغ — {Object.entries(PROMO_LABELS).map(([k, l]) => l).join("، ")} — المصروف بيتسجل في المالية.
+        </p>
+        {r.product_name && <p className="text-xs text-[var(--muted)]">منتجك: <b className="text-[var(--navy)]">{r.product_name}</b></p>}
+      </div>
+    </section>
+  </div>;
 }
 
 /* ═════ السنة كلها ═════ */
 function YearTab({ hub, onMonth }: { hub: Hub; onMonth: (m: string) => void }) {
   const [h, setH] = useState<number | null>(null);
-  const max = Math.max(1, ...hub.monthly.map(m => Math.max(m.target, m.actual, m.forecast)));
+  const max = Math.max(1, ...hub.monthly.map(m => Math.max(m.target, m.actual)));
   const cumT = hub.monthly.reduce<number[]>((a, m) => [...a, (a.at(-1) ?? 0) + m.target], []), cumA = hub.monthly.reduce<number[]>((a, m) => [...a, (a.at(-1) ?? 0) + m.actual], []);
   const x = h !== null ? hub.monthly[h] : null;
   return <div className="space-y-4">
     <section className={card}>
-      <div className="mb-1 flex flex-wrap items-center justify-between gap-2"><h3 className="font-extrabold text-[var(--navy)]">شهر بشهر — {hub.year}</h3><div className="flex gap-3 text-[11px] text-[var(--muted)]"><Lg c="ring-2 ring-[var(--navy)]/30 bg-white" t="الهدف" /><Lg c="bg-[var(--sky-border)]" t="توقعك المعتمد" /><Lg c="bg-[var(--navy)]" t="المحقق" /></div></div>
-      <div className="h-6 text-xs text-[var(--muted)]">{x ? <span><b className="text-[var(--navy)]">{mName(x.month)}</b> · الهدف {x.allocated ? money(x.target) : "غير موزع"} · التوقع {x.forecast ? money(x.forecast) : "—"} · المحقق <b className="text-emerald-700">{money(x.actual)}</b>{x.actual_qty ? ` (${x.actual_qty} وحدة)` : ""} · التراكمي {money(cumA[h!])} من {money(cumT[h!])}</span> : "مرّر على أي شهر — واضغط عشان تفتحه"}</div>
+      <div className="mb-1 flex flex-wrap items-center justify-between gap-2"><h3 className="font-extrabold text-[var(--navy)]">شهر بشهر — {hub.year}</h3><div className="flex gap-3 text-[11px] text-[var(--muted)]"><Lg c="ring-2 ring-[var(--navy)]/30 bg-white" t="الهدف" /><Lg c="bg-[var(--navy)]" t="المحقق" /></div></div>
+      <div className="h-6 text-xs text-[var(--muted)]">{x ? <span><b className="text-[var(--navy)]">{mName(x.month)}</b> · الهدف {x.allocated ? money(x.target) : "غير موزع"} · المحقق <b className="text-emerald-700">{money(x.actual)}</b>{x.actual_qty ? ` (${x.actual_qty} وحدة)` : ""} · التراكمي {money(cumA[h!])} من {money(cumT[h!])}</span> : "مرّر على أي شهر — واضغط عشان تفتحه"}</div>
       <div className="flex h-52 items-end gap-1.5 sm:gap-3" onMouseLeave={() => setH(null)}>{hub.monthly.map((m, i) => { const now = m.month === hub.nowMonth; const hit = m.target && m.actual >= m.target; return <button key={m.month} type="button" onMouseEnter={() => setH(i)} onFocus={() => setH(i)} onClick={() => m.month <= hub.nowMonth && onMonth(m.month)} className={`relative flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1 rounded-lg ${h === i ? "bg-[var(--sky-light)]" : ""}`}>
         <div className="relative flex w-full max-w-12 flex-1 items-end justify-center">
           {m.target > 0 && <div className="dz-bar absolute bottom-0 w-full rounded-t-lg border-2 border-dashed border-[var(--navy)]/30 bg-white" style={{ height: `${m.target / max * 100}%`, "--d": `${i * 40}ms` } as React.CSSProperties} />}
-          {m.forecast > 0 && <div className="dz-bar absolute bottom-0 w-3/4 rounded-t-md bg-[var(--sky-border)]" style={{ height: `${m.forecast / max * 100}%`, "--d": `${120 + i * 40}ms` } as React.CSSProperties} />}
           {m.actual !== 0 && <div className="dz-bar relative w-1/2 rounded-t-md" style={{ height: `${Math.max(2, Math.max(0, m.actual) / max * 100)}%`, background: hit ? "#1aa865" : now ? "var(--sky)" : "var(--navy)", "--d": `${240 + i * 40}ms` } as React.CSSProperties} />}
         </div>
         <span className={`text-[10px] ${now ? "font-extrabold text-[var(--navy)]" : "text-[var(--muted)]"}`}>{mName(m.month, false)}</span>
@@ -288,16 +339,15 @@ function Breakdown({ title, rows }: { title: string; rows: Array<{ k: string; v:
   </section>;
 }
 
-/* ═════ مرتجع / تصحيح ═════ */
-
-/* ═════ أهدافي: توزيع السنة + تفصيل الشهر (بدل شبكة كل العيادات) ═════ */
+/* ═════ أهدافي: توزيع السنة + تفصيل الشهر ═════ */
 type TL = { clinic_id: string; product_id: string; quantity: number; unit_price?: number | string };
-type RepPlanT = { year: number; annual_target: number | string | null; months: Array<{ month: string; amount: number | string; source?: string | null; status?: string }>;
-  year_plan?: { status: string; reason?: string | null; request_reason?: string | null } | null; approved_year_plan?: { status: string } | null;
-  breakdowns: Array<{ month: string; status: string; lines: TL[]; approved_lines?: TL[]; reason?: string | null; request_reason?: string | null }>; prices?: Array<{ clinic_id: string; product_id: string; price: number | string }> };
 const monthsOf = (y: number) => Array.from({ length: 12 }, (_, i) => `${y}-${String(i + 1).padStart(2, "0")}`);
 
-export function TargetsTab({ plan, fd, month, busy, onAction }: { plan: RepPlanT; fd: ForecastData; month: string; busy: boolean; onAction: (name: string, body: Record<string, unknown>) => void }) {
+function Stepper({ v, set, min = 0 }: { v: number; set: (n: number) => void; min?: number }) {
+  return <div className="flex items-center overflow-hidden rounded-xl ring-1 ring-[var(--border)]"><button type="button" onClick={() => set(Math.max(min, v - 1))} className="h-10 w-10 text-lg font-bold text-[var(--navy)] hover:bg-[var(--bg)]">−</button><input type="number" inputMode="numeric" min={min} value={v} onChange={e => { const n = Math.floor(Number(e.target.value)); if (Number.isFinite(n) && n >= min) set(n); }} className="h-10 w-16 border-x border-[var(--border)] text-center text-sm font-extrabold" /><button type="button" onClick={() => set(v + 1)} className="h-10 w-10 text-lg font-bold text-[var(--navy)] hover:bg-[var(--bg)]">+</button></div>;
+}
+
+export function TargetsTab({ plan, fd, month, busy, onAction }: { plan: Plan; fd: ForecastData; month: string; busy: boolean; onAction: (name: string, body: Record<string, unknown>) => void }) {
   const annual = Number(plan.annual_target ?? 0);
   const admin = plan.months.filter(m => m.source === "admin");
   const free = monthsOf(plan.year).filter(m => !admin.some(a => a.month === m));
