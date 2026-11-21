@@ -13,8 +13,9 @@ type Hub = { year: number; nowMonth: string; annual: number; monthly: HubMonth[]
 type Plan = { year: number; annual_target: number | string | null; months: Array<{ month: string; amount: number | string; source?: string | null; status?: string }>;
   year_plan?: { status: string; reason?: string | null; request_reason?: string | null } | null; approved_year_plan?: { status: string } | null;
   breakdowns: Array<{ month: string; status: string; lines: TL[]; approved_lines?: TL[]; reason?: string | null; request_reason?: string | null }>; prices?: Array<{ clinic_id: string; product_id: string; price: number | string }> };
-type Tab = "month" | "debt" | "targets" | "year";
+type Tab = "month" | "debt" | "samples" | "targets" | "year";
 type DebtData = { customers: Array<{ client_id: number; name: string; clinic_id: string | null; clinic_name: string | null; unpaid: number; overdue: number; invoices: Array<{ id: number; no: string; date: string; due: string; unpaid: number; overdue_days: number }> }>; total: number; totalOverdue: number };
+type SamplesData = { month: string; found: boolean; rep: { rep_name: string; product_name: string | null; sample_pct: number; promo_pct: number; samples: { budget_units: number; used_units: number; used_cost: number; remaining_units: number }; promo: { budget_amount: number; used_amount: number; remaining_amount: number; by_type: Record<string, number> }; prev_month: { units: number; sales: number; unit_cost: number } } | null };
 
 const L = "ar-EG-u-nu-latn";
 const money = (n: number) => `${Math.round(n).toLocaleString("en-US")} ر.س`;
@@ -54,6 +55,7 @@ export default function RepSales() {
   const [plan, setPlan] = useState<Plan | null>(null);
   const [tp, setTp] = useState<Array<{ period: string; product: string; quantity: number; amount: number }>>([]);
   const [debt, setDebt] = useState<DebtData | null>(null);
+  const [samples, setSamples] = useState<SamplesData | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const year = Number(month.slice(0, 4));
@@ -68,10 +70,11 @@ export default function RepSales() {
       setHub(h); setFd(f); setPlan(p as Plan);
       fetch(`/api/sales/target-products?year=${year}`, { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(j => j && setTp(j.lines || [])).catch(() => {});
       fetch("/api/sales/debts", { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(j => j && setDebt(j)).catch(() => {});
+      fetch(`/api/sales/samples-promo?month=${month}`, { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(j => j && setSamples(j)).catch(() => {});
     } catch (e) { setErr(e instanceof Error ? e.message : "تعذر التحميل"); }
   }, [month, year]);
   useEffect(() => { void load(); }, [load]);
-  useEffect(() => { try { const t = sessionStorage.getItem("rep-sales-tab") as Tab | null; if (t && ["month", "debt", "targets", "year"].includes(t)) setTab(t); } catch { /* */ } }, []);
+  useEffect(() => { try { const t = sessionStorage.getItem("rep-sales-tab") as Tab | null; if (t && ["month", "debt", "samples", "targets", "year"].includes(t)) setTab(t); } catch { /* */ } }, []);
   const go = (t: Tab) => { setTab(t); try { sessionStorage.setItem("rep-sales-tab", t); } catch { /* */ } };
 
   async function targetAct(name: string, extra: Record<string, unknown>) {
@@ -108,8 +111,10 @@ export default function RepSales() {
   if (monthTarget > 0 && (!bd || bd.status === "rejected" || bd.status === "draft")) steps.push({ icon: "plans", color: "#e99608", title: `فصّل هدف ${mName(month, false)} على العيادات والمنتجات`, text: `هدف الشهر ${money(monthTarget)}${bd?.status === "rejected" ? " — التفصيل اترفض، عدّله" : ""}`, tab: "targets", level: bd?.status === "rejected" ? "bad" : "do" });
   if ((s.late_clinics?.length ?? 0) > 0) steps.push({ icon: "doctors", color: "#e16201", title: `${s.late_clinics!.length} عيادة متأخرة عن هدفها`, text: s.late_clinics!.slice(0, 3).map(c => c.name).join("، "), tab: "month", level: "bad" });
   if (debt && debt.totalOverdue > 0) steps.push({ icon: "receipt", color: "#c92f36", title: `مديونية متأخرة ${money(debt.totalOverdue)}`, text: `${debt.customers.filter(c => c.overdue > 0).length} عميل عليه فلوس متأخرة`, tab: "debt", level: "bad" });
+  if (samples?.rep && samples.rep.samples.remaining_units < 0) steps.push({ icon: "sparkle", color: "#c92f36", title: "تجاوزت ميزانية العينات", text: `استخدمت ${Math.round(samples.rep.samples.used_units)} من ${Math.round(samples.rep.samples.budget_units)} وحدة`, tab: "samples", level: "bad" });
+  if (samples?.rep && samples.rep.promo.remaining_amount < 0) steps.push({ icon: "sparkle", color: "#c92f36", title: "تجاوزت ميزانية الدعاية", text: `صرفت ${money(samples.rep.promo.used_amount)} من ${money(samples.rep.promo.budget_amount)}`, tab: "samples", level: "bad" });
 
-  const TABS: Array<[Tab, string, string, number]> = [["month", "الشهر ده", "sales", 0], ["debt", "المديونية", "receipt", debt?.customers.filter(c => c.overdue > 0).length || 0], ["targets", "أهدافي", "trophy", steps.filter(x => x.tab === "targets" && x.level !== "wait").length], ["year", "السنة كلها", "reports", 0]];
+  const TABS: Array<[Tab, string, string, number]> = [["month", "الشهر ده", "sales", 0], ["debt", "المديونية", "receipt", debt?.customers.filter(c => c.overdue > 0).length || 0], ["samples", "العينات والدعاية", "sparkle", 0], ["targets", "أهدافي", "trophy", steps.filter(x => x.tab === "targets" && x.level !== "wait").length], ["year", "السنة كلها", "reports", 0]];
 
   return <div className="mt-4 space-y-4 pb-24 lg:pb-6">
     {/* ── hero: year + month ── */}
@@ -163,6 +168,7 @@ export default function RepSales() {
     <div key={tab} className="dz-in">
       {tab === "month" && <MonthTab fd={fd} />}
       {tab === "debt" && <DebtTab debt={debt} />}
+      {tab === "samples" && <SamplesTab data={samples} month={month} />}
       {tab === "targets" && (plan ? <TargetsTab plan={plan} fd={fd} month={month} busy={busy} onAction={(n, b) => void targetAct(n, b)} /> : <div className={`${card} text-center text-sm text-[var(--muted)]`}>مفيش بيانات أهداف</div>)}
       {tab === "year" && <YearTab hub={hub} onMonth={(m) => { setMonth(m); go("month"); }} />}
     </div>
@@ -229,6 +235,71 @@ function DebtTab({ debt }: { debt: DebtData | null }) {
           </div>}
         </div>;
       })}</div>
+    </section>
+  </div>;
+}
+
+/* ═════ العينات والدعاية ═════ */
+const PROMO_LABELS: Record<string, string> = { pms: "PMS", lunch: "دعوة غداء", rtd: "RTD", other: "أخرى" };
+
+function SamplesTab({ data, month }: { data: SamplesData | null; month: string }) {
+  if (!data) return <div className={`${card} text-center text-sm text-[var(--muted)]`}>جاري تحميل بيانات العينات…</div>;
+  if (!data.found || !data.rep) return <div className={`${card} text-center`}><div className="py-8 space-y-2"><div className="text-4xl">📦</div><div className="text-sm font-bold text-[var(--muted)]">مفيش بيانات عينات ودعاية مسجلة لك في المالية</div><div className="text-xs text-[var(--muted)]">كلّم المدير عشان يربط اسمك في نظام المالية</div></div></div>;
+
+  const r = data.rep;
+  const sPct = r.samples.budget_units > 0 ? Math.round(r.samples.used_units / r.samples.budget_units * 100) : 0;
+  const pPct = r.promo.budget_amount > 0 ? Math.round(r.promo.used_amount / r.promo.budget_amount * 100) : 0;
+  const sOver = r.samples.remaining_units < 0, pOver = r.promo.remaining_amount < 0;
+
+  return <div className="space-y-4">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      {/* samples card */}
+      <section className={card}>
+        <div className="flex items-center justify-between gap-2"><h3 className="flex items-center gap-2 font-extrabold text-[var(--navy)]"><Icon name="sparkle" size={18} />العينات</h3><span className="text-xs font-bold text-[var(--muted)]">{mName(month)}</span></div>
+        <p className="mt-1 text-[11.5px] text-[var(--muted)]">ميزانيتك {r.sample_pct}% من مبيعات الشهر اللي فات ({Math.round(r.prev_month.units)} وحدة) = <b className="text-[var(--navy)]">{Math.round(r.samples.budget_units)} وحدة</b></p>
+        <div className="mt-3 flex items-center gap-4">
+          <Ring value={Math.min(100, sPct)} size={100} color={sOver ? ["#e1483e", "#c92f36"] : sPct > 80 ? ["#f2b544", "#e99608"] : ["#33b3a6", "#1aa865"]}>
+            <span className="text-2xl font-extrabold text-[var(--navy)]">{sPct}%</span>
+          </Ring>
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <Row l="الميزانية" v={`${Math.round(r.samples.budget_units)} وحدة`} />
+            <Row l="المستخدم" v={`${Math.round(r.samples.used_units)} وحدة`} c="text-emerald-700" />
+            <Row l="الباقي" v={`${Math.round(Math.abs(r.samples.remaining_units))} وحدة${sOver ? " (تجاوز!)" : ""}`} c={sOver ? "text-red-700" : ""} />
+            {r.samples.used_cost > 0 && <Row l="تكلفة العينات" v={money(r.samples.used_cost)} />}
+          </div>
+        </div>
+        <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-[var(--bg)]"><div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, sPct)}%`, background: sOver ? "#c92f36" : sPct > 80 ? "#e99608" : "#1aa865" }} /></div>
+      </section>
+
+      {/* promo card */}
+      <section className={card}>
+        <div className="flex items-center justify-between gap-2"><h3 className="flex items-center gap-2 font-extrabold text-[var(--navy)]"><Icon name="plans" size={18} />الدعاية</h3><span className="text-xs font-bold text-[var(--muted)]">{mName(month)}</span></div>
+        <p className="mt-1 text-[11.5px] text-[var(--muted)]">ميزانيتك {r.promo_pct}% من مبيعات الشهر اللي فات ({money(r.prev_month.sales)}) = <b className="text-[var(--navy)]">{money(r.promo.budget_amount)}</b></p>
+        <div className="mt-3 flex items-center gap-4">
+          <Ring value={Math.min(100, pPct)} size={100} color={pOver ? ["#e1483e", "#c92f36"] : pPct > 80 ? ["#f2b544", "#e99608"] : ["#33b3a6", "#1aa865"]}>
+            <span className="text-2xl font-extrabold text-[var(--navy)]">{pPct}%</span>
+          </Ring>
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <Row l="الميزانية" v={money(r.promo.budget_amount)} />
+            <Row l="المصروف" v={money(r.promo.used_amount)} c="text-emerald-700" />
+            <Row l="الباقي" v={`${money(Math.abs(r.promo.remaining_amount))}${pOver ? " (تجاوز!)" : ""}`} c={pOver ? "text-red-700" : ""} />
+          </div>
+        </div>
+        <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-[var(--bg)]"><div className="h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, pPct)}%`, background: pOver ? "#c92f36" : pPct > 80 ? "#e99608" : "#1aa865" }} /></div>
+        {Object.keys(r.promo.by_type).length > 0 && <div className="mt-3 flex flex-wrap gap-2">{Object.entries(r.promo.by_type).map(([t, v]) => <span key={t} className="rounded-full bg-[var(--bg)] px-2.5 py-1 text-[11px] font-bold text-[var(--navy)]">{PROMO_LABELS[t] || t}: {money(v)}</span>)}</div>}
+      </section>
+    </div>
+
+    <section className={card}>
+      <h3 className="mb-2 font-extrabold text-[var(--navy)]">ملخص</h3>
+      <div className="space-y-2 text-[13px] leading-6 text-[var(--ink-soft)]">
+        <p>النسب والميزانيات بتتحسب تلقائياً من <b>المالية</b> بناءً على مبيعات الشهر اللي فات.</p>
+        <p className="rounded-2xl bg-[var(--sky-light)] p-3 text-xs">
+          <b>العينات</b> بالوحدات — كل ما توزع عينات على أطباء في الزيارات، الوحدات بتتحسب من رصيدك.
+          <br /><b>الدعاية</b> بالمبلغ — {Object.entries(PROMO_LABELS).map(([k, l]) => l).join("، ")} — المصروف بيتسجل في المالية.
+        </p>
+        {r.product_name && <p className="text-xs text-[var(--muted)]">منتجك: <b className="text-[var(--navy)]">{r.product_name}</b></p>}
+      </div>
     </section>
   </div>;
 }
