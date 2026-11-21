@@ -17,7 +17,7 @@ type PSale = { id: string; rep_name: string; clinic_id: string; product_id: stri
 type MonthView = { pending: Pending[]; pending_sales: PSale[]; team: Array<{ rep_id: string; rep_name: string; target: number; actual: number; target_value: number; actual_value: number; pending: number }>; targets: Array<{ rep_id: string; clinic_id: string; product_id: string; quantity: number; unit_price: string }>; approved_sales: Array<{ rep_id: string; clinic_id: string; product_id: string; quantity: number; unit_price: string; kind: string; direction: number }>; approved_forecasts: Array<{ rep_id: string; clinic_id: string; product_id: string; quantity: number }>; is_closed: boolean; prices: Array<{ clinic_id: string; product_id: string; price: number }> };
 type View = { year: number; month: string; plan: { reps: PlanRep[]; pending_year_allocations: Q[]; pending_breakdowns: Q[] }; monthView: MonthView; products: Product[]; clinics: Clinic[]; targetProducts: TP[]; specialPrices: Array<{ clinic_id: string; product_id: string; price: number; month: string }> };
 type Hub = { unassigned?: number; team: Array<{ rep_id: string; rep_name: string; annual: number; ytd: number; month_target: number; month_actual: number; month_forecast: number; pending: number }> };
-export type Tab = "team" | "targets" | "approvals" | "items" | "catalog" | "close";
+export type Tab = "team" | "targets" | "approvals" | "spend" | "clinics-report" | "items" | "catalog" | "close";
 
 const money = (n: number) => `${Math.round(n).toLocaleString("en-US")} ر.س`;
 const short = (n: number) => Math.abs(n) >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : Math.abs(n) >= 1e3 ? `${Math.round(n / 1e3)}K` : String(Math.round(n));
@@ -64,7 +64,7 @@ export default function AdminSales({ only }: { only?: Tab[] } = {}) {
   const annualTotal = team.reduce((s, r) => s + r.annual, 0), ytd = team.reduce((s, r) => s + r.ytd, 0);
   const mT = team.reduce((s, r) => s + r.month_target, 0), mA = team.reduce((s, r) => s + r.month_actual, 0);
   const noPrice = v.products.filter(p => !p.unit_price).length;
-  const TABS = ([["team", "الفريق", "reps", 0, ""], ["targets", "الأهداف", "trophy", 0, ""], ["approvals", "الموافقات", "check", approvals, "bg-amber-500"], ["items", "الأصناف والمناديب", "receipt", hub?.unassigned ? 1 : 0, "bg-amber-500"], ["catalog", "العيادات والأسعار", "products", noPrice, "bg-red-500"], ["close", "إقفال الشهر", "calendar", 0, ""]] as Array<[Tab, string, string, number, string]>).filter(x => !only || only.includes(x[0]));
+  const TABS = ([["team", "الفريق", "reps", 0, ""], ["targets", "الأهداف", "trophy", 0, ""], ["approvals", "الموافقات", "check", approvals, "bg-amber-500"], ["spend", "العينات والبرومو", "products", 0, ""], ["clinics-report", "تقرير العيادات", "doctors", 0, ""], ["items", "الأصناف والمناديب", "receipt", hub?.unassigned ? 1 : 0, "bg-amber-500"], ["catalog", "العيادات والأسعار", "products", noPrice, "bg-red-500"], ["close", "إقفال الشهر", "calendar", 0, ""]] as Array<[Tab, string, string, number, string]>).filter(x => !only || only.includes(x[0]));
 
   return <div className="mt-4 space-y-4 pb-24 lg:pb-6">
     <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--sky-border)] bg-[var(--sky-light)] px-4 py-3 text-[12.5px] text-[var(--navy)]"><Icon name="receipt" size={16} /><span className="min-w-0 flex-1">المحقق محسوب من <b>فواتير دفترة</b> بس (بعد المرتجعات) — أي بيعة لمنتج في أي عيادة بتتحسب <b>للمندوب المسؤول عن المنتج</b>.{hub?.unassigned ? <> فيه <b>{Math.round(hub.unassigned).toLocaleString("en-US")} ر.س</b> مبيعات السنة دي لأصناف مش مربوطة بمنتج عليه مندوب.</> : null}</span>{hub?.unassigned ? <button type="button" onClick={() => go("items")} className="rounded-xl bg-[var(--navy)] px-3 py-1.5 text-xs font-bold text-white">اربط الأصناف ‹</button> : null}<ReportLink href="/admin/reports?type=sales" label="تقرير المبيعات" /></div>
@@ -89,6 +89,8 @@ export default function AdminSales({ only }: { only?: Tab[] } = {}) {
       {tab === "team" && <TeamTab v={v} hub={hub} month={month} onTarget={id => { setFocusRep(id); go("targets"); }} />}
       {tab === "targets" && <TargetsAdmin v={v} month={month} busy={busy} rep={focusRep} setRep={setFocusRep} onSave={(b, ok) => sAct({ action: "set_target", ...b }, ok)} />}
       {tab === "approvals" && <Approvals v={v} month={month} busy={busy} fAct={fAct} tAct={tAct} />}
+      {tab === "spend" && <SpendTab month={month} />}
+      {tab === "clinics-report" && <ClinicsReportTab month={month} />}
       {tab === "items" && <ItemProductMap year={year} onChange={() => void load()} />}
       {tab === "catalog" && <Catalog v={v} month={month} busy={busy} onPrice={(product_id, unit_price) => sAct({ action: "set_product_price", product_id, unit_price }, "اتحفظ السعر ✓")} onSync={() => sAct({ action: "sync_clinics" }, "اتحدثت العيادات من دفترة ✓")} onSpecial={b => fAct("set_price", { month, ...b }, "اتحفظ السعر الخاص ✓")} />}
       {tab === "close" && <CloseTab v={v} month={month} busy={busy} fAct={fAct} />}
@@ -208,6 +210,201 @@ function ForecastCard({ f, busy, cl, pr, price, onApprove, onEdit, onReject }: {
         : <><B k="edit" disabled={busy} onClick={() => onEdit(f.lines.map(l => ({ clinic_id: l.clinic_id, product_id: l.product_id, qty: q[`${l.clinic_id}:${l.product_id}`] ?? 0 })))}>احفظ التعديل واعتمد</B><B k="ghost" onClick={() => setEdit(false)}>إلغاء</B></>}
     </div>
     {rej && <div className="dz-in mt-2 flex gap-2"><input autoFocus value={reason} onChange={e => setReason(e.target.value)} placeholder="سبب الرفض (المندوب هيشوفه)…" className="h-10 min-w-0 flex-1 rounded-xl border border-red-200 px-3 text-sm" /><B k="no" className="!bg-red-600 !text-white" disabled={busy || !reason.trim()} onClick={() => onReject(reason.trim())}>تأكيد الرفض</B></div>}
+  </div>;
+}
+
+/* ═════ العينات والبرومو — نظرة المالك ═════ */
+type DoctorSample = { doctor_id: string; doctor_name: string; clinic_name: string; product_name: string; total_units: number };
+type PromoDetail = { date: string; type: string; amount: number; place: string; doctors: string[]; desc: string };
+type RepSpend = {
+  rep_name: string; product_name: string | null; sample_pct: number; promo_pct: number;
+  samples: { budget_units: number; used_units: number; used_cost: number; remaining_units: number };
+  promo: { budget_amount: number; used_amount: number; remaining_amount: number; by_type: Record<string, number>; details?: PromoDetail[] };
+  prev_month: { units: number; sales: number; unit_cost: number };
+  doctor_samples: DoctorSample[];
+};
+const promoLabel: Record<string, string> = { pms: "PMS", lunch: "غداء/عشاء", rtd: "RTD", other: "أخرى" };
+
+function SpendTab({ month }: { month: string }) {
+  const [data, setData] = useState<{ month: string; reps: RepSpend[] } | null>(null);
+  const [err, setErr] = useState("");
+  const [open, setOpen] = useState<string | null>(null);
+  useEffect(() => { setData(null); setErr(""); fetch(`/api/admin/sales/spend?month=${month}`, { cache: "no-store" }).then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e.error))).then(setData).catch(e => setErr(String(e))); }, [month]);
+
+  if (err) return <div className={`${card} py-8 text-center text-sm text-red-600`}>{err}</div>;
+  if (!data) return <div className="grid gap-3 lg:grid-cols-2">{[0, 1, 2, 3].map(i => <div key={i} className="h-40 animate-pulse rounded-[28px] bg-white" />)}</div>;
+  if (!data.reps.length) return <div className={`${card} py-8 text-center text-sm text-[var(--muted)]`}>مفيش بيانات عينات أو برومو من المالية لهذا الشهر</div>;
+
+  const totSBudget = data.reps.reduce((s, r) => s + r.samples.budget_units, 0);
+  const totSUsed = data.reps.reduce((s, r) => s + r.samples.used_units, 0);
+  const totPBudget = data.reps.reduce((s, r) => s + r.promo.budget_amount, 0);
+  const totPUsed = data.reps.reduce((s, r) => s + r.promo.used_amount, 0);
+
+  return <div className="space-y-4">
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <MiniStat l="ميزانية العينات" v={`${Math.round(totSBudget).toLocaleString("en-US")} وحدة`} />
+      <MiniStat l="المُستخدم" v={`${Math.round(totSUsed).toLocaleString("en-US")} وحدة`} warn={totSUsed > totSBudget} />
+      <MiniStat l="ميزانية البرومو" v={money(totPBudget)} />
+      <MiniStat l="المصروف" v={money(totPUsed)} warn={totPUsed > totPBudget} />
+    </div>
+
+    <div className="space-y-3">{data.reps.map(r => {
+      const isOpen = open === r.rep_name;
+      const sPct = r.samples.budget_units ? Math.round(r.samples.used_units / r.samples.budget_units * 100) : 0;
+      const pPct = r.promo.budget_amount ? Math.round(r.promo.used_amount / r.promo.budget_amount * 100) : 0;
+      const sOver = r.samples.remaining_units < 0;
+      const pOver = r.promo.remaining_amount < 0;
+
+      return <section key={r.rep_name} className={card}>
+        <button type="button" onClick={() => setOpen(isOpen ? null : r.rep_name)} className="flex w-full items-center gap-3 text-right">
+          <RepAvatar name={r.rep_name} />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2"><b className="text-sm">{r.rep_name}</b>{r.product_name && <span className="rounded-full bg-[var(--sky-light)] px-2 py-0.5 text-[10.5px] font-bold text-[var(--navy)] ring-1 ring-[var(--sky-border)]">{r.product_name}</span>}</div>
+            <div className="mt-1 grid grid-cols-2 gap-x-6 gap-y-1 text-[11px]">
+              <div className="flex items-center gap-2">
+                <span className="text-[var(--muted)]">عينات</span>
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--bg)]"><div className="h-full rounded-full" style={{ width: `${Math.min(100, sPct)}%`, background: sOver ? "#dc2626" : "#1aa865" }} /></div>
+                <b className={sOver ? "text-red-600" : ""}>{Math.round(r.samples.used_units)} / {Math.round(r.samples.budget_units)}</b>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[var(--muted)]">برومو</span>
+                <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--bg)]"><div className="h-full rounded-full" style={{ width: `${Math.min(100, pPct)}%`, background: pOver ? "#dc2626" : "#33b3a6" }} /></div>
+                <b className={pOver ? "text-red-600" : ""}>{money(r.promo.used_amount)} / {money(r.promo.budget_amount)}</b>
+              </div>
+            </div>
+          </div>
+          <span className="text-sm text-[var(--muted)]">{isOpen ? "▲" : "▼"}</span>
+        </button>
+
+        {isOpen && <div className="mt-3 space-y-3 border-t border-[var(--border)] pt-3">
+          <div className="grid gap-3 lg:grid-cols-2">
+            {/* per-doctor samples */}
+            <div>
+              <h4 className="mb-2 text-xs font-extrabold text-[var(--navy)]">عينات حسب الدكتور</h4>
+              {r.doctor_samples.length === 0
+                ? <div className="rounded-xl bg-[var(--bg)] p-3 text-center text-[11px] text-[var(--muted)]">ما سجّل عينات لأطباء هذا الشهر</div>
+                : <div className="max-h-72 space-y-1 overflow-y-auto">{r.doctor_samples.map((ds, i) =>
+                    <div key={i} className="flex items-center justify-between rounded-xl bg-[var(--bg)] px-3 py-1.5 text-xs">
+                      <div><b>{ds.doctor_name}</b>{ds.clinic_name && <span className="text-[var(--muted)]"> · {ds.clinic_name}</span>}</div>
+                      <div className="text-left"><b>{ds.total_units}</b> <span className="text-[var(--muted)]">{ds.product_name}</span></div>
+                    </div>
+                  )}</div>}
+            </div>
+
+            {/* promo details */}
+            <div>
+              <h4 className="mb-2 text-xs font-extrabold text-[var(--navy)]">تفاصيل البرومو</h4>
+              {Object.keys(r.promo.by_type).length === 0 && (!r.promo.details || r.promo.details.length === 0)
+                ? <div className="rounded-xl bg-[var(--bg)] p-3 text-center text-[11px] text-[var(--muted)]">ما سجّل مصاريف برومو هذا الشهر</div>
+                : <>
+                  <div className="mb-2 flex flex-wrap gap-1">{Object.entries(r.promo.by_type).map(([t, v]) => <span key={t} className="rounded-full bg-[var(--sky-light)] px-2 py-0.5 text-[10.5px] font-bold ring-1 ring-[var(--sky-border)]">{promoLabel[t] || t}: {money(v)}</span>)}</div>
+                  {r.promo.details && r.promo.details.length > 0 && <div className="max-h-72 space-y-1 overflow-y-auto">{r.promo.details.map((pd, i) =>
+                    <div key={i} className="rounded-xl bg-[var(--bg)] px-3 py-1.5 text-xs">
+                      <div className="flex justify-between"><span><b>{promoLabel[pd.type] || pd.type}</b>{pd.place && ` · ${pd.place}`}{pd.desc && ` · ${pd.desc}`}</span><b>{money(pd.amount)}</b></div>
+                      {pd.doctors.length > 0 && <div className="mt-0.5 text-[10.5px] text-[var(--muted)]">الأطباء: {pd.doctors.join("، ")}</div>}
+                      <div className="text-[10.5px] text-[var(--muted)]">{pd.date}</div>
+                    </div>
+                  )}</div>}
+                </>}
+            </div>
+          </div>
+
+          <div className="rounded-xl bg-[var(--sky-light)] px-3 py-2 text-[11px] text-[var(--muted)]">
+            الشهر السابق: بيع <b className="text-[var(--navy)]">{Math.round(r.prev_month.units).toLocaleString("en-US")} وحدة</b> بقيمة <b className="text-[var(--navy)]">{money(r.prev_month.sales)}</b> — النسب: عينات {r.sample_pct}% · برومو {r.promo_pct}%
+          </div>
+        </div>}
+      </section>;
+    })}</div>
+  </div>;
+}
+
+function MiniStat({ l, v, warn }: { l: string; v: string; warn?: boolean }) {
+  return <div className="dz-card rounded-[24px] border border-[var(--border)] bg-white p-3">
+    <div className="text-[11px] font-bold text-[var(--muted)]">{l}</div>
+    <div className={`mt-1 text-lg font-extrabold ${warn ? "text-red-600" : "text-[var(--navy)]"}`}>{v}</div>
+  </div>;
+}
+
+/* ═════ تقرير العيادات — مبيعات مقابل مصاريف ═════ */
+type ClinicReport = {
+  clinic_id: string; clinic_name: string;
+  total_sales: number; total_units_sold: number; total_samples: number;
+  unpaid: number; overdue: number;
+  sales_by_rep: Array<{ rep: string; product: string; sales: number; units: number }>;
+  samples_by_rep: Array<{ rep: string; product: string; units: number }>;
+};
+
+function ClinicsReportTab({ month }: { month: string }) {
+  const [data, setData] = useState<{ month: string; clinics: ClinicReport[]; totals: { sales: number; samples: number; unpaid: number; overdue: number } } | null>(null);
+  const [err, setErr] = useState("");
+  const [open, setOpen] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+  useEffect(() => { setData(null); setErr(""); fetch(`/api/admin/sales/clinics-report?month=${month}`, { cache: "no-store" }).then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e.error))).then(setData).catch(e => setErr(String(e))); }, [month]);
+
+  if (err) return <div className={`${card} py-8 text-center text-sm text-red-600`}>{err}</div>;
+  if (!data) return <div className="grid gap-3 lg:grid-cols-4">{[0, 1, 2, 3].map(i => <div key={i} className="h-28 animate-pulse rounded-[28px] bg-white" />)}</div>;
+
+  const filtered = data.clinics.filter(c => !q.trim() || c.clinic_name.toLowerCase().includes(q.trim().toLowerCase()));
+
+  return <div className="space-y-4">
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <MiniStat l="إجمالي المبيعات" v={money(data.totals.sales)} />
+      <MiniStat l="عينات موزّعة" v={`${data.totals.samples.toLocaleString("en-US")} وحدة`} />
+      <MiniStat l="رصيد مستحق" v={money(data.totals.unpaid)} warn={data.totals.unpaid > 0} />
+      <MiniStat l="متأخر" v={money(data.totals.overdue)} warn={data.totals.overdue > 0} />
+    </div>
+
+    <section className={card}>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h3 className="font-extrabold text-[var(--navy)]">العيادات — {mName(month)} ({data.clinics.length})</h3>
+      </div>
+      <input value={q} onChange={e => setQ(e.target.value)} placeholder="🔍 دوّر على عيادة…" className="mb-3 h-10 w-full rounded-xl border border-[var(--border)] px-3 text-sm" />
+
+      <div className="space-y-2">{filtered.map(c => {
+        const isOpen = open === c.clinic_id;
+        return <div key={c.clinic_id} className="dz-card rounded-2xl border border-[var(--border)]">
+          <button type="button" onClick={() => setOpen(isOpen ? null : c.clinic_id)} className="flex w-full items-center gap-3 p-3 text-right">
+            <div className="min-w-0 flex-1">
+              <b className="text-sm">{c.clinic_name}</b>
+              <div className="mt-1 flex flex-wrap gap-3 text-[11px]">
+                <span>مبيعات: <b className="text-[var(--navy)]">{money(c.total_sales)}</b></span>
+                <span>عينات: <b className="text-sky-700">{c.total_samples} وحدة</b></span>
+                {c.unpaid > 0 && <span>مستحق: <b className="text-amber-700">{money(c.unpaid)}</b></span>}
+                {c.overdue > 0 && <span>متأخر: <b className="text-red-600">{money(c.overdue)}</b></span>}
+              </div>
+            </div>
+            <span className="text-sm text-[var(--muted)]">{isOpen ? "▲" : "▼"}</span>
+          </button>
+
+          {isOpen && <div className="border-t border-[var(--border)] p-3">
+            <div className="grid gap-3 lg:grid-cols-2">
+              <div>
+                <h4 className="mb-2 text-xs font-extrabold text-[var(--navy)]">المبيعات حسب المندوب</h4>
+                {c.sales_by_rep.length === 0
+                  ? <div className="rounded-xl bg-[var(--bg)] p-3 text-center text-[11px] text-[var(--muted)]">ما في مبيعات</div>
+                  : <div className="space-y-1">{c.sales_by_rep.map((s, i) =>
+                      <div key={i} className="flex items-center justify-between rounded-xl bg-[var(--bg)] px-3 py-1.5 text-xs">
+                        <span><b>{s.rep}</b> · {s.product}</span>
+                        <span><b>{money(s.sales)}</b> · {s.units} وحدة</span>
+                      </div>
+                    )}</div>}
+              </div>
+              <div>
+                <h4 className="mb-2 text-xs font-extrabold text-[var(--navy)]">العينات الموزّعة</h4>
+                {c.samples_by_rep.length === 0
+                  ? <div className="rounded-xl bg-[var(--bg)] p-3 text-center text-[11px] text-[var(--muted)]">ما في عينات</div>
+                  : <div className="space-y-1">{c.samples_by_rep.map((s, i) =>
+                      <div key={i} className="flex items-center justify-between rounded-xl bg-[var(--bg)] px-3 py-1.5 text-xs">
+                        <span><b>{s.rep}</b> · {s.product}</span>
+                        <b>{s.units} وحدة</b>
+                      </div>
+                    )}</div>}
+              </div>
+            </div>
+          </div>}
+        </div>;
+      })}</div>
+    </section>
   </div>;
 }
 
