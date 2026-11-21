@@ -1,38 +1,24 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import { Icon } from "@/components/Icon";
 import { useToast } from "@/components/Toast";
 import type { computeFinance } from "@/lib/finance";
 import { ExcelBtn, sar, short } from "./kit";
 import { Sales, Book } from "./tabs";
-import { Planner } from "./plan";
-import { GoalsTab } from "./goals";
-import { AiAdvisor } from "./ai";
 import AdminSales from "../sales/AdminSales";
 
-export type FinData = ReturnType<typeof computeFinance> & { prev?: import("@/lib/fin-ai").PrevKpi; ai?: boolean; link?: import("@/lib/fin-link").FinLink | null; docs?: { total: number; before_start: number; in_period: number }; sync: { started_at: string | null; finished_at: string | null; ok: boolean | null; message: string; invoices?: number; running: boolean }; today: string };
-export type Tab = "sales" | "team" | "goals" | "plan" | "ar" | "settings";
+export type FinData = ReturnType<typeof computeFinance> & { ai?: boolean; link?: import("@/lib/fin-link").FinLink | null; docs?: { total: number; before_start: number; in_period: number }; sync: { started_at: string | null; finished_at: string | null; ok: boolean | null; message: string; invoices?: number; running: boolean }; today: string };
+export type Tab = "sales" | "team" | "ar" | "settings";
 export type Ask = (q: string) => void;
-const TAB_IDS: Tab[] = ["sales", "team", "goals", "plan", "ar", "settings"];
-/** Old links (the two pages before the merge) open the matching tab. */
-const OLD_TAB: Record<string, Tab> = { workspace: "team", targets: "team", items: "settings", catalog: "settings", approvals: "settings", close: "settings", overview: "sales" };
-const NO_RANGE: Partial<Record<Tab, boolean>> = { plan: true, goals: true, team: true, settings: true };
+const TAB_IDS: Tab[] = ["sales", "team", "ar", "settings"];
+const OLD_TAB: Record<string, Tab> = { workspace: "team", targets: "team", items: "settings", catalog: "settings", approvals: "settings", close: "settings", overview: "sales", goals: "sales", plan: "sales" };
+const NO_RANGE: Partial<Record<Tab, boolean>> = { team: true, settings: true };
 const tz = "Asia/Riyadh";
 const today = () => new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date());
 const back = (months: number) => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - months); return `${new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(d).slice(0, 7)}-01`; };
 const lastDay = (m: string) => { const [y, mo] = m.split("-").map(Number); return new Date(Date.UTC(y, mo, 0)).toISOString().slice(0, 10); };
 const PRESETS: Array<[string, () => [string, string]]> = [["الشهر ده", () => [`${today().slice(0, 7)}-01`, today()]], ["الشهر اللي فات", () => [back(1), lastDay(back(1).slice(0, 7))]], ["آخر 3 شهور", () => [back(2), today()]], ["آخر 6 شهور", () => [back(5), today()]], ["السنة دي", () => [`${today().slice(0, 4)}-01-01`, today()]], ["آخر 12 شهر", () => [back(11), today()]]];
 
-/** Questions the advisor offers on each tab; every one ties the tab to the other three. */
-const CHIPS: Record<Tab, string[]> = {
-  sales: ["لخّص لي وضع الشهر: المبيعات والهدف والخطة والتحصيل", "أنهي منتجات وعملاء أركّز عليهم عشان أقفل الفرق عن الهدف؟", "مبيعاتي ماشية أحسن ولا أسوأ من الفترة اللي فاتت وليه؟"],
-  ar: ["رتّب لي العملاء اللي أحصّل منهم الأسبوع ده وأقول لكل واحد إيه", "لو حصّلت المتأخر، يغطي كام من مصاريف خطة الشهر؟", "مين العملاء اللي أوقف البيع الآجل ليهم؟"],
-  goals: ["هحقق هدف الشهر والسنة بالمعدل الحالي؟ ولو لأ أعمل إيه؟", "هدف السنة واقعي على أرقامي؟", "وزّع لي المطلوب يومياً على المنتجات والعملاء"],
-  team: ["مين من المناديب متأخر عن هدفه الشهر ده وليه؟ واعمل إيه مع كل واحد؟", "وزّع الفرق عن هدف الشهر على المناديب بشكل واقعي", "مين أحسن مندوب الشهر ده وإيه اللي بيعمله صح؟"],
-  settings: ["أنهي أصناف في دفترة مش مربوطة بمنتج أو مندوب ومحتاجة ربط؟", "فيه عملاء في دفترة مش مربوطين بعيادة أو مندوب؟"],
-  plan: ["هيطلع صافي ربح كام لو بعت المتوقع؟ وفين الخطر؟", "أنهي أصناف لو زوّدتها تزوّد الربح أكتر؟", "الكميات المتوقعة واقعية مقارنة بمتوسط البيع؟"],
-};
 
 export default function FinanceHub({ subdomain }: { subdomain: string }) {
   const toast = useToast();
@@ -42,9 +28,6 @@ export default function FinanceHub({ subdomain }: { subdomain: string }) {
   const [d, setD] = useState<FinData | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
-  const [aiOpen, setAiOpen] = useState(false); const [asked, setAsked] = useState<{ q: string; n: number } | null>(null);
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => { setMounted(true); }, []);
   const load = useCallback(async () => {
     setLoading(true);
     const j = await fetch(`/api/admin/finance?from=${range[0]}&to=${range[1]}`).then(async r => (await r.json().catch(() => null)) ?? { error: `تعذر تحميل البيانات (خطأ ${r.status} من السيرفر)` }).catch(() => null);
@@ -61,7 +44,7 @@ export default function FinanceHub({ subdomain }: { subdomain: string }) {
     try { const t = pick(sessionStorage.getItem("fin-tab")); if (t) setTab(t); } catch { /* ignore */ }
   }, []);
   const go = (t: Tab) => { setTab(t); try { sessionStorage.setItem("fin-tab", t); } catch { /* ignore */ } };
-  const ask: Ask = q => { setAiOpen(true); setAsked(a => ({ q, n: (a?.n || 0) + 1 })); };
+  const ask: Ask = () => { window.open("https://finance.eliteskinsa.com", "_blank"); };
   const pickMonth = (m: string) => { setPreset(-1); setRange([`${m}-01`, lastDay(m)]); };
   async function sync() {
     setSyncing(true);
@@ -82,12 +65,6 @@ export default function FinanceHub({ subdomain }: { subdomain: string }) {
       q: "مين من المناديب متأخر عن هدفه الشهر ده (نصيبه من الخطة) وليه؟ لكل واحد: باع كام من كام، وأنهي أصناف وعملاء يركز عليهم الأسبوع ده." },
     { id: "ar", label: "مديونيات العملاء", icon: "time", value: L ? sar(L.ar.overdue) : "—", line: L ? (L.ar.overdue ? `متأخر عند ${L.ar.clients} عميل · ${short(L.ar.old60)} أقدم من 60 يوم` : "مفيش متأخرات") : "", cls: tone(L ? L.ar.overdue === 0 : null), bar: L && L.ar.total ? L.ar.overdue / L.ar.total * 100 : null,
       q: "رتّب لي أهم 5 عملاء أحصّل منهم الأسبوع ده: كل واحد عليه كام ومتأخر قد إيه وأقول له إيه. وقولّي لو حصّلتهم يغطوا كام من الفرق عن هدف الشهر ومن مصاريف الخطة." },
-    { id: "goals", label: "الأهداف السنوية", icon: "trophy", value: L?.goals ? `${L.goals.month_pct ?? 0}%` : "حط أهدافك", line: L?.goals ? (L.goals.month_target ? `من هدف الشهر ${short(L.goals.month_target)} · محتاج ${short(L.goals.needed_per_day)} في اليوم` : "مفيش هدف للشهر ده") : "لسه مفيش أهداف للسنة",
-      cls: tone(L?.goals?.month_pct != null ? L.goals.month_pct >= L.pace_pct : null), bar: L?.goals?.month_pct ?? null,
-      q: L?.goals ? "هحقق هدف الشهر وهدف السنة بالمعدل الحالي؟ لو لأ، الفرق كام وأقفله بأنهي منتجات وأنهي عملاء؟" : "اقترح عليّ أهداف واقعية للسنة مبنية على أرقامي، وقولّي أحطها إزاي." },
-    { id: "plan", label: "توقع الربح", icon: "plans", value: L?.plan ? `${L.plan.pct ?? 0}%` : "اعمل التوقع", line: L?.plan ? `من ${short(L.plan.revenue)} متوقع · صافي ربح ${short(L.plan.profit)}` : "لسه مفيش توقع للشهر ده",
-      cls: tone(L?.plan?.pct != null ? L.plan.pct >= L.pace_pct : null), bar: L?.plan?.pct ?? null,
-      q: L?.plan ? "قارن المتوقع بالفعلي لحد النهارده: هوصل لصافي الربح المتوقع؟ وأنهي أصناف محتاجة دفعة؟" : "ساعدني أتوقع مبيعات الشهر: أبيع كام من كل صنف وهيطلع صافي ربح كام بعد المصاريف؟" },
   ];
 
   return <div className="mt-5 space-y-4 pb-20">
@@ -96,10 +73,8 @@ export default function FinanceHub({ subdomain }: { subdomain: string }) {
         <span className="flex items-center gap-2 text-[13px] font-extrabold text-[var(--navy)]"><span className={`flex h-8 w-8 items-center justify-center rounded-xl ${on ? "bg-[var(--navy)] text-white" : "bg-[var(--sky-light)] text-[var(--navy)]"}`}><Icon name={c.icon} size={16} /></span>{c.label}</span>
         <span className={`mt-2 block text-2xl font-extrabold tabular-nums ${c.cls === "text-[var(--muted)]" ? "text-[var(--navy)]" : c.cls}`}>{c.value}</span>
         <span className="mt-0.5 block min-h-[2.25rem] text-[11.5px] leading-[1.15rem] text-[var(--muted)]">{c.line}</span>
-        {c.bar !== null && <span className="relative mt-1 block h-1.5 overflow-hidden rounded-full bg-[var(--bg)]"><span className={`block h-full rounded-full ${c.id === "ar" ? "bg-red-500" : c.cls.includes("red") ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${Math.min(100, Math.max(0, c.bar))}%` }} />
-          {(c.id === "goals" || c.id === "plan") && L && <span className="absolute inset-y-0 w-0.5 bg-[var(--navy)]" style={{ right: `${L.pace_pct}%` }} title="المفروض توصل له النهارده" />}</span>}
+        {c.bar !== null && <span className="relative mt-1 block h-1.5 overflow-hidden rounded-full bg-[var(--bg)]"><span className={`block h-full rounded-full ${c.id === "ar" ? "bg-red-500" : c.cls.includes("red") ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${Math.min(100, Math.max(0, c.bar))}%` }} /></span>}
       </button>
-      <button type="button" onClick={() => ask(c.q)} className="flex w-full items-center justify-center gap-1.5 border-t border-[var(--border)] bg-[var(--bg)] py-2 text-[12px] font-bold text-[var(--navy)] transition hover:bg-[var(--sky-light)]"><Icon name="sparkle" size={13} />اسأل المستشار</button>
     </div>; })}</div>
 
     <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--border)] bg-white p-2.5">
@@ -123,20 +98,9 @@ export default function FinanceHub({ subdomain }: { subdomain: string }) {
       : <div className={`transition-opacity ${loading ? "opacity-50" : ""}`}>
         {tab === "sales" && <Sales d={d} pickMonth={pickMonth} x={x} subdomain={subdomain} ask={ask} go={go} />}
         {tab === "ar" && <Book d={d} subdomain={subdomain} ask={ask} />}
-        {tab === "goals" && <GoalsTab ask={ask} />}
-        {tab === "plan" && <Planner ask={ask} />}
         {tab === "team" && <AdminSales only={["team", "targets"]} />}
         {tab === "settings" && <AdminSales only={["approvals", "items", "catalog", "close"]} />}
       </div>}
 
-    {mounted && d && createPortal(<div dir="rtl">
-      {!aiOpen && <button type="button" onClick={() => setAiOpen(true)} className="fixed bottom-20 left-4 z-[70] flex h-13 items-center gap-2 rounded-full bg-[var(--navy)] px-5 py-3.5 text-sm font-extrabold text-white shadow-2xl transition hover:-translate-y-0.5 lg:bottom-6"><Icon name="sparkle" size={18} />المستشار</button>}
-      {aiOpen && <button type="button" aria-label="إغلاق" onClick={() => setAiOpen(false)} className="fixed inset-0 z-[75] bg-[#0b1d20]/35 lg:hidden" />}
-      <aside aria-hidden={!aiOpen} className={`fixed inset-y-0 left-0 z-[80] flex w-[min(460px,100vw)] flex-col bg-white shadow-2xl transition-transform duration-200 ${aiOpen ? "translate-x-0" : "invisible -translate-x-full"}`}>
-        <div className="flex items-center justify-between gap-2 bg-[var(--navy)] px-4 py-3 text-white"><span className="flex items-center gap-2 font-extrabold"><Icon name="sparkle" size={18} />المستشار المالي</span>
-          <button type="button" onClick={() => setAiOpen(false)} aria-label="إغلاق" className="grid h-9 w-9 place-items-center rounded-full text-lg hover:bg-white/15">✕</button></div>
-        <div className="min-h-0 flex-1 overflow-y-auto p-3"><AiAdvisor d={d} range={range} reload={load} chips={CHIPS[tab]} ask={asked} /></div>
-      </aside>
-    </div>, document.body)}
   </div>;
 }
