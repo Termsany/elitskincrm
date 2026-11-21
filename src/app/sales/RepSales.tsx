@@ -13,7 +13,8 @@ type Hub = { year: number; nowMonth: string; annual: number; monthly: HubMonth[]
 type Plan = { year: number; annual_target: number | string | null; months: Array<{ month: string; amount: number | string; source?: string | null; status?: string }>;
   year_plan?: { status: string; reason?: string | null; request_reason?: string | null } | null; approved_year_plan?: { status: string } | null;
   breakdowns: Array<{ month: string; status: string; lines: TL[]; approved_lines?: TL[]; reason?: string | null; request_reason?: string | null }>; prices?: Array<{ clinic_id: string; product_id: string; price: number | string }> };
-type Tab = "month" | "targets" | "year";
+type Tab = "month" | "debt" | "targets" | "year";
+type DebtData = { customers: Array<{ client_id: number; name: string; clinic_id: string | null; clinic_name: string | null; unpaid: number; overdue: number; invoices: Array<{ id: number; no: string; date: string; due: string; unpaid: number; overdue_days: number }> }>; total: number; totalOverdue: number };
 
 const L = "ar-EG-u-nu-latn";
 const money = (n: number) => `${Math.round(n).toLocaleString("en-US")} ر.س`;
@@ -52,6 +53,7 @@ export default function RepSales() {
   const [fd, setFd] = useState<ForecastData | null>(null);
   const [plan, setPlan] = useState<Plan | null>(null);
   const [tp, setTp] = useState<Array<{ period: string; product: string; quantity: number; amount: number }>>([]);
+  const [debt, setDebt] = useState<DebtData | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const year = Number(month.slice(0, 4));
@@ -65,10 +67,11 @@ export default function RepSales() {
       ]);
       setHub(h); setFd(f); setPlan(p as Plan);
       fetch(`/api/sales/target-products?year=${year}`, { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(j => j && setTp(j.lines || [])).catch(() => {});
+      fetch("/api/sales/debts", { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(j => j && setDebt(j)).catch(() => {});
     } catch (e) { setErr(e instanceof Error ? e.message : "تعذر التحميل"); }
   }, [month, year]);
   useEffect(() => { void load(); }, [load]);
-  useEffect(() => { try { const t = sessionStorage.getItem("rep-sales-tab") as Tab | null; if (t && ["month", "targets", "year"].includes(t)) setTab(t); } catch { /* */ } }, []);
+  useEffect(() => { try { const t = sessionStorage.getItem("rep-sales-tab") as Tab | null; if (t && ["month", "debt", "targets", "year"].includes(t)) setTab(t); } catch { /* */ } }, []);
   const go = (t: Tab) => { setTab(t); try { sessionStorage.setItem("rep-sales-tab", t); } catch { /* */ } };
 
   async function targetAct(name: string, extra: Record<string, unknown>) {
@@ -104,8 +107,9 @@ export default function RepSales() {
   if (rp?.year_plan?.status === "pending") steps.push({ icon: "time", color: "#3b90e8", title: "توزيعك السنوي مستني موافقة المدير", text: "هيتعتمد أو يرجعلك بملاحظة", tab: "targets", level: "wait" });
   if (monthTarget > 0 && (!bd || bd.status === "rejected" || bd.status === "draft")) steps.push({ icon: "plans", color: "#e99608", title: `فصّل هدف ${mName(month, false)} على العيادات والمنتجات`, text: `هدف الشهر ${money(monthTarget)}${bd?.status === "rejected" ? " — التفصيل اترفض، عدّله" : ""}`, tab: "targets", level: bd?.status === "rejected" ? "bad" : "do" });
   if ((s.late_clinics?.length ?? 0) > 0) steps.push({ icon: "doctors", color: "#e16201", title: `${s.late_clinics!.length} عيادة متأخرة عن هدفها`, text: s.late_clinics!.slice(0, 3).map(c => c.name).join("، "), tab: "month", level: "bad" });
+  if (debt && debt.totalOverdue > 0) steps.push({ icon: "receipt", color: "#c92f36", title: `مديونية متأخرة ${money(debt.totalOverdue)}`, text: `${debt.customers.filter(c => c.overdue > 0).length} عميل عليه فلوس متأخرة`, tab: "debt", level: "bad" });
 
-  const TABS: Array<[Tab, string, string, number]> = [["month", "الشهر ده", "sales", 0], ["targets", "أهدافي", "trophy", steps.filter(x => x.tab === "targets" && x.level !== "wait").length], ["year", "السنة كلها", "reports", 0]];
+  const TABS: Array<[Tab, string, string, number]> = [["month", "الشهر ده", "sales", 0], ["debt", "المديونية", "receipt", debt?.customers.filter(c => c.overdue > 0).length || 0], ["targets", "أهدافي", "trophy", steps.filter(x => x.tab === "targets" && x.level !== "wait").length], ["year", "السنة كلها", "reports", 0]];
 
   return <div className="mt-4 space-y-4 pb-24 lg:pb-6">
     {/* ── hero: year + month ── */}
@@ -158,6 +162,7 @@ export default function RepSales() {
 
     <div key={tab} className="dz-in">
       {tab === "month" && <MonthTab fd={fd} />}
+      {tab === "debt" && <DebtTab debt={debt} />}
       {tab === "targets" && (plan ? <TargetsTab plan={plan} fd={fd} month={month} busy={busy} onAction={(n, b) => void targetAct(n, b)} /> : <div className={`${card} text-center text-sm text-[var(--muted)]`}>مفيش بيانات أهداف</div>)}
       {tab === "year" && <YearTab hub={hub} onMonth={(m) => { setMonth(m); go("month"); }} />}
     </div>
@@ -187,6 +192,43 @@ function MonthTab({ fd }: { fd: ForecastData }) {
           <div className="flex items-center justify-between gap-2"><span className="min-w-0 truncate text-sm font-bold" dir="auto">{(x as { client_name?: string }).client_name || fd.clinics.find(c => c.id === x.clinic_id)?.name || "—"}</span>{(x as { invoice_no?: string }).invoice_no && <span className="shrink-0 text-[11px] text-[var(--muted)]">فاتورة {(x as { invoice_no?: string }).invoice_no}</span>}</div>
           <div className="mt-0.5 flex flex-wrap justify-between gap-2 text-[11px] text-[var(--muted)]"><span dir="auto">{fd.products.find(p => p.id === x.product_id)?.name || (x as { item?: string }).item} · {neg ? "−" : ""}{x.qty} وحدة{x.kind === "return" ? " · مرتجع" : x.kind === "adjustment" ? " · تصحيح" : ""}</span><b className={neg ? "text-red-700" : "text-[var(--navy)]"}>{neg ? "−" : ""}{money(val)}</b></div>
         </div>; })}</div>}
+    </section>
+  </div>;
+}
+
+/* ═════ المديونية ═════ */
+function DebtTab({ debt }: { debt: DebtData | null }) {
+  const [open, setOpen] = useState<number | null>(null);
+  if (!debt) return <div className={`${card} text-center text-sm text-[var(--muted)]`}>جاري تحميل المديونية…</div>;
+  if (!debt.customers.length) return <div className={`${card} text-center`}><div className="py-8"><div className="text-4xl">✓</div><div className="mt-2 text-sm font-bold text-emerald-700">مفيش مديونية على عملائك — ممتاز!</div></div></div>;
+  const fDate = (d: string) => d ? new Intl.DateTimeFormat("ar-EG-u-nu-latn", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${d}T12:00:00Z`)) : "—";
+  return <div className="space-y-4">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div className={`${card} text-center`}><div className="text-[11px] font-bold text-[var(--muted)]">إجمالي المديونية</div><div className="mt-1 text-xl font-extrabold text-[var(--navy)]">{money(debt.total)}</div></div>
+      <div className={`${card} text-center`}><div className="text-[11px] font-bold text-[var(--muted)]">المتأخر</div><div className="mt-1 text-xl font-extrabold text-red-700">{money(debt.totalOverdue)}</div></div>
+      <div className={`${card} text-center col-span-2 sm:col-span-1`}><div className="text-[11px] font-bold text-[var(--muted)]">عدد العملاء</div><div className="mt-1 text-xl font-extrabold text-[var(--navy)]">{debt.customers.length}</div></div>
+    </div>
+    <section className={card}>
+      <h3 className="mb-3 flex items-center gap-2 font-extrabold text-[var(--navy)]"><Icon name="receipt" size={18} />مديونية العملاء</h3>
+      <div className="space-y-2">{debt.customers.map(c => {
+        const isOpen = open === c.client_id;
+        return <div key={c.client_id} className="rounded-2xl border border-[var(--border)] transition hover:shadow-sm">
+          <button type="button" onClick={() => setOpen(isOpen ? null : c.client_id)} className="flex w-full items-center gap-3 p-3 text-right">
+            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-extrabold text-white ${c.overdue > 0 ? "bg-red-500" : "bg-[var(--navy)]"}`}>{c.name.charAt(0)}</span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center justify-between gap-2"><span className="truncate text-sm font-bold">{c.clinic_name || c.name}</span><b className="shrink-0 text-sm font-extrabold text-[var(--navy)]">{money(c.unpaid)}</b></span>
+              <span className="flex items-center justify-between gap-2 text-[11px] text-[var(--muted)]"><span>{c.clinic_name ? c.name : ""}{c.invoices.length > 0 ? ` · ${c.invoices.length} فاتورة مفتوحة` : ""}</span>{c.overdue > 0 && <span className="font-bold text-red-600">متأخر {money(c.overdue)}</span>}</span>
+            </span>
+            <span className={`text-[var(--muted)] transition ${isOpen ? "rotate-90" : ""}`}>‹</span>
+          </button>
+          {isOpen && c.invoices.length > 0 && <div className="border-t border-[var(--border)] px-3 pb-3 pt-2">
+            <div className="space-y-1.5">{c.invoices.sort((a, b) => b.overdue_days - a.overdue_days).map(inv => <div key={inv.id} className="flex items-center justify-between gap-2 rounded-xl bg-[var(--bg)] px-3 py-2 text-[12px]">
+              <span className="flex items-center gap-2"><span className="font-bold text-[var(--navy)]">فاتورة {inv.no}</span><span className="text-[var(--muted)]">{fDate(inv.date)}</span></span>
+              <span className="flex items-center gap-2"><b className="text-[var(--navy)]">{money(inv.unpaid)}</b>{inv.overdue_days > 0 && <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold text-red-700">متأخر {inv.overdue_days} يوم</span>}</span>
+            </div>)}</div>
+          </div>}
+        </div>;
+      })}</div>
     </section>
   </div>;
 }
