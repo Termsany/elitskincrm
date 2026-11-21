@@ -229,7 +229,7 @@ function SpendTab({ month }: { month: string }) {
   const [data, setData] = useState<{ month: string; reps: RepSpend[] } | null>(null);
   const [err, setErr] = useState("");
   const [open, setOpen] = useState<string | null>(null);
-  useEffect(() => { setData(null); setErr(""); fetch(`/api/admin/sales/spend?month=${month}`, { cache: "no-store" }).then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e.error))).then(setData).catch(e => setErr(String(e))); }, [month]);
+  useEffect(() => { setData(null); setErr(""); fetch(`/api/admin/sales/spend?month=${month}`, { cache: "no-store" }).then(async r => { const j = await r.json().catch(() => null); if (!r.ok || !j) throw new Error(j?.error || `خطأ ${r.status}`); return j; }).then(setData).catch(e => setErr(e.message || String(e))); }, [month]);
 
   if (err) return <div className={`${card} py-8 text-center text-sm text-red-600`}>{err}</div>;
   if (!data) return <div className="grid gap-3 lg:grid-cols-2">{[0, 1, 2, 3].map(i => <div key={i} className="h-40 animate-pulse rounded-[28px] bg-white" />)}</div>;
@@ -339,7 +339,7 @@ function ClinicsReportTab({ month }: { month: string }) {
   const [err, setErr] = useState("");
   const [open, setOpen] = useState<string | null>(null);
   const [q, setQ] = useState("");
-  useEffect(() => { setData(null); setErr(""); fetch(`/api/admin/sales/clinics-report?month=${month}`, { cache: "no-store" }).then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e.error))).then(setData).catch(e => setErr(String(e))); }, [month]);
+  useEffect(() => { setData(null); setErr(""); fetch(`/api/admin/sales/clinics-report?month=${month}`, { cache: "no-store" }).then(async r => { const j = await r.json().catch(() => null); if (!r.ok || !j) throw new Error(j?.error || `خطأ ${r.status}`); return j; }).then(setData).catch(e => setErr(e.message || String(e))); }, [month]);
 
   if (err) return <div className={`${card} py-8 text-center text-sm text-red-600`}>{err}</div>;
   if (!data) return <div className="grid gap-3 lg:grid-cols-4">{[0, 1, 2, 3].map(i => <div key={i} className="h-28 animate-pulse rounded-[28px] bg-white" />)}</div>;

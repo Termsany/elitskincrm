@@ -18,7 +18,7 @@ export async function GET(req: Request) {
     query<{ clinic_id: string; clinic_name: string; rep_name: string; product_name: string; total_sales: string; total_units: string }>(
       `SELECT c.id as clinic_id, c.name as clinic_name,
               u.name as rep_name, p.name as product_name,
-              SUM(s.line_total)::float8 as total_sales,
+              SUM(s.value)::float8 as total_sales,
               SUM(s.quantity)::float8 as total_units
        FROM daftra_sales_v s
        JOIN clinics c ON c.daftra_client_id = s.client_id
