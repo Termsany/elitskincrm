@@ -98,7 +98,7 @@ export default function FinanceHub({ subdomain }: { subdomain: string }) {
       : <div className={`transition-opacity ${loading ? "opacity-50" : ""}`}>
         {tab === "sales" && <Sales d={d} pickMonth={pickMonth} x={x} subdomain={subdomain} ask={ask} go={go} />}
         {tab === "ar" && <Book d={d} subdomain={subdomain} ask={ask} />}
-        {tab === "team" && <AdminSales only={["team", "targets"]} />}
+        {tab === "team" && <AdminSales only={["team", "targets", "spend", "clinics-report"]} />}
         {tab === "settings" && <AdminSales only={["approvals", "items", "catalog", "close"]} />}
       </div>}
 
