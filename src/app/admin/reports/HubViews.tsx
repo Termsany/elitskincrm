@@ -146,6 +146,15 @@ export function RepsView({ d, pick, print }: P<"reps">) {
 
 export function MarketView({ d, pick, print }: P<"market">) {
   return <div className="space-y-4">
+    {d.clinics?.length > 0 && <Section print={print} title={`العيادات (${d.clinics.length})`}>
+      <RankTable print={print} rows={d.clinics} first={15} cols={[
+        { key: "clinic_name", label: "العيادة" }, { key: "rep_name", label: "المندوب" },
+        { key: "sales", label: "المبيعات", num: true, fmt: v => sar(v as number) },
+        { key: "units", label: "الوحدات", num: true, fmt: v => n0(v as number) },
+        { key: "visits", label: "الزيارات", num: true, fmt: v => (v as number) || "—" },
+        { key: "last_visit", label: "آخر زيارة", num: true, fmt: v => v ? String(v).slice(5) : <span className="text-red-600">—</span> },
+      ]} />
+    </Section>}
     <Section print={print} title={`عملاء بطّلوا أو قلّلوا (${d.declining.length})`}><RankTable print={print} rows={d.declining} empty="✓ مفيش عملاء بيقلّوا" cols={[{ key: "name", label: "العميل" }, { key: "rep", label: "المندوب", fmt: v => (v as string) || "—" },
       { key: "status", label: "الحالة", fmt: v => v === "stopped" ? <b className="text-red-600">وقف</b> : <b className="text-amber-700">بيقل</b> }, { key: "days", label: "من آخر طلب", num: true, fmt: v => v === null ? "—" : `${v} يوم` },
       { key: "change", label: "التغيير", num: true, fmt: v => <Delta v={v === null ? null : Math.round(v as number)} /> }, { key: "monthly", label: "متوسطه الشهري", num: true, fmt: v => sar(v as number) },

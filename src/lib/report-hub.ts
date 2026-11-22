@@ -150,11 +150,25 @@ export async function hubReps(f: HubFilters, today: string) {
   return { month: scores.month, rows };
 }
 
+async function clinicSales(f: HubFilters) {
+  const vals: unknown[] = [f.from, f.to]; const where: string[] = ["s.clinic_id IS NOT NULL", "s.invoice_date >= $1::date", "s.invoice_date < $2::date"];
+  if (f.repId) { vals.push(f.repId); where.push(`s.rep_id = $${vals.length}::uuid`); }
+  if (f.city) { vals.push(f.city.trim().toLowerCase()); where.push(`lower(btrim(COALESCE(c.city,''))) = $${vals.length}`); }
+  return (await query<{ clinic_id: string; clinic_name: string; rep_name: string; sales: number; units: number; visits: number; last_visit: string | null }>(
+    `SELECT s.clinic_id::text clinic_id, c.name clinic_name, COALESCE(u.name,'—') rep_name,
+            SUM(s.value)::float8 sales, SUM(s.quantity)::float8 units,
+            (SELECT count(*) FROM visits v JOIN doctors d ON d.id = v.doctor_id WHERE d.clinic_id = s.clinic_id AND v.status::text IN ('completed','follow_up') AND (v.visited_at AT TIME ZONE 'Asia/Riyadh')::date BETWEEN $1::date AND $2::date)::int visits,
+            (SELECT max((v2.visited_at AT TIME ZONE 'Asia/Riyadh')::date)::text FROM visits v2 JOIN doctors d2 ON d2.id = v2.doctor_id WHERE d2.clinic_id = s.clinic_id AND v2.status::text IN ('completed','follow_up')) last_visit
+     FROM daftra_sales_v s JOIN clinics c ON c.id = s.clinic_id LEFT JOIN users u ON u.id = s.rep_id
+     WHERE ${where.join(" AND ")}
+     GROUP BY s.clinic_id, c.name, u.name ORDER BY sales DESC`, vals).catch(() => ({ rows: [] }))).rows;
+}
+
 export async function hubMarket(f: HubFilters, today: string) {
-  const [decl, due, unseen, cs, growth] = await Promise.all([
+  const [decl, due, unseen, cs, growth, topClinics] = await Promise.all([
     decliningClients(f.repId || null, today).catch(() => []),
     reorderDue(today, { repId: f.repId || undefined, ahead: 10 }).catch(() => []),
-    aUnseen(f), cities(f), salesBy("client", f),
+    aUnseen(f), cities(f), salesBy("client", f), clinicSales(f),
   ]);
   const inCity = (c: string | null | undefined) => !f.city || (c || "").trim().toLowerCase() === f.city.trim().toLowerCase();
   const ids = [...new Set([...decl.map(x => x.clinic_id), ...due.map(x => x.clinic_id)].filter(Boolean))] as string[];
@@ -163,6 +177,7 @@ export async function hubMarket(f: HubFilters, today: string) {
   const csales = await salesBy("city", f);
   const sm = new Map(csales.map(x => [x.k, x]));
   return {
+    clinics: topClinics.map(c => ({ ...c, sales: r0(c.sales), units: r0(c.units) })),
     declining: decl.filter(x => here(x.clinic_id)).map(x => ({ name: x.name, clinic: x.clinic_name, rep: x.rep_name, status: x.status, days: x.days_since, change: x.change, monthly: r0(x.monthly_avg), last: x.last, doctor_id: x.doctor_id })),
     reorder: due.filter(x => here(x.clinic_id)).map(x => ({ clinic: x.clinic_name, next: x.next_expected, days_to: x.days_to, gap: x.usual_gap, monthly: r0(x.monthly_avg), top: x.top.slice(0, 2).join("، "), doctor_id: x.doctors[0]?.id || "" })),
     cities: cs.filter(x => inCity(x.city)).map(x => { const u = unseen.find(y => y.city === x.city); const s = sm.get(x.city); return { city: x.city, doctors: x.doctors, visited: x.visited, coverage: pct(x.visited, x.doctors), visits: x.visits,
