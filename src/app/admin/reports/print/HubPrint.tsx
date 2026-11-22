@@ -1,10 +1,10 @@
 import { query } from "@/lib/db";
 import { riyadhToday } from "@/lib/riyadh-day";
 import { parseHub, reportHub, VIEWS, type HubData, type View } from "@/lib/report-hub";
-import { MarketView, RepsView, SummaryView } from "../HubViews";
+import { MarketView, ProductsView, RepsView, SummaryView } from "../HubViews";
 import AutoPrint from "./AutoPrint";
 
-const TITLE: Partial<Record<View, string>> = { summary: "التقرير الشامل", reps: "المناديب", market: "السوق والعملاء" };
+const TITLE: Partial<Record<View, string>> = { summary: "التقرير الشامل", reps: "المناديب", market: "السوق والعملاء", products: "المنتجات" };
 const fmtDate = (d: string) => new Intl.DateTimeFormat("ar-EG-u-nu-latn", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${d}T12:00:00Z`));
 
 export default async function HubPrint({ sp, manager }: { sp: URLSearchParams; manager: boolean }) {
@@ -20,6 +20,7 @@ export default async function HubPrint({ sp, manager }: { sp: URLSearchParams; m
       case "summary": return <SummaryView d={d as HubData["summary"]} print />;
       case "reps": return <RepsView d={d as HubData["reps"]} print />;
       case "market": return <MarketView d={d as HubData["market"]} print />;
+      case "products": return <ProductsView d={d as HubData["products"]} print />;
       default: return null;
     }
   };

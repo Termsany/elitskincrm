@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useToast } from "@/components/Toast";
 import type { HubData, View } from "@/lib/report-hub";
-import { MarketView, RepsView, SummaryView, type Pick } from "./HubViews";
+import { MarketView, ProductsView, RepsView, SummaryView, type Pick } from "./HubViews";
 import ReportsWorkspace from "./ReportsWorkspace";
 import { AiAdvisor } from "../../daftra-sales/ai";
 import { riyadhToday } from "@/lib/fmt";
@@ -11,7 +11,7 @@ import { riyadhToday } from "@/lib/fmt";
 type Opt = { id: string; name: string };
 type Tab = View | "tables";
 type F = { from: string; to: string; repId: string; city: string };
-const TABS: Array<[Tab, string]> = [["summary", "الملخص"], ["reps", "المناديب"], ["market", "السوق والعملاء"], ["tables", "كل الجداول"]];
+const TABS: Array<[Tab, string]> = [["summary", "الملخص"], ["reps", "المناديب"], ["market", "السوق والعملاء"], ["products", "المنتجات"], ["tables", "كل الجداول"]];
 const FINANCE_URL = "https://finance.eliteskinsa.com";
 const add = (d: string, n: number) => { const t = new Date(`${d}T12:00:00Z`); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
 const mEnd = (d: string) => { const [y, m] = d.split("-").map(Number); return new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10); };
@@ -32,7 +32,13 @@ const CHIPS: Record<string, string> = {
   summary: DEFAULT_CHIP,
   reps: "اشرح لي أداء المناديب: مين محتاج متابعة وفي إيه بالظبط؟",
   market: "اشرح لي السوق: أنهي عملاء ومدن محتاجة تحرك سريع ومين يتحرك؟",
+  products: "حلّل لي المنتجات: أنهي المنتجات بتتعرض كتير بس ما بتتباعش وليه؟ وأنهي فيها فجوة بين العرض والبيع؟",
 };
+
+type SavedView = { name: string; tab: Tab; f: F };
+const SAVED_KEY = "report-saved-views";
+function loadSaved(): SavedView[] { try { return JSON.parse(localStorage.getItem(SAVED_KEY) || "[]"); } catch { return []; } }
+function saveSaved(views: SavedView[]) { try { localStorage.setItem(SAVED_KEY, JSON.stringify(views.slice(0, 10))); } catch {} }
 
 function readUrl(search: string): { tab: Tab; f: F } {
   const sp = new URLSearchParams(search);
@@ -51,6 +57,11 @@ export default function ReportsHub({ reps, products, cities, manager, ai, aiSetu
   const [data, setData] = useState<Partial<Record<View, unknown>>>({});
   const [loading, setLoading] = useState(false);
   const [aiOpen, setAiOpen] = useState(false); const [asked, setAsked] = useState<{ q: string; n: number } | null>(null);
+  const [saved, setSaved] = useState<SavedView[]>([]); const [showSaved, setShowSaved] = useState(false);
+  useEffect(() => { setSaved(loadSaved()); }, []);
+  const saveView = () => { const name = prompt("اسم الحفظ:"); if (!name) return; const next = [{ name, tab, f }, ...saved.filter(s => s.name !== name)]; saveSaved(next); setSaved(next); };
+  const deleteSaved = (name: string) => { const next = saved.filter(s => s.name !== name); saveSaved(next); setSaved(next); };
+  const applySaved = (s: SavedView) => { setTab(s.tab); setF(s.f); setShowSaved(false); };
   const tabs = TABS;
   const qs = useMemo(() => { const q = new URLSearchParams(); (Object.keys(f) as Array<keyof F>).forEach(k => f[k] && q.set(k, f[k])); return q; }, [f]);
 
@@ -91,6 +102,17 @@ export default function ReportsHub({ reps, products, cities, manager, ai, aiSetu
         <div className="mr-auto flex gap-2">
           <button type="button" onClick={() => ask(CHIPS[tab] || DEFAULT_CHIP)} className="h-10 rounded-xl bg-[var(--navy)] px-4 text-sm font-bold text-white">✨ اشرح لي</button>
           <a href={pdf} target="_blank" rel="noreferrer" className="flex h-10 items-center rounded-xl border border-[var(--border)] px-4 text-sm font-bold text-[var(--navy)]">⬇ PDF</a>
+          <div className="relative">
+            <button type="button" onClick={() => setShowSaved(x => !x)} className="flex h-10 items-center rounded-xl border border-[var(--border)] px-3 text-sm font-bold text-[var(--navy)]">{saved.length ? `📌 ${saved.length}` : "📌"}</button>
+            {showSaved && <div className="absolute left-0 top-full z-20 mt-1 min-w-[200px] rounded-xl border border-[var(--border)] bg-white p-2 shadow-lg">
+              <button type="button" onClick={saveView} className="mb-1 w-full rounded-lg bg-[var(--navy)] px-3 py-2 text-xs font-bold text-white">+ احفظ العرض الحالي</button>
+              {saved.map(s => <div key={s.name} className="flex items-center gap-1 rounded-lg p-1.5 text-xs hover:bg-[var(--bg)]">
+                <button type="button" onClick={() => applySaved(s)} className="flex-1 text-right font-bold text-[var(--navy)]">{s.name}</button>
+                <button type="button" onClick={() => deleteSaved(s.name)} className="text-red-400 hover:text-red-600">✕</button>
+              </div>)}
+              {!saved.length && <p className="p-2 text-center text-[11px] text-[var(--muted)]">احفظ فلتر معين عشان ترجعله بسرعة</p>}
+            </div>}
+          </div>
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
@@ -109,6 +131,7 @@ export default function ReportsHub({ reps, products, cities, manager, ai, aiSetu
       : !d || loading ? <div className="grid gap-3 md:grid-cols-3">{[0, 1, 2, 3, 4, 5].map(i => <div key={i} className="es-shimmer h-28 rounded-[22px]" />)}</div>
       : tab === "summary" ? <SummaryView d={d as HubData["summary"]} pick={pick} />
       : tab === "reps" ? <RepsView d={d as HubData["reps"]} pick={pick} />
+      : tab === "products" ? <ProductsView d={d as HubData["products"]} />
       : <MarketView d={d as HubData["market"]} pick={pick} />}
 
     {aiOpen && typeof document !== "undefined" && createPortal(

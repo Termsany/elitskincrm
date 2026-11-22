@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { HubData, Kpi, Tone } from "@/lib/report-hub";
 
@@ -89,7 +89,9 @@ export function SummaryView({ d, pick, print }: P<"summary">) {
       {!d.decisions.length ? <p className="py-4 text-center text-sm text-emerald-700">✓ مفيش حاجة عاجلة</p> : <ol className="space-y-2">{d.decisions.map((x, i) => <li key={i}>
         <Link href={x.href} className={`flex items-start gap-3 rounded-2xl border p-3 transition hover:shadow-sm ${x.level === "danger" ? "border-red-200 bg-red-50/60" : "border-amber-200 bg-amber-50/60"}`}>
           <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-xs font-black text-white ${x.level === "danger" ? "bg-red-600" : "bg-amber-500"}`}>{i + 1}</span>
-          <span className="min-w-0 flex-1"><b className="block text-[14px] text-[var(--ink)]" dir="auto">{x.text}</b>{x.detail && <span className="text-[12px] text-[var(--muted)]" dir="auto">{x.detail}</span>}</span>
+          <span className="min-w-0 flex-1"><b className="block text-[14px] text-[var(--ink)]" dir="auto">{x.text}</b>{x.detail && <span className="text-[12px] text-[var(--muted)]" dir="auto">{x.detail}</span>}
+            {(x.assignee || x.action) && <span className="mt-1 flex flex-wrap gap-1.5 text-[11px]">{x.assignee && <span className="rounded-full bg-[var(--navy)]/10 px-2 py-0.5 font-bold text-[var(--navy)]">{x.assignee}</span>}{x.action && <span className="text-[var(--muted)]">{x.action}</span>}</span>}
+          </span>
           {!print && <span className="shrink-0 self-center text-xs font-bold text-teal-700">افتح ←</span>}
         </Link></li>)}</ol>}
     </Section>
@@ -120,34 +122,112 @@ export function SalesView({ d, pick, print }: P<"sales">) {
   </div>;
 }
 
+function RepCard({ r }: { r: { name: string; product: string | null; score: number | null; prev_score: number | null; sales: number; target: number; sales_pct: number | null; visits: number; planned: number; plan_done: number; plan_pct: number | null; a: string; quality: number | null; cancelled: number; idle: number; overdue: number; expenses: number; samples: number; rep_expenses: number; collected: number; roi: number | null; weakest: string | null } }) {
+  const tone = (s: number | null) => s === null ? "" : s >= 80 ? "text-emerald-700" : s >= 60 ? "text-amber-700" : "text-red-600";
+  const pc = (v: number | null) => v === null ? "—" : <span className={tone(v)}>{v}%</span>;
+  const effortCost = r.rep_expenses + r.expenses;
+  const stat = (label: string, val: React.ReactNode, sub?: string) => <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg)] p-3"><div className="text-[11px] text-[var(--muted)]">{label}</div><div className="mt-0.5 text-lg font-black text-[var(--navy)]">{val}</div>{sub && <div className="text-[10.5px] text-[var(--muted)]">{sub}</div>}</div>;
+  return <div className="space-y-3 rounded-[22px] border border-[var(--border)] bg-white p-4 shadow-sm">
+    <div className="flex items-center gap-3">
+      <div className={`grid h-12 w-12 place-items-center rounded-2xl text-xl font-black text-white ${(r.score ?? 0) >= 80 ? "bg-emerald-600" : (r.score ?? 0) >= 60 ? "bg-amber-500" : "bg-red-500"}`}>{r.score ?? "—"}</div>
+      <div><b className="text-[var(--navy)]" dir="auto">{r.name}</b>{r.product && <div className="text-[11px] text-[var(--muted)]">{r.product}</div>}</div>
+      {r.prev_score !== null && r.score !== null && <div className="mr-auto"><Delta v={r.score - r.prev_score} /></div>}
+    </div>
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      {stat("المبيعات", sar(r.sales), r.target ? `${r.sales_pct ?? 0}% من ${sar(r.target)}` : undefined)}
+      {stat("الزيارات", n0(r.visits), `${r.plan_done}/${r.planned} خطة ${pc(r.plan_pct)}`)}
+      {stat("تغطية A", r.a)}
+      {stat("الجودة", pc(r.quality), r.weakest ? `أضعف: ${r.weakest}` : undefined)}
+    </div>
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      {stat("العينات", `${n0(r.samples)} وحدة`)}
+      {stat("المصاريف", sar(effortCost), `${sar(r.rep_expenses)} مصاريف + ${sar(r.expenses)} عهد`)}
+      {stat("التحصيل", sar(r.collected))}
+      {stat("العائد ROI", r.roi !== null ? `${r.roi}x` : "—", r.roi !== null ? `كل ريال تكلفة = ${r.roi} ريال مبيعات` : "مفيش تكلفة")}
+    </div>
+    <div className="grid grid-cols-3 gap-2 text-center text-[12px]">
+      <div className="rounded-xl bg-red-50 p-2"><b className="text-red-600">{r.cancelled}</b><div className="text-[var(--muted)]">إلغاء</div></div>
+      <div className="rounded-xl bg-amber-50 p-2"><b className="text-amber-700">{r.idle}</b><div className="text-[var(--muted)]">أيام فاضية</div></div>
+      <div className="rounded-xl bg-sky-50 p-2"><b className="text-sky-700">{sar(r.overdue)}</b><div className="text-[var(--muted)]">ديون عملاؤه</div></div>
+    </div>
+  </div>;
+}
+
 export function RepsView({ d, pick, print }: P<"reps">) {
   const [cmp, setCmp] = useState<string[]>([]);
+  const [card, setCard] = useState<string | null>(null);
   const pair = d.rows.filter(r => cmp.includes(r.id));
+  const cardRow = d.rows.find(r => r.id === card);
   const tone = (s: number | null) => s === null ? "" : s >= 80 ? "text-emerald-700" : s >= 60 ? "text-amber-700" : "text-red-600";
   const pc = (v: number | null) => v === null ? "—" : <span className={tone(v)}>{v}%</span>;
   return <div className="space-y-4">
+    {cardRow && !print && <div className="relative"><button type="button" onClick={() => setCard(null)} className="absolute left-2 top-2 z-10 grid h-8 w-8 place-items-center rounded-full bg-[var(--bg)] text-sm font-bold">✕</button><RepCard r={cardRow} /></div>}
     {pair.length === 2 && !print && <Section title="مقارنة" right={<button type="button" onClick={() => setCmp([])} className="text-xs font-bold text-[var(--muted)]">✕</button>}>
       <table className="w-full text-[13px]"><thead><tr className="text-[11px] text-[var(--muted)]"><th className="p-2 text-right" />{pair.map(r => <th key={r.id} className="p-2 text-center text-[var(--navy)]" dir="auto">{r.name}</th>)}</tr></thead>
         <tbody className="divide-y divide-[var(--border)]">{([["التقييم", (r: typeof pair[0]) => r.score ?? "—"], ["المبيعات", r => sar(r.sales)], ["من التارجت", r => pc(r.sales_pct)], ["الزيارات", r => n0(r.visits)], ["الالتزام بالخطة", r => pc(r.plan_pct)],
-          ["تغطية A", r => r.a], ["جودة الزيارات", r => pc(r.quality)], ["إلغاءات", r => r.cancelled], ["أيام من غير شغل", r => r.idle], ["مديونية عملاؤه", r => sar(r.overdue)]] as Array<[string, (r: typeof pair[0]) => React.ReactNode]>).map(([l, f]) =>
+          ["تغطية A", r => r.a], ["جودة الزيارات", r => pc(r.quality)], ["العينات", r => n0(r.samples)], ["المصاريف", r => sar(r.rep_expenses)], ["التحصيل", r => sar(r.collected)],
+          ["العائد ROI", r => r.roi !== null ? `${r.roi}x` : "—"], ["إلغاءات", r => r.cancelled], ["أيام فاضية", r => r.idle], ["ديون عملاؤه", r => sar(r.overdue)]] as Array<[string, (r: typeof pair[0]) => React.ReactNode]>).map(([l, f]) =>
           <tr key={l}><td className="p-2 text-[12px] text-[var(--muted)]">{l}</td>{pair.map(r => <td key={r.id} className="p-2 text-center font-bold">{f(r)}</td>)}</tr>)}</tbody></table>
     </Section>}
-    <Section print={print} title={`المناديب · تقييم ${d.month}`} right={!print ? <span className="text-[11px] text-[var(--muted)]">{cmp.length === 1 ? "اختار مندوب تاني للمقارنة" : "علّم على اتنين للمقارنة"}</span> : null}>
-      <RankTable print={print} rows={d.rows.map(r => ({ ...r, pick: r.id }))} onRow={pick && !print ? r => pick({ repId: r.id }) : undefined} first={50} cols={[
+    <Section print={print} title={`المناديب · تقييم ${d.month}`} right={!print ? <span className="text-[11px] text-[var(--muted)]">{cmp.length === 1 ? "اختار مندوب تاني للمقارنة" : "علّم على اتنين للمقارنة · اضغط على مندوب لكارته"}</span> : null}>
+      <RankTable print={print} rows={d.rows.map(r => ({ ...r, pick: r.id }))} onRow={!print ? r => setCard(c => c === r.id ? null : r.id) : undefined} first={50} cols={[
         ...(!print ? [{ key: "pick" as const, label: "", fmt: (v: unknown) => <input type="checkbox" aria-label="قارن" checked={cmp.includes(String(v))} onClick={e => e.stopPropagation()} onChange={() => setCmp(c => c.includes(String(v)) ? c.filter(x => x !== v) : [...c.slice(-1), String(v)])} /> }] : []),
         { key: "name", label: "المندوب" }, { key: "score", label: "التقييم", num: true, fmt: (v, r) => <span><b className={`text-[15px] ${tone(v as number | null)}`}>{(v as number | null) ?? "—"}</b>{r.prev_score !== null && v !== null ? <span className="mr-1"><Delta v={(v as number) - (r.prev_score as number)} /></span> : null}</span> },
-        { key: "sales", label: "المبيعات", num: true, fmt: v => sar(v as number) }, { key: "sales_pct", label: "من التارجت", num: true, fmt: v => pc(v as number | null) },
+        { key: "sales", label: "المبيعات", num: true, fmt: v => sar(v as number) }, { key: "sales_pct", label: "التارجت", num: true, fmt: v => pc(v as number | null) },
         { key: "visits", label: "الزيارات", num: true, fmt: (v, r) => <span>{n0(v as number)} <Delta v={r.visits_prev ? Math.round(((v as number) - (r.visits_prev as number)) / (r.visits_prev as number) * 100) : null} /></span> },
-        { key: "plan_pct", label: "الخطة", num: true, fmt: v => pc(v as number | null) }, { key: "a", label: "تغطية A", num: true }, { key: "quality", label: "الجودة", num: true, fmt: v => pc(v as number | null) },
-        { key: "cancelled", label: "إلغاء", num: true }, { key: "weakest", label: "أضعف بند", fmt: v => (v as string) || "—" }]} />
+        { key: "plan_pct", label: "الخطة", num: true, fmt: v => pc(v as number | null) }, { key: "a", label: "A", num: true },
+        { key: "roi", label: "ROI", num: true, fmt: v => (v as number | null) !== null ? <b className={(v as number) < 3 ? "text-red-600" : (v as number) < 6 ? "text-amber-700" : "text-emerald-700"}>{v as number}x</b> : "—" },
+        { key: "quality", label: "الجودة", num: true, fmt: v => pc(v as number | null) },
+        { key: "weakest", label: "أضعف بند", fmt: v => (v as string) || "—" }]} />
     </Section>
   </div>;
 }
 
+function ClinicDrawer({ clinicId, onClose }: { clinicId: string; onClose: () => void }) {
+  const [d, setD] = useState<{ name: string; city: string; doctors: Array<{ name: string; classification: string; visits: number; last_visit: string | null }>; products: Array<{ product: string; presented: number; interested: number; sampled: number }>; recentVisits: Array<{ date: string; doctor: string; rep: string; status: string; notes: string }> } | null>(null);
+  const load = useCallback(async () => {
+    const r = await fetch(`/api/admin/reports/clinic?id=${clinicId}`).then(r => r.ok ? r.json() : null).catch(() => null);
+    if (r) setD(r);
+  }, [clinicId]);
+  useEffect(() => { void load(); }, [load]);
+  return <div className="fixed inset-0 z-[60] bg-[var(--navy)]/25 backdrop-blur-[2px]" onClick={onClose}>
+    <section dir="rtl" role="dialog" aria-modal="true" onClick={e => e.stopPropagation()} className="absolute inset-y-0 left-0 flex w-[min(600px,100vw)] flex-col bg-[var(--bg)] shadow-2xl">
+      <div className="flex items-center gap-2 border-b border-[var(--border)] bg-white p-3">
+        <b className="text-[var(--navy)]">{d?.name || "..."}</b>{d?.city && <span className="text-[12px] text-[var(--muted)]">{d.city}</span>}
+        <button type="button" onClick={onClose} aria-label="إغلاق" className="mr-auto grid h-9 w-9 place-items-center rounded-full bg-[var(--bg)]">✕</button>
+      </div>
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
+        {!d ? <div className="py-10 text-center text-sm text-[var(--muted)]">جاري التحميل...</div> : <>
+          {d.doctors.length > 0 && <Section title={`الأطباء (${d.doctors.length})`}>
+            <RankTable rows={d.doctors} first={20} cols={[
+              { key: "name", label: "الطبيب" }, { key: "classification", label: "التصنيف", num: true },
+              { key: "visits", label: "الزيارات", num: true }, { key: "last_visit", label: "آخر زيارة", fmt: v => v ? String(v).slice(5) : "—" },
+            ]} />
+          </Section>}
+          {d.products.length > 0 && <Section title="المنتجات المعروضة">
+            <RankTable rows={d.products} cols={[
+              { key: "product", label: "المنتج" }, { key: "presented", label: "عرض", num: true },
+              { key: "interested", label: "مهتم", num: true }, { key: "sampled", label: "عينات", num: true },
+            ]} />
+          </Section>}
+          {d.recentVisits.length > 0 && <Section title="آخر الزيارات">
+            <RankTable rows={d.recentVisits} first={10} cols={[
+              { key: "date", label: "التاريخ", fmt: v => String(v).slice(5) }, { key: "doctor", label: "الطبيب" },
+              { key: "rep", label: "المندوب" }, { key: "notes", label: "ملاحظات", fmt: v => <span className="line-clamp-2 text-[11px]">{String(v || "—")}</span> },
+            ]} />
+          </Section>}
+        </>}
+      </div>
+    </section>
+  </div>;
+}
+
 export function MarketView({ d, pick, print }: P<"market">) {
+  const [drawer, setDrawer] = useState<string | null>(null);
   return <div className="space-y-4">
+    {drawer && <ClinicDrawer clinicId={drawer} onClose={() => setDrawer(null)} />}
     {d.clinics?.length > 0 && <Section print={print} title={`العيادات (${d.clinics.length})`}>
-      <RankTable print={print} rows={d.clinics} first={15} cols={[
+      <RankTable print={print} rows={d.clinics} first={15} onRow={!print ? r => setDrawer(r.clinic_id as string) : undefined} cols={[
         { key: "clinic_name", label: "العيادة" }, { key: "rep_name", label: "المندوب" },
         { key: "sales", label: "المبيعات", num: true, fmt: v => sar(v as number) },
         { key: "units", label: "الوحدات", num: true, fmt: v => n0(v as number) },
@@ -170,6 +250,37 @@ export function MarketView({ d, pick, print }: P<"market">) {
       <Section print={print} title="بيكبروا"><Bars rows={d.growing.map(x => ({ label: x.name, value: x.sales, sub: <Delta v={x.delta} /> }))} /></Section>
       <Section print={print} title="عملاء جداد في الفترة"><Bars rows={d.newClients.map(x => ({ label: x.name, value: x.sales }))} /></Section>
     </div>
+  </div>;
+}
+
+const OBJECTION_AR: Record<string, string> = { price: "السعر", competitor: "منافس", stock: "المخزون", not_tried: "ما جربش", busy: "مشغول", side_effects: "آثار جانبية", no_interest: "مش مهتم", trust: "محتاج دليل" };
+
+export function ProductsView({ d, print }: P<"products">) {
+  if (!d.products.length && !d.topSold.length) return <p className="py-10 text-center text-sm text-[var(--muted)]">مفيش بيانات عروض أو مبيعات في الفترة</p>;
+  const maxP = Math.max(1, ...d.products.map(p => p.presented));
+  return <div className="space-y-4">
+    {d.products.length > 0 && <Section print={print} title="قمع المنتجات: عرض → اهتمام → عينة → بيع">
+      <div className="space-y-3">{d.products.map(p => <div key={p.product} className="rounded-2xl border border-[var(--border)] p-3">
+        <div className="mb-2 flex items-baseline justify-between gap-2"><b className="text-[14px] text-[var(--navy)]" dir="auto">{p.product}</b><span className="text-[11px] text-[var(--muted)]">{p.doctors} طبيب · {p.reps} مندوب</span></div>
+        <div className="mb-2 flex h-3 overflow-hidden rounded-full bg-[var(--bg)]">
+          <div className="h-full bg-sky-400" style={{ width: `${p.presented / maxP * 100}%` }} title={`عرض: ${p.presented}`} />
+        </div>
+        <div className="grid grid-cols-2 gap-2 text-center text-[12px] sm:grid-cols-5">
+          <div className="rounded-xl bg-sky-50 p-2"><b className="text-sky-700">{n0(p.presented)}</b><div className="text-[var(--muted)]">عرض</div></div>
+          <div className="rounded-xl bg-emerald-50 p-2"><b className="text-emerald-700">{n0(p.interested)}</b> <span className="text-[var(--muted)]">({p.interest_pct}%)</span><div className="text-[var(--muted)]">مهتم</div></div>
+          <div className="rounded-xl bg-amber-50 p-2"><b className="text-amber-700">{n0(p.sample_units)}</b><div className="text-[var(--muted)]">عينة</div></div>
+          <div className="rounded-xl bg-teal-50 p-2"><b className="text-teal-700">{sar(p.sales)}</b><div className="text-[var(--muted)]">مبيعات</div></div>
+          <div className="rounded-xl bg-purple-50 p-2"><b className={p.conversion !== null ? (p.conversion >= 50 ? "text-emerald-700" : p.conversion >= 20 ? "text-amber-700" : "text-red-600") : "text-[var(--muted)]"}>{p.conversion !== null ? `${p.conversion}%` : "—"}</b><div className="text-[var(--muted)]">تحويل</div></div>
+        </div>
+        {p.not_interested > 0 && <div className="mt-1 text-[11px] text-red-600">{p.not_interested} مش مهتم ({Math.round(p.not_interested / p.presented * 100)}%)</div>}
+      </div>)}</div>
+    </Section>}
+    {d.objections.length > 0 && <Section print={print} title="الاعتراضات الأكثر تكرارًا">
+      <Bars money={false} rows={d.objections.map(o => ({ label: OBJECTION_AR[o.key] || o.key, value: o.count }))} />
+    </Section>}
+    {d.topSold.length > 0 && <Section print={print} title="أصناف اتباعت بس ما اتعرضتش (بدون تفعيل)">
+      <RankTable print={print} rows={d.topSold} cols={[{ key: "item", label: "الصنف" }, { key: "sales", label: "المبيعات", num: true, fmt: v => sar(v as number) }, { key: "qty", label: "الكمية", num: true, fmt: v => n0(v as number) }]} />
+    </Section>}
   </div>;
 }
 

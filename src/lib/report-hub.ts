@@ -12,14 +12,14 @@ import { addDays } from "@/lib/fmt";
  * Sales splits come from daftra_sales_v (credited to reps by product); profit, collection and costs from the Daftra mirror (company level).
  * The sales manager gets summary/reps/market without company money (see lib/manager-scope).
  */
-export type View = "summary" | "sales" | "reps" | "market" | "money";
-export const VIEWS: View[] = ["summary", "reps", "market"];
+export type View = "summary" | "sales" | "reps" | "market" | "money" | "products";
+export const VIEWS: View[] = ["summary", "reps", "market", "products"];
 export const MONEY_VIEWS: View[] = ["sales", "money"];
-export const ALL_VIEWS: View[] = ["summary", "sales", "reps", "market", "money"];
+export const ALL_VIEWS: View[] = ["summary", "sales", "reps", "market", "money", "products"];
 export type HubFilters = { from: string; to: string; repId: string; city: string };
 export type Tone = "good" | "warn" | "bad" | "info";
 export type Kpi = { id: string; label: string; value: number; unit: "sar" | "n" | "pct"; prev: number | null; target: number | null; tone: Tone; view: View };
-export type Decision = { level: "danger" | "warn"; text: string; detail: string; href: string; weight: number };
+export type Decision = { level: "danger" | "warn"; text: string; detail: string; href: string; weight: number; assignee?: string; action?: string };
 
 const r0 = (n: number) => Math.round(n || 0);
 const pct = (a: number, b: number) => b ? Math.round(a / b * 100) : null;
@@ -105,9 +105,9 @@ export async function hubSummary(f: HubFilters, today: string, manager: boolean)
   ];
   const d: Decision[] = [];
   for (const t of pulse.team) if (t.target > 0 && t.sales_pct !== null && t.sales_pct < 75)
-    d.push({ level: t.sales_pct < 50 ? "danger" : "warn", text: `${t.name} محقق ${t.sales_pct}% بس من تارجته`, detail: `${money(t.sales)} من ${money(t.target)}`, href: `/admin/reports?view=reps&repId=${t.id}`, weight: t.target - t.sales });
+    d.push({ level: t.sales_pct < 50 ? "danger" : "warn", text: `${t.name} محقق ${t.sales_pct}% بس من تارجته`, detail: `${money(t.sales)} من ${money(t.target)}`, href: `/admin/reports?view=reps&repId=${t.id}`, weight: t.target - t.sales, assignee: t.name, action: "يركز على أعلى العملاء اللي ما اشتروش" });
   for (const x of decl.slice(0, 6)) d.push({ level: x.status === "stopped" ? "danger" : "warn", text: x.status === "stopped" ? `${x.name} بطّل يطلب من ${x.days_since} يوم` : `${x.name} بيطلب أقل بـ ${Math.abs(Math.round(x.change ?? 0))}%`,
-    detail: `متوسطه ${money(x.monthly_avg)} في الشهر${x.rep_name ? ` · ${x.rep_name}` : ""}`, href: x.doctor_id ? `/doctors/${x.doctor_id}` : "/admin/reports?view=market", weight: x.monthly_avg * (x.status === "stopped" ? 3 : 2) });
+    detail: `متوسطه ${money(x.monthly_avg)} في الشهر${x.rep_name ? ` · ${x.rep_name}` : ""}`, href: x.doctor_id ? `/doctors/${x.doctor_id}` : "/admin/reports?view=market", weight: x.monthly_avg * (x.status === "stopped" ? 3 : 2), assignee: x.rep_name || undefined, action: x.status === "stopped" ? "زيارة عاجلة واستعادة العميل" : "متابعة وعرض بديل" });
   if (fin && fin.price_guard.below_cost) d.push({ level: "danger", text: `${fin.price_guard.below_cost} سطر اتباع تحت التكلفة`, detail: `خسارة ${money(fin.price_guard.real_loss)} في الفترة`, href: "https://finance.eliteskinsa.com", weight: fin.price_guard.real_loss * 3 });
   const old = fin ? Number(fin.ar.buckets["90+"] || 0) : 0;
   if (old > 0) d.push({ level: "danger", text: `${money(old)} ديون عدّت 90 يوم`, detail: `من إجمالي ${money(fin!.ar.total)} مستحق · افتح في المالية`, href: "https://finance.eliteskinsa.com", weight: old });
@@ -139,13 +139,34 @@ export async function hubSales(f: HubFilters, today: string) {
 }
 
 export async function hubReps(f: HubFilters, today: string) {
-  const [pulse, scores] = await Promise.all([systemPulse(f.from, f.to, null, today), repScores(f.to.slice(0, 7), today)]);
+  const ids_q = await query<{ id: string }>("SELECT id FROM users WHERE role='sales_rep' AND active ORDER BY name");
+  const repIds = ids_q.rows.map(r => r.id);
+  const [pulse, scores, samples, repExp, repColl] = await Promise.all([
+    systemPulse(f.from, f.to, null, today), repScores(f.to.slice(0, 7), today),
+    query<{ rep_id: string; units: number }>(`SELECT v.sales_rep_id rep_id, COALESCE(sum(vi.quantity),0)::int units
+      FROM visit_items vi JOIN visits v ON v.id=vi.visit_id WHERE vi.kind='sample' AND v.sales_rep_id = ANY($3::uuid[])
+      AND (v.visited_at AT TIME ZONE 'Asia/Riyadh')::date BETWEEN $1::date AND $2::date GROUP BY 1`, [f.from, f.to, repIds]),
+    query<{ rep_id: string; amount: number }>(`SELECT rep_id, COALESCE(sum(amount),0)::float8 amount
+      FROM expenses WHERE status IN ('approved','reimbursed') AND expense_date BETWEEN $1::date AND $2::date AND rep_id = ANY($3::uuid[]) GROUP BY 1`, [f.from, f.to, repIds]),
+    query<{ rep_id: string; collected: number }>(`SELECT s.rep_id, COALESCE(sum(i.amount - i.unpaid),0)::float8 collected
+      FROM daftra_invoices i JOIN daftra_sales_v s ON s.invoice_id = i.id
+      WHERE s.rep_id = ANY($3::uuid[]) AND i.invoice_date BETWEEN $1::date AND $2::date GROUP BY 1`, [f.from, f.to, repIds]).catch(() => ({ rows: [] as Array<{ rep_id: string; collected: number }> })),
+  ]);
+  const sMap = new Map(samples.rows.map(x => [x.rep_id, x.units]));
+  const eMap = new Map(repExp.rows.map(x => [x.rep_id, x.amount]));
+  const cMap = new Map(repColl.rows.map(x => [x.rep_id, x.collected]));
   const rows = pulse.team.filter(t => !f.repId || t.id === f.repId).map(t => {
     const s = scores.rows.find(x => x.rep_id === t.id);
+    const samplesN = sMap.get(t.id) ?? 0;
+    const expAmount = eMap.get(t.id) ?? 0;
+    const collected = r0(cMap.get(t.id) ?? 0);
+    const effortCost = expAmount + t.expenses;
+    const roi = effortCost > 0 ? Math.round(t.sales / effortCost * 10) / 10 : null;
     return { id: t.id, name: t.name, product: t.product, score: s?.score ?? null, prev_score: s?.prev ?? null, weakest: s?.lift ? PART_AR[s.lift] : null,
       sales: t.sales, target: t.target, sales_pct: t.sales_pct, visits: t.visits, visits_prev: t.visits_prev, planned: t.planned, plan_done: t.plan_done, plan_pct: t.plan_pct,
       a: s ? `${s.raw.aCovered}/${Math.round(s.raw.aRequired)}` : "—", quality: s?.parts.quality === null || !s ? null : Math.round(s.parts.quality * 100),
-      cancelled: s?.raw.cancelled ?? 0, idle: s?.raw.idleDays ?? 0, overdue: t.overdue, expenses: t.expenses };
+      cancelled: s?.raw.cancelled ?? 0, idle: s?.raw.idleDays ?? 0, overdue: t.overdue, expenses: t.expenses,
+      samples: samplesN, rep_expenses: r0(expAmount), collected, roi };
   }).sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
   return { month: scores.month, rows };
 }
@@ -187,6 +208,53 @@ export async function hubMarket(f: HubFilters, today: string) {
   };
 }
 
+export async function hubProducts(f: HubFilters) {
+  const vals: unknown[] = [f.from, f.to]; const where: string[] = ["(v.visited_at AT TIME ZONE 'Asia/Riyadh')::date BETWEEN $1::date AND $2::date"];
+  const salesWhere: string[] = ["s.invoice_date BETWEEN $1::date AND $2::date"];
+  if (f.repId) { vals.push(f.repId); where.push(`v.sales_rep_id = $${vals.length}::uuid`); salesWhere.push(`s.rep_id = $${vals.length}::uuid`); }
+  if (f.city) { vals.push(f.city.trim().toLowerCase()); where.push(`lower(btrim(COALESCE(d.city, cl.city, ''))) = $${vals.length}`); salesWhere.push(`lower(btrim(COALESCE(c.city, ''))) = $${vals.length}`); }
+  const [presented, sampled, sold, objections] = await Promise.all([
+    query<{ product_id: string; product: string; presented: number; interested: number; neutral: number; not_interested: number; doctors: number; reps: number }>(`
+      SELECT pp.product_id::text, p.name product, count(*)::int presented,
+        count(*) FILTER (WHERE pp.reaction='interested')::int interested,
+        count(*) FILTER (WHERE pp.reaction='neutral')::int neutral,
+        count(*) FILTER (WHERE pp.reaction='not_interested')::int not_interested,
+        count(DISTINCT v.doctor_id)::int doctors, count(DISTINCT v.sales_rep_id)::int reps
+      FROM visit_presented_products pp JOIN visits v ON v.id=pp.visit_id JOIN products p ON p.id=pp.product_id
+        LEFT JOIN doctors d ON d.id=v.doctor_id LEFT JOIN clinics cl ON cl.id=d.clinic_id
+      WHERE ${where.join(" AND ")} GROUP BY pp.product_id, p.name ORDER BY presented DESC`, vals),
+    query<{ product_id: string; product: string; sample_units: number; sample_visits: number }>(`
+      SELECT vi.product_id::text, p.name product, COALESCE(sum(vi.quantity),0)::int sample_units, count(DISTINCT v.id)::int sample_visits
+      FROM visit_items vi JOIN visits v ON v.id=vi.visit_id JOIN products p ON p.id=vi.product_id
+        LEFT JOIN doctors d ON d.id=v.doctor_id LEFT JOIN clinics cl ON cl.id=d.clinic_id
+      WHERE vi.kind='sample' AND ${where.join(" AND ")} GROUP BY vi.product_id, p.name`, vals),
+    query<{ item: string; sales: number; qty: number }>(`
+      SELECT s.item, sum(s.value)::float8 sales, sum(s.quantity)::float8 qty
+      FROM daftra_sales_v s LEFT JOIN clinics c ON c.id=s.clinic_id
+      WHERE ${salesWhere.join(" AND ")} GROUP BY s.item ORDER BY sales DESC`, vals),
+    query<{ key: string; count: number }>(`
+      SELECT obj.key, count(*)::int FROM visits v, jsonb_array_elements_text(v.insights::jsonb->'objections') obj(key)
+        LEFT JOIN doctors d ON d.id=v.doctor_id LEFT JOIN clinics cl ON cl.id=d.clinic_id
+      WHERE v.insights IS NOT NULL AND ${where.join(" AND ")} GROUP BY 1 ORDER BY 2 DESC`, vals).catch(() => ({ rows: [] as Array<{ key: string; count: number }> })),
+  ]);
+  const sMap = new Map(sampled.rows.map(x => [x.product_id, x]));
+  const soldMap = new Map(sold.rows.map(x => [x.item.trim().toLowerCase(), x]));
+  const products = presented.rows.map(p => {
+    const sm = sMap.get(p.product_id);
+    const sl = soldMap.get(p.product.trim().toLowerCase());
+    return {
+      product: p.product, presented: p.presented, interested: p.interested, neutral: p.neutral, not_interested: p.not_interested,
+      interest_pct: p.presented ? Math.round(p.interested / p.presented * 100) : 0,
+      doctors: p.doctors, reps: p.reps,
+      sample_units: sm?.sample_units ?? 0, sample_visits: sm?.sample_visits ?? 0,
+      sales: r0(sl?.sales ?? 0), sold_qty: r0(sl?.qty ?? 0),
+      conversion: sm?.sample_visits && sl?.qty ? Math.round(sl.qty / sm.sample_visits * 100) : null,
+    };
+  });
+  const topSold = sold.rows.filter(x => !presented.rows.some(p => p.product.trim().toLowerCase() === x.item.trim().toLowerCase())).slice(0, 10).map(x => ({ item: x.item, sales: r0(x.sales), qty: r0(x.qty) }));
+  return { products, topSold, objections: objections.rows };
+}
+
 export async function hubMoney(f: HubFilters, today: string) {
   const inp = await input(today);
   const fin = computeFinance(inp, f.from, f.to), finP = computeFinance(inp, prevOf(f).from, prevOf(f).to);
@@ -210,10 +278,11 @@ export async function reportHub(view: View, f: HubFilters, today: string, manage
     case "reps": return hubReps(f, today);
     case "market": return hubMarket(f, today);
     case "money": return hubMoney(f, today);
+    case "products": return hubProducts(f);
     default: return hubSummary(f, today, manager);
   }
 }
-export type HubData = { summary: Awaited<ReturnType<typeof hubSummary>>; sales: Awaited<ReturnType<typeof hubSales>>; reps: Awaited<ReturnType<typeof hubReps>>; market: Awaited<ReturnType<typeof hubMarket>>; money: Awaited<ReturnType<typeof hubMoney>> };
+export type HubData = { summary: Awaited<ReturnType<typeof hubSummary>>; sales: Awaited<ReturnType<typeof hubSales>>; reps: Awaited<ReturnType<typeof hubReps>>; market: Awaited<ReturnType<typeof hubMarket>>; money: Awaited<ReturnType<typeof hubMoney>>; products: Awaited<ReturnType<typeof hubProducts>> };
 
 const DAY = /^20\d\d-\d\d-\d\d$/;
 const UUID = /^[0-9a-f-]{36}$/i;
