@@ -13,8 +13,9 @@ import { addDays } from "@/lib/fmt";
  * The sales manager gets summary/reps/market without company money (see lib/manager-scope).
  */
 export type View = "summary" | "sales" | "reps" | "market" | "money";
-export const VIEWS: View[] = ["summary", "sales", "reps", "market", "money"];
+export const VIEWS: View[] = ["summary", "reps", "market"];
 export const MONEY_VIEWS: View[] = ["sales", "money"];
+export const ALL_VIEWS: View[] = ["summary", "sales", "reps", "market", "money"];
 export type HubFilters = { from: string; to: string; repId: string; city: string };
 export type Tone = "good" | "warn" | "bad" | "info";
 export type Kpi = { id: string; label: string; value: number; unit: "sar" | "n" | "pct"; prev: number | null; target: number | null; tone: Tone; view: View };
@@ -95,9 +96,9 @@ export async function hubSummary(f: HubFilters, today: string, manager: boolean)
   const avgPrev = sc.filter(r => r.prev !== null).length ? Math.round(sc.filter(r => r.prev !== null).reduce((s, r) => s + r.prev!, 0) / sc.filter(r => r.prev !== null).length) : null;
   const aTot = unseen.reduce((s, x) => s + x.a, 0), aSeen = unseen.reduce((s, x) => s + x.seen, 0);
   const kpis: Kpi[] = [
-    { id: "sales", label: "المبيعات", value: c.sales.value, unit: "sar", prev: c.sales.prev, target: c.sales.target || null, tone: c.sales.tone, view: "sales" },
-    ...(fin && !f.repId && !f.city ? [{ id: "net", label: "صافي الربح", value: r0(fin.kpi.net), unit: "sar" as const, prev: finP ? r0(finP.kpi.net) : null, target: null, tone: (fin.kpi.net < 0 ? "bad" : toneUp(delta(fin.kpi.net, finP?.kpi.net ?? null))) as Tone, view: "sales" as View },
-      { id: "collected", label: "التحصيل", value: r0(fin.kpi.collected), unit: "sar" as const, prev: finP ? r0(finP.kpi.collected) : null, target: null, tone: toneUp(delta(fin.kpi.collected, finP?.kpi.collected ?? null)), view: "money" as View }] : []),
+    { id: "sales", label: "المبيعات", value: c.sales.value, unit: "sar", prev: c.sales.prev, target: c.sales.target || null, tone: c.sales.tone, view: "reps" },
+    ...(fin && !f.repId && !f.city ? [{ id: "net", label: "صافي الربح", value: r0(fin.kpi.net), unit: "sar" as const, prev: finP ? r0(finP.kpi.net) : null, target: null, tone: (fin.kpi.net < 0 ? "bad" : toneUp(delta(fin.kpi.net, finP?.kpi.net ?? null))) as Tone, view: "summary" as View },
+      { id: "collected", label: "التحصيل", value: r0(fin.kpi.collected), unit: "sar" as const, prev: finP ? r0(finP.kpi.collected) : null, target: null, tone: toneUp(delta(fin.kpi.collected, finP?.kpi.collected ?? null)), view: "summary" as View }] : []),
     { id: "visits", label: "الزيارات", value: c.visits.value, unit: "n", prev: c.visits.prev, target: null, tone: c.visits.tone, view: "reps" },
     { id: "a", label: "تغطية أطباء A", value: pct(aSeen, aTot) ?? 0, unit: "pct", prev: null, target: 100, tone: (pct(aSeen, aTot) ?? 0) >= 80 ? "good" : (pct(aSeen, aTot) ?? 0) >= 60 ? "warn" : "bad", view: "market" },
     { id: "score", label: "تقييم الفريق", value: avg, unit: "n", prev: avgPrev, target: 100, tone: avg >= 80 ? "good" : avg >= 60 ? "warn" : "bad", view: "reps" },
@@ -107,9 +108,9 @@ export async function hubSummary(f: HubFilters, today: string, manager: boolean)
     d.push({ level: t.sales_pct < 50 ? "danger" : "warn", text: `${t.name} محقق ${t.sales_pct}% بس من تارجته`, detail: `${money(t.sales)} من ${money(t.target)}`, href: `/admin/reports?view=reps&repId=${t.id}`, weight: t.target - t.sales });
   for (const x of decl.slice(0, 6)) d.push({ level: x.status === "stopped" ? "danger" : "warn", text: x.status === "stopped" ? `${x.name} بطّل يطلب من ${x.days_since} يوم` : `${x.name} بيطلب أقل بـ ${Math.abs(Math.round(x.change ?? 0))}%`,
     detail: `متوسطه ${money(x.monthly_avg)} في الشهر${x.rep_name ? ` · ${x.rep_name}` : ""}`, href: x.doctor_id ? `/doctors/${x.doctor_id}` : "/admin/reports?view=market", weight: x.monthly_avg * (x.status === "stopped" ? 3 : 2) });
-  if (fin && fin.price_guard.below_cost) d.push({ level: "danger", text: `${fin.price_guard.below_cost} سطر اتباع تحت التكلفة`, detail: `خسارة ${money(fin.price_guard.real_loss)} في الفترة`, href: "/admin/reports?view=sales", weight: fin.price_guard.real_loss * 3 });
+  if (fin && fin.price_guard.below_cost) d.push({ level: "danger", text: `${fin.price_guard.below_cost} سطر اتباع تحت التكلفة`, detail: `خسارة ${money(fin.price_guard.real_loss)} في الفترة`, href: "https://finance.eliteskinsa.com", weight: fin.price_guard.real_loss * 3 });
   const old = fin ? Number(fin.ar.buckets["90+"] || 0) : 0;
-  if (old > 0) d.push({ level: "danger", text: `${money(old)} ديون عدّت 90 يوم`, detail: `من إجمالي ${money(fin!.ar.total)} مستحق`, href: "/admin/reports?view=money", weight: old });
+  if (old > 0) d.push({ level: "danger", text: `${money(old)} ديون عدّت 90 يوم`, detail: `من إجمالي ${money(fin!.ar.total)} مستحق · افتح في المالية`, href: "https://finance.eliteskinsa.com", weight: old });
   if (aTot && aTot - aSeen > 0) d.push({ level: aSeen / aTot < 0.6 ? "danger" : "warn", text: `${aTot - aSeen} طبيب A محدش زارهم في الفترة`, detail: unseen.filter(x => x.a > x.seen).slice(0, 3).map(x => `${x.city} ${x.a - x.seen}`).join(" · "), href: "/plans?tab=map", weight: (aTot - aSeen) * 500 });
   for (const r of sc.filter(r => r.score! < 50)) d.push({ level: "warn", text: `تقييم ${r.name} ${r.score}/100`, detail: r.lift ? `أضعف بند: ${PART_AR[r.lift]}` : "", href: "/plans?tab=score", weight: (50 - r.score!) * 300 });
   if (pend) d.push({ level: "warn", text: `${pend} خطة مستنية اعتمادك`, detail: "", href: "/plans", weight: pend * 1000 });

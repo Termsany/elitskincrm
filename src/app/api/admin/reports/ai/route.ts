@@ -3,7 +3,7 @@ import { getCurrentUser } from "@/lib/session";
 import { riyadhToday } from "@/lib/riyadh-day";
 import { AiError, loadAi, streamAnswer, type ChatMsg } from "@/lib/ai-provider";
 import { hitRateLimitDb } from "@/lib/rate-limit";
-import { MONEY_VIEWS, parseHub, reportHub, VIEWS, type View } from "@/lib/report-hub";
+import { ALL_VIEWS, parseHub, reportHub, VIEWS, type View } from "@/lib/report-hub";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,8 +20,7 @@ export async function POST(req: Request) {
   const u = await getCurrentUser(); if (!u || u.role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const cfg = await loadAi(); if (!cfg) return NextResponse.json({ error: "اربط المستشار بالذكاء الاصطناعي الأول" }, { status: 503 });
   const b = await req.json().catch(() => null) as { view?: string; from?: string; to?: string; repId?: string; city?: string; messages?: Array<{ role?: string; content?: string }> } | null;
-  const view = (VIEWS.includes(b?.view as View) ? b!.view : "summary") as View;
-  if (u.manager && MONEY_VIEWS.includes(view)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const view = (ALL_VIEWS.includes(b?.view as View) ? b!.view : "summary") as View;
   const messages: ChatMsg[] = (b?.messages || []).slice(-20).filter(m => (m.role === "user" || m.role === "assistant") && typeof m.content === "string" && m.content.trim())
     .map(m => ({ role: m.role as "user" | "assistant", content: String(m.content).slice(0, 4000) }));
   if (!messages.length || messages[messages.length - 1].role !== "user") return NextResponse.json({ error: "اكتب سؤالك" }, { status: 400 });
@@ -29,7 +28,7 @@ export async function POST(req: Request) {
   if (!rl.allowed) return NextResponse.json({ error: "أسئلة كتير في ساعة واحدة — جرّب بعد شوية" }, { status: 429 });
   const today = riyadhToday();
   const f = parseHub(new URLSearchParams(Object.entries({ from: b?.from || "", to: b?.to || "", repId: b?.repId || "", city: b?.city || "" })), today);
-  const views: View[] = view === "summary" ? (u.manager ? ["summary", "reps"] : ["summary", "sales", "reps"]) : [view];
+  const views: View[] = view === "summary" ? (u.manager ? ["summary", "reps", "market"] : ["summary", "reps", "market"]) : [view];
   const data: Record<string, unknown> = { today, filters: f };
   for (const v of views) data[v] = trim(await reportHub(v, f, today, !!u.manager).catch(() => null));
   const enc = new TextEncoder();

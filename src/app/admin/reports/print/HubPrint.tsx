@@ -1,18 +1,16 @@
 import { query } from "@/lib/db";
 import { riyadhToday } from "@/lib/riyadh-day";
-import { MONEY_VIEWS, parseHub, reportHub, VIEWS, type HubData, type View } from "@/lib/report-hub";
-import { MarketView, MoneyView, RepsView, SalesView, SummaryView } from "../HubViews";
+import { parseHub, reportHub, VIEWS, type HubData, type View } from "@/lib/report-hub";
+import { MarketView, RepsView, SummaryView } from "../HubViews";
 import AutoPrint from "./AutoPrint";
 
-const TITLE: Record<View, string> = { summary: "التقرير الشامل", sales: "المبيعات والربح", reps: "المناديب", market: "السوق والعملاء", money: "الفلوس" };
+const TITLE: Partial<Record<View, string>> = { summary: "التقرير الشامل", reps: "المناديب", market: "السوق والعملاء" };
 const fmtDate = (d: string) => new Intl.DateTimeFormat("ar-EG-u-nu-latn", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${d}T12:00:00Z`));
 
-/** Printable / PDF report: the summary prints every report (one per page), any other view prints just itself, all rows. */
 export default async function HubPrint({ sp, manager }: { sp: URLSearchParams; manager: boolean }) {
   const today = riyadhToday(), f = parseHub(sp, today);
   const view = (VIEWS.includes(sp.get("view") as View) ? sp.get("view") : "summary") as View;
-  const allowed = (v: View) => !(manager && MONEY_VIEWS.includes(v));
-  const views = (view === "summary" ? VIEWS : [view]).filter(allowed);
+  const views = view === "summary" ? VIEWS : [view];
   const data = Object.fromEntries(await Promise.all(views.map(async v => [v, await reportHub(v, f, today, manager).catch(() => null)] as const))) as Partial<HubData>;
   const rep = f.repId ? (await query<{ name: string }>("SELECT name FROM users WHERE id=$1", [f.repId])).rows[0]?.name : "";
   const filters = [`${fmtDate(f.from)} — ${fmtDate(f.to)}`, rep, f.city].filter(Boolean).join(" · ");
@@ -20,10 +18,9 @@ export default async function HubPrint({ sp, manager }: { sp: URLSearchParams; m
     const d = data[v]; if (!d) return <p className="text-sm text-[var(--muted)]">تعذر تحميل الجزء ده</p>;
     switch (v) {
       case "summary": return <SummaryView d={d as HubData["summary"]} print />;
-      case "sales": return <SalesView d={d as HubData["sales"]} print />;
       case "reps": return <RepsView d={d as HubData["reps"]} print />;
       case "market": return <MarketView d={d as HubData["market"]} print />;
-      case "money": return <MoneyView d={d as HubData["money"]} print />;
+      default: return null;
     }
   };
   return (
@@ -41,7 +38,7 @@ export default async function HubPrint({ sp, manager }: { sp: URLSearchParams; m
       `}</style>
       <AutoPrint />
       <header className="mb-5 flex items-end justify-between gap-4 border-b-2 border-[var(--navy)] pb-3">
-        <div><div className="text-[12px] font-bold tracking-wide text-teal-700">eliteSkin</div><h1 className="text-[24px] font-black text-[var(--navy)]">{TITLE[view]}</h1><div className="text-[12.5px] text-[var(--muted)]">{filters}</div></div>
+        <div><div className="text-[12px] font-bold tracking-wide text-teal-700">eliteSkin</div><h1 className="text-[24px] font-black text-[var(--navy)]">{TITLE[view] || "التقرير"}</h1><div className="text-[12.5px] text-[var(--muted)]">{filters}</div></div>
         <div className="text-left text-[11px] text-[var(--muted)]">اتعمل {fmtDate(today)}<br />مقارنة بالفترة اللي قبلها بنفس الطول</div>
       </header>
       {views.map((v, i) => <div key={v} className={i ? "page pt-2" : ""}>
